@@ -4,6 +4,7 @@ import { TopBar }     from './components/TopBar';
 import { Sidebar }    from './components/Sidebar';
 import { StatusBar }  from './components/StatusBar';
 import { flightService } from './services/flightService';
+import { getUserLocation } from './services/geoService';
 
 export default function App() {
   const [selectedFlightId, setSelectedFlightId] = useState(null);
@@ -14,11 +15,17 @@ export default function App() {
   const [followFlightId,   setFollowFlightId]   = useState(null);
   const [flightCount,      setFlightCount]      = useState(flightService.flights.length);
   const [dataSource,       setDataSource]       = useState('sim');
+  const [geoLocation,      setGeoLocation]      = useState(null);
 
   // Start simulation + OpenSky polling
   useEffect(() => {
     flightService.start();
     return () => flightService.stop();
+  }, []);
+
+  // Request user location once on mount (non-blocking, no UI delay)
+  useEffect(() => {
+    getUserLocation().then((loc) => { if (loc) setGeoLocation(loc); });
   }, []);
 
   // Mirror live flight count and data-source label
@@ -62,6 +69,8 @@ export default function App() {
         airportsEnabled={airportsEnabled}
         flyToFlightId={flyToFlightId}
         followFlightId={followFlightId}
+        initialCenter={geoLocation}
+        sidebarOpen={!!selectedFlightId}
       />
 
       <TopBar

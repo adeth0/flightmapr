@@ -70,9 +70,37 @@ function LiveTrackingRow({ country }) {
 // ── Sidebar ───────────────────────────────────────────────
 export function Sidebar({ flightId, isFollowing, onClose, onCenterMap, onToggleFollow }) {
   const [flight, setFlight] = useState(() => flightService.getFlight(flightId));
-  const flightIdRef = useRef(flightId);
+  const flightIdRef  = useRef(flightId);
+  const panelRef     = useRef(null);
+  const touchStartY  = useRef(0);
+  const touchDeltaY  = useRef(0);
 
   useEffect(() => { flightIdRef.current = flightId; }, [flightId]);
+
+  // ── Swipe-down-to-dismiss (mobile bottom sheet) ───────
+  function handleTouchStart(e) {
+    touchStartY.current = e.touches[0].clientY;
+    touchDeltaY.current = 0;
+  }
+  function handleTouchMove(e) {
+    const delta = e.touches[0].clientY - touchStartY.current;
+    if (delta <= 0) return;           // ignore upward swipe
+    touchDeltaY.current = delta;
+    if (panelRef.current) {
+      // Apply damped translation so it "sticks" a bit before releasing
+      panelRef.current.style.transform  = `translateY(${Math.min(delta * 0.65, 180)}px)`;
+      panelRef.current.style.transition = 'none';
+    }
+  }
+  function handleTouchEnd() {
+    if (touchDeltaY.current > 80) {
+      onClose();
+    } else if (panelRef.current) {
+      panelRef.current.style.transform  = '';
+      panelRef.current.style.transition = '';
+    }
+    touchDeltaY.current = 0;
+  }
 
   useEffect(() => {
     if (!flightId) return;
@@ -92,9 +120,18 @@ export function Sidebar({ flightId, isFollowing, onClose, onCenterMap, onToggleF
 
   return (
     <aside
+      ref={panelRef}
       className="sidebar-panel absolute right-4 top-[72px] bottom-16 z-[900] w-80 flex flex-col gap-3 animate-slide-right"
       style={{ pointerEvents: 'auto' }}
+      onTouchStart={handleTouchStart}
+      onTouchMove={handleTouchMove}
+      onTouchEnd={handleTouchEnd}
     >
+      {/* ── Drag handle (mobile only — visual swipe cue) ── */}
+      <div className="flex justify-center pt-2 pb-0 sm:hidden flex-shrink-0 cursor-grab active:cursor-grabbing">
+        <div className="w-10 h-1 rounded-full bg-white/20" />
+      </div>
+
       {/* ── Header ─────────────────────────────────────── */}
       <GlassCard className="p-4">
         <div className="flex items-start justify-between mb-3">

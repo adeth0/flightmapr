@@ -167,6 +167,26 @@ export function FlightLayer({ selectedFlightId, onFlightSelect }) {
       dimTrails.set(flight.id, dimTrail);
     });
 
+    // ── Zoom-based marker density ─────────────────────────
+    // At very low zoom levels hundreds of markers overlap uselessly.
+    // Hide a fraction of them on zoomend; always keep selected visible.
+    function updateDensity() {
+      const zoom = map.getZoom();
+      let idx = 0;
+      markers.forEach((entry, id) => {
+        idx++;
+        if (id === selectedIdRef.current) { entry.marker.setOpacity(1); return; }
+        let visible = true;
+        if      (zoom < 3) visible = idx % 4 === 0;   // show ~25 %
+        else if (zoom < 5) visible = idx % 2 === 0;   // show ~50 %
+        const opacity = visible ? 1 : 0;
+        entry.marker.setOpacity(opacity);
+        const dt = dimTrails.get(id);
+        if (dt) dt.setStyle({ opacity: visible ? 1 : 0 });
+      });
+    }
+    map.on('zoomend', updateDensity);
+
     // ── Subscribe to simulation ticks (60 fps) ───────────
     const unsub = flightService.subscribe((flights) => {
       const selId = selectedIdRef.current;
@@ -224,6 +244,7 @@ export function FlightLayer({ selectedFlightId, onFlightSelect }) {
 
     return () => {
       unsub();
+      map.off('zoomend', updateDensity);
       markers.forEach(({ marker }) => marker.remove());
       markers.clear();
       dimTrails.forEach((t) => t.remove());

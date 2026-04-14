@@ -203,26 +203,45 @@ class FlightService {
     this._liveIds    = new Set();      // IDs currently from OpenSky
   }
 
-  // ── Public API (unchanged) ─────────────────────────────
+  // ── Public API ────────────────────────────────────────
   start() {
     if (this._rafId) return;
-    const tick = (now) => {
+
+    // Store tick on the instance so the visibility handler can restart it
+    this._tick = (now) => {
       if (this._lastTime !== null) {
         const dt = Math.min((now - this._lastTime) / 1000, 0.1);
         this._update(dt);
       }
       this._lastTime = now;
-      this._rafId = requestAnimationFrame(tick);
+      this._rafId = requestAnimationFrame(this._tick);
     };
-    this._rafId = requestAnimationFrame(tick);
+    this._rafId = requestAnimationFrame(this._tick);
+
     // Start OpenSky polling in parallel (non-blocking)
     this._pollOpenSky();
     this._oskyTimer = setInterval(() => this._pollOpenSky(), OPENSKY_POLL_MS);
+
+    // Pause RAF when the browser tab is hidden; resume when visible again.
+    // Saves CPU / battery and prevents dt spikes when the user returns.
+    this._visibilityHandler = () => {
+      if (document.hidden) {
+        if (this._rafId) { cancelAnimationFrame(this._rafId); this._rafId = null; }
+      } else if (!this._rafId && this._oskyTimer) {
+        this._lastTime = null; // reset dt so first resume tick isn't huge
+        this._rafId = requestAnimationFrame(this._tick);
+      }
+    };
+    document.addEventListener('visibilitychange', this._visibilityHandler);
   }
 
   stop() {
     if (this._rafId) { cancelAnimationFrame(this._rafId); this._rafId = null; }
     if (this._oskyTimer) { clearInterval(this._oskyTimer); this._oskyTimer = null; }
+    if (this._visibilityHandler) {
+      document.removeEventListener('visibilitychange', this._visibilityHandler);
+      this._visibilityHandler = null;
+    }
   }
 
   subscribe(fn) {

@@ -5,6 +5,7 @@ import { WeatherLayer }  from './WeatherLayer';
 import { DayNightLayer } from './DayNightLayer';
 import { AirportLayer }  from './AirportLayer';
 import { TILE_LAYERS, MAP_DEFAULTS, FLY_TO_ZOOM } from '../services/mapService';
+import { LOCATION_ZOOM }  from '../services/geoService';
 import { flightService }  from '../services/flightService';
 import { openSkyService } from '../services/openSkyService';
 
@@ -26,7 +27,7 @@ function BoundsSync() {
     }
     map.on('moveend', sync);
     map.on('zoomend', sync);
-    sync(); // initial sync
+    sync();
     return () => {
       map.off('moveend', sync);
       map.off('zoomend', sync);
@@ -45,19 +46,55 @@ export function MapView({
   airportsEnabled,
   flyToFlightId,
   followFlightId,
+  // NEW: from geoService, set once after permission granted
+  initialCenter,
+  // NEW: true when the right-side (or bottom-sheet) sidebar is open
+  sidebarOpen,
 }) {
-  const mapRef = useRef(null);
+  const mapRef         = useRef(null);
+  const geoApplied     = useRef(false);
+  const sidebarOpenRef = useRef(sidebarOpen);
 
-  // ── One-shot fly-to ────────────────────────────────────
+  // Keep sidebarOpen ref in sync without re-running fly-to effects
+  useEffect(() => { sidebarOpenRef.current = sidebarOpen; }, [sidebarOpen]);
+
+  // ── Geolocation initial center (fires once) ────────────
+  useEffect(() => {
+    if (!initialCenter || !mapRef.current || geoApplied.current) return;
+    geoApplied.current = true;
+    mapRef.current.flyTo(
+      [initialCenter.lat, initialCenter.lng],
+      LOCATION_ZOOM,
+      { duration: 1.5, easeLinearity: 0.25 }
+    );
+  }, [initialCenter]);
+
+  // ── One-shot fly-to (with panel offset) ───────────────
   useEffect(() => {
     if (!flyToFlightId || !mapRef.current) return;
     const flight = flightService.getFlight(flyToFlightId);
     if (!flight) return;
-    mapRef.current.flyTo([flight.lat, flight.lng], FLY_TO_ZOOM, {
-      duration:     1.2,
+    const map = mapRef.current;
+
+    map.flyTo([flight.lat, flight.lng], FLY_TO_ZOOM, {
+      duration:      1.2,
       easeLinearity: 0.25,
     });
-  }, [flyToFlightId]);
+
+    // After animation completes, nudge the map so the aircraft isn't
+    // hidden behind the open sidebar panel.
+    map.once('moveend', () => {
+      if (!sidebarOpenRef.current) return;
+      const isMobile = window.innerWidth < 640;
+      // Desktop: sidebar is 320 px on the right → shift map right by ~160 px
+      //          so the aircraft sits in the visible left area.
+      // Mobile:  sidebar is a bottom sheet (≤60dvh) → shift up by ~100 px.
+      map.panBy(
+        isMobile ? [0, -100] : [160, 0],
+        { animate: true, duration: 0.35, easeLinearity: 0.5 }
+      );
+    });
+  }, [flyToFlightId]); // sidebarOpen consumed via ref — intentionally not in deps
 
   // ── Follow mode: pan every 2 s while active ────────────
   useEffect(() => {

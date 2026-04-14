@@ -204,3 +204,22 @@ html, body, #root {
 .aircraft-following svg {
   animation: follow-pulse 1.2s ease-in-out infinite;
 }
+
+/* ── Mobile GPU: reduce expensive SVG drop-shadow glows ─── */
+/* On coarse-pointer (touch) devices the GPU rasterises SVG  */
+/* filters per-frame which burns battery. Cap to a simple    */
+/* 3-px shadow — still visible, fraction of the render cost. */
+@media (pointer: coarse) {
+  [data-plane-rot] svg {
+    filter: drop-shadow(0 0 3px rgba(0, 255, 204, 0.55)) !important;
+  }
+  /* Reduce glass panel blur on mobile for compositing cost */
+  .glass {
+    backdrop-filter: blur(10px) saturate(140%);
+    -webkit-backdrop-filter: blur(10px) saturate(140%);
+  }
+  .glass-lighter {
+    backdrop-filter: blur(8px);
+    -webkit-backdrop-filter: blur(8px);
+  }
+}
