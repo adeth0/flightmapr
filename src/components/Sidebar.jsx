@@ -1,0 +1,221 @@
+import { useEffect, useState, useRef } from 'react';
+import {
+  X, Navigation2, Plane, Clock, MapPin, TrendingUp, Radio,
+} from 'lucide-react';
+import { flightService, formatETA } from '../services/flightService';
+import { GlassCard, StatChip, Divider } from '../ui/GlassCard';
+
+// ── Sub-components ────────────────────────────────────────
+
+function RouteArrow({ origin, destination }) {
+  return (
+    <div className="flex items-center gap-2">
+      <div className="flex-1">
+        <div className="text-xl font-bold tracking-tight text-white">{origin.code}</div>
+        <div className="text-xs text-white/45 mt-0.5 leading-tight">{origin.city}</div>
+        <div className="text-[10px] text-white/25 mt-0.5">{origin.name}</div>
+      </div>
+      <div className="flex flex-col items-center gap-1.5 flex-shrink-0 px-2">
+        <Navigation2 size={13} className="text-[#00ffcc] rotate-90" />
+        <div className="text-[10px] text-white/30 font-medium">direct</div>
+      </div>
+      <div className="flex-1 text-right">
+        <div className="text-xl font-bold tracking-tight text-white">{destination.code}</div>
+        <div className="text-xs text-white/45 mt-0.5 leading-tight">{destination.city}</div>
+        <div className="text-[10px] text-white/25 mt-0.5">{destination.name}</div>
+      </div>
+    </div>
+  );
+}
+
+function ProgressBar({ progress }) {
+  const pct = Math.round(progress * 100);
+  return (
+    <div>
+      <div className="flex justify-between items-center mb-1.5">
+        <span className="text-[10px] text-white/35 uppercase tracking-widest">Progress</span>
+        <span className="text-xs font-semibold text-[#00ffcc]">{pct}%</span>
+      </div>
+      <div className="w-full h-1 rounded-full bg-white/8 overflow-hidden">
+        <div
+          className="h-full rounded-full bg-gradient-to-r from-[#10b981] to-[#00ffcc] fill-bar"
+          style={{ width: `${pct}%`, boxShadow: '0 0 8px #00ffcc80' }}
+        />
+      </div>
+      <div className="flex justify-between mt-1">
+        <span className="text-[9px] text-white/20">Departed</span>
+        <span className="text-[9px] text-white/20">Arrived</span>
+      </div>
+    </div>
+  );
+}
+
+/** Compact "live" row shown instead of route arrow when no route data */
+function LiveTrackingRow({ country }) {
+  return (
+    <div className="flex items-center gap-3 py-1">
+      <div className="w-8 h-8 rounded-lg bg-[#00ffcc]/10 flex items-center justify-center flex-shrink-0">
+        <Radio size={14} className="text-[#00ffcc]" />
+      </div>
+      <div>
+        <div className="text-xs font-semibold text-white">Live ADS-B Tracking</div>
+        <div className="text-[10px] text-white/40 mt-0.5">
+          {country ? `Registered in ${country}` : 'OpenSky Network'}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ── Sidebar ───────────────────────────────────────────────
+export function Sidebar({ flightId, isFollowing, onClose, onCenterMap, onToggleFollow }) {
+  const [flight, setFlight] = useState(() => flightService.getFlight(flightId));
+  const flightIdRef = useRef(flightId);
+
+  useEffect(() => { flightIdRef.current = flightId; }, [flightId]);
+
+  useEffect(() => {
+    if (!flightId) return;
+    setFlight(flightService.getFlight(flightId));
+    const unsub = flightService.subscribe((flights) => {
+      const f = flights.find((x) => x.id === flightIdRef.current);
+      if (f) setFlight({ ...f });
+    });
+    return unsub;
+  }, [flightId]);
+
+  if (!flight) return null;
+
+  const isLive        = !!flight.isLive;
+  const eta           = formatETA(flight);
+  const distRemaining = Math.round(flight.routeDistance * (1 - flight.progress));
+
+  return (
+    <aside
+      className="sidebar-panel absolute right-4 top-[72px] bottom-16 z-[900] w-80 flex flex-col gap-3 animate-slide-right"
+      style={{ pointerEvents: 'auto' }}
+    >
+      {/* ── Header ─────────────────────────────────────── */}
+      <GlassCard className="p-4">
+        <div className="flex items-start justify-between mb-3">
+          <div>
+            <div className="flex items-center gap-2 mb-0.5 flex-wrap">
+              <span className="text-lg font-bold text-[#00ffcc] tracking-tight">{flight.callsign}</span>
+              {isLive ? (
+                <span className="text-[10px] bg-red-500/20 text-red-400 rounded px-1.5 py-0.5 font-semibold uppercase tracking-wide flex items-center gap-1">
+                  <span className="w-1.5 h-1.5 rounded-full bg-red-400 blink-dot inline-block" />
+                  Live
+                </span>
+              ) : (
+                <span className="text-[10px] bg-[#00ffcc]/15 text-[#00ffcc] rounded px-1.5 py-0.5 font-semibold uppercase tracking-wide">
+                  En Route
+                </span>
+              )}
+            </div>
+            <div className="text-xs text-white/45">{flight.airline}</div>
+          </div>
+          <button
+            onClick={onClose}
+            className="w-8 h-8 rounded-lg bg-white/5 hover:bg-white/10 flex items-center justify-center transition-colors flex-shrink-0"
+            aria-label="Close"
+          >
+            <X size={13} className="text-white/50" />
+          </button>
+        </div>
+
+        <Divider />
+
+        {/* Route or live tracking info */}
+        <div className="py-3">
+          {isLive
+            ? <LiveTrackingRow country={flight.airline} />
+            : <RouteArrow origin={flight.origin} destination={flight.destination} />
+          }
+        </div>
+
+        {/* Progress bar — sim flights only */}
+        {!isLive && (
+          <>
+            <Divider />
+            <div className="pt-3">
+              <ProgressBar progress={flight.progress} />
+            </div>
+          </>
+        )}
+      </GlassCard>
+
+      {/* ── Stats grid ─────────────────────────────────── */}
+      <GlassCard className="p-4">
+        <div className="text-[10px] uppercase tracking-widest text-white/30 mb-3">Flight Data</div>
+        <div className="grid grid-cols-2 gap-2">
+          <StatChip label="Altitude"  value={flight.altitude.toLocaleString()} unit="ft"  />
+          <StatChip label="Speed"     value={flight.speed}                      unit="kts" />
+          <StatChip label="Heading"   value={`${Math.round(flight.heading)}°`}             />
+          <StatChip label="Distance"  value={distRemaining.toLocaleString()}    unit="km"  />
+        </div>
+      </GlassCard>
+
+      {/* ── Info + actions ─────────────────────────────── */}
+      <GlassCard className="p-4 flex-1 overflow-y-auto">
+        <div className="text-[10px] uppercase tracking-widest text-white/30 mb-3">Flight Info</div>
+        <div className="space-y-3">
+          {flight.aircraft !== 'Unknown' && (
+            <InfoRow icon={<Plane size={13} />}    label="Aircraft"       value={flight.aircraft} />
+          )}
+          <InfoRow icon={<Clock size={13} />}      label="Est. Remaining" value={eta}            highlight />
+          <InfoRow
+            icon={<MapPin size={13} />}
+            label="Position"
+            value={`${flight.lat.toFixed(3)}°, ${flight.lng.toFixed(3)}°`}
+            mono
+          />
+          {!isLive && (
+            <InfoRow
+              icon={<TrendingUp size={13} />}
+              label="Route Distance"
+              value={`${Math.round(flight.routeDistance).toLocaleString()} km`}
+            />
+          )}
+        </div>
+
+        <Divider />
+
+        {/* Action buttons */}
+        <div className="flex flex-col gap-2 mt-3">
+          <button
+            onClick={() => onCenterMap(flight.id)}
+            className="w-full py-2.5 rounded-xl text-xs font-semibold text-[#00ffcc] border border-[#00ffcc]/25 hover:bg-[#00ffcc]/10 transition-all hover:border-[#00ffcc]/50"
+          >
+            Center on Map
+          </button>
+          <button
+            onClick={() => onToggleFollow(flight.id)}
+            className={`w-full py-2.5 rounded-xl text-xs font-semibold transition-all ${
+              isFollowing
+                ? 'bg-[#00ffcc]/15 text-[#00ffcc] border border-[#00ffcc]/40 shadow-[0_0_10px_rgba(0,255,204,0.15)]'
+                : 'text-white/40 border border-white/8 hover:border-[#00ffcc]/25 hover:text-[#00ffcc]'
+            }`}
+          >
+            {isFollowing ? '⊙ Following' : '◎ Follow Flight'}
+          </button>
+        </div>
+      </GlassCard>
+    </aside>
+  );
+}
+
+function InfoRow({ icon, label, value, highlight, mono }) {
+  return (
+    <div className="flex items-center justify-between gap-2">
+      <div className="flex items-center gap-2 text-white/35 flex-shrink-0">
+        {icon}
+        <span className="text-[11px]">{label}</span>
+      </div>
+      <span className={`text-xs font-medium text-right ${
+        highlight ? 'text-[#00ffcc]' : mono ? 'text-white/50 font-mono text-[10px]' : 'text-white/80'
+      }`}>
+        {value}
+      </span>
+    </div>
+  );
+}

@@ -1,0 +1,206 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  --emerald: #00ffcc;
+  --emerald-dim: #10b981;
+  --bg: #0b0f17;
+  --card: #111827;
+  --border: rgba(0, 255, 204, 0.12);
+}
+
+* { box-sizing: border-box; margin: 0; padding: 0; }
+
+html, body, #root {
+  width: 100%;
+  height: 100%;
+  overflow: hidden;
+  font-family: 'Inter', system-ui, sans-serif;
+  background: var(--bg);
+  color: #fff;
+}
+
+/* ── Leaflet overrides ────────────────────────────────── */
+.leaflet-container {
+  background: #0b0f17 !important;
+  font-family: 'Inter', system-ui, sans-serif;
+}
+
+.leaflet-control-zoom {
+  border: 1px solid rgba(0,255,204,0.15) !important;
+  border-radius: 10px !important;
+  overflow: hidden;
+}
+
+.leaflet-control-zoom a {
+  background: rgba(17,24,39,0.85) !important;
+  color: #00ffcc !important;
+  border-bottom: 1px solid rgba(0,255,204,0.1) !important;
+  width: 32px !important;
+  height: 32px !important;
+  line-height: 32px !important;
+  font-size: 16px !important;
+  backdrop-filter: blur(12px);
+  transition: background 0.15s, color 0.15s;
+}
+
+.leaflet-control-zoom a:hover {
+  background: rgba(0,255,204,0.15) !important;
+  color: #fff !important;
+}
+
+.leaflet-control-attribution {
+  background: rgba(11,15,23,0.6) !important;
+  color: rgba(255,255,255,0.25) !important;
+  font-size: 9px !important;
+  padding: 2px 6px !important;
+  border-radius: 6px 0 0 0 !important;
+  backdrop-filter: blur(8px);
+}
+
+.leaflet-control-attribution a { color: rgba(0,255,204,0.4) !important; }
+
+/* ── Aircraft marker ──────────────────────────────────── */
+.aircraft-marker {
+  background: none !important;
+  border: none !important;
+  cursor: pointer !important;
+}
+
+/* ── Glassmorphism utility ────────────────────────────── */
+.glass {
+  background: rgba(17, 24, 39, 0.78);
+  backdrop-filter: blur(18px) saturate(160%);
+  -webkit-backdrop-filter: blur(18px) saturate(160%);
+  border: 1px solid rgba(0, 255, 204, 0.12);
+}
+
+.glass-lighter {
+  background: rgba(22, 29, 46, 0.7);
+  backdrop-filter: blur(14px);
+  -webkit-backdrop-filter: blur(14px);
+  border: 1px solid rgba(0, 255, 204, 0.08);
+}
+
+/* ── Scrollbar ────────────────────────────────────────── */
+::-webkit-scrollbar { width: 3px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb {
+  background: rgba(0,255,204,0.3);
+  border-radius: 2px;
+}
+
+/* ── Animations ───────────────────────────────────────── */
+@keyframes ping-ring {
+  0% { transform: scale(1); opacity: 0.8; }
+  100% { transform: scale(2.2); opacity: 0; }
+}
+
+.ping-ring {
+  animation: ping-ring 1.8s ease-out infinite;
+}
+
+@keyframes blink-dot {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.3; }
+}
+.blink-dot { animation: blink-dot 1.4s ease-in-out infinite; }
+
+/* Progress bar fill animation */
+@keyframes fill-bar {
+  from { width: 0; }
+}
+.fill-bar { animation: fill-bar 0.6s ease-out; }
+
+/* Leaflet popup cleanup */
+.leaflet-popup-content-wrapper,
+.leaflet-popup-tip {
+  background: rgba(17,24,39,0.92) !important;
+  backdrop-filter: blur(16px) !important;
+  border: 1px solid rgba(0,255,204,0.15) !important;
+  color: #fff !important;
+  box-shadow: 0 8px 32px rgba(0,0,0,0.5) !important;
+  border-radius: 10px !important;
+}
+
+.leaflet-popup-tip {
+  border-radius: 0 !important;
+}
+
+.leaflet-popup-content { margin: 12px 14px !important; }
+
+/* ══════════════════════════════════════════════════════════
+   MOBILE / iOS OPTIMISATIONS
+   ══════════════════════════════════════════════════════════ */
+
+/* Safe-area insets (notch, home indicator, Dynamic Island) */
+.pb-safe { padding-bottom: env(safe-area-inset-bottom, 0px); }
+
+@supports (padding: env(safe-area-inset-top)) {
+  /* Push top bar below status bar on standalone PWA */
+  body {
+    padding-top:    env(safe-area-inset-top,    0px);
+    padding-left:   env(safe-area-inset-left,   0px);
+    padding-right:  env(safe-area-inset-right,  0px);
+  }
+}
+
+/* Remove iOS tap flash on every interactive element */
+button, a, [role="button"], input, label {
+  -webkit-tap-highlight-color: transparent;
+  touch-action: manipulation;
+}
+
+/* Minimum 44 px tap targets on mobile */
+@media (pointer: coarse) {
+  button { min-height: 44px; min-width: 44px; }
+}
+
+/* GPU-composite the glass panels so they don't repaint on scroll */
+.glass, .glass-lighter {
+  will-change: transform;
+  transform: translateZ(0);
+  -webkit-transform: translateZ(0);
+}
+
+/* Prevent the whole page rubber-banding on iOS when using the map */
+html, body, #root {
+  overscroll-behavior: none;
+  -webkit-overflow-scrolling: touch;
+}
+
+/* Leaflet: tell the browser these elements are touch-scrollable surfaces */
+.leaflet-container {
+  touch-action: pan-x pan-y;
+}
+
+/* ── Mobile sidebar bottom sheet ────────────────────────── */
+@media (max-width: 640px) {
+  .sidebar-panel {
+    position: fixed  !important;
+    right:    0      !important;
+    left:     0      !important;
+    bottom:   0      !important;
+    top:      auto   !important;
+    width:    100%   !important;
+    max-height: 60dvh;
+    border-radius: 20px 20px 0 0;
+    overflow-y: auto;
+    padding-bottom: env(safe-area-inset-bottom, 12px);
+  }
+}
+
+/* ── Day/Night layer: ensure it sits under aircraft ─────── */
+.day-night-layer {
+  pointer-events: none !important;
+}
+
+/* ── Follow-mode glow on selected marker ────────────────── */
+@keyframes follow-pulse {
+  0%, 100% { filter: drop-shadow(0 0 6px #00ffcc80); }
+  50%       { filter: drop-shadow(0 0 16px #00ffcc) drop-shadow(0 0 4px #fff); }
+}
+.aircraft-following svg {
+  animation: follow-pulse 1.2s ease-in-out infinite;
+}
