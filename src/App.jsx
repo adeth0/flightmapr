@@ -9,6 +9,7 @@ export default function App() {
   const [selectedFlightId, setSelectedFlightId] = useState(null);
   const [weatherEnabled,   setWeatherEnabled]   = useState(false);
   const [dayNightEnabled,  setDayNightEnabled]  = useState(true);
+  const [airportsEnabled,  setAirportsEnabled]  = useState(true);
   const [flyToFlightId,    setFlyToFlightId]    = useState(null);
   const [followFlightId,   setFollowFlightId]   = useState(null);
   const [flightCount,      setFlightCount]      = useState(flightService.flights.length);
@@ -49,6 +50,7 @@ export default function App() {
 
   const handleToggleWeather   = useCallback(() => setWeatherEnabled((v) => !v),  []);
   const handleToggleDayNight  = useCallback(() => setDayNightEnabled((v) => !v), []);
+  const handleToggleAirports  = useCallback(() => setAirportsEnabled((v) => !v), []);
 
   return (
     <div style={{ width: '100vw', height: '100vh', position: 'relative', overflow: 'hidden' }}>
@@ -57,6 +59,7 @@ export default function App() {
         onFlightSelect={handleFlightSelect}
         weatherEnabled={weatherEnabled}
         dayNightEnabled={dayNightEnabled}
+        airportsEnabled={airportsEnabled}
         flyToFlightId={flyToFlightId}
         followFlightId={followFlightId}
       />
@@ -64,8 +67,10 @@ export default function App() {
       <TopBar
         weatherEnabled={weatherEnabled}
         dayNightEnabled={dayNightEnabled}
+        airportsEnabled={airportsEnabled}
         onToggleWeather={handleToggleWeather}
         onToggleDayNight={handleToggleDayNight}
+        onToggleAirports={handleToggleAirports}
         onFlightSelect={handleFlightSelect}
         onFlyTo={handleFlyTo}
         totalFlights={flightCount}

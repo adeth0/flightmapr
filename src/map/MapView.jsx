@@ -1,16 +1,48 @@
 import { useEffect, useRef } from 'react';
-import { MapContainer, TileLayer } from 'react-leaflet';
+import { MapContainer, TileLayer, useMap } from 'react-leaflet';
 import { FlightLayer }   from './FlightLayer';
 import { WeatherLayer }  from './WeatherLayer';
 import { DayNightLayer } from './DayNightLayer';
+import { AirportLayer }  from './AirportLayer';
 import { TILE_LAYERS, MAP_DEFAULTS, FLY_TO_ZOOM } from '../services/mapService';
-import { flightService } from '../services/flightService';
+import { flightService }  from '../services/flightService';
+import { openSkyService } from '../services/openSkyService';
 
+// ── BoundsSync ────────────────────────────────────────────
+// Tells openSkyService the current viewport so it can filter
+// the OpenSky API request to only visible airspace.
+function BoundsSync() {
+  const map = useMap();
+
+  useEffect(() => {
+    function sync() {
+      const b = map.getBounds();
+      openSkyService.setBounds({
+        lamin: b.getSouth(),
+        lomin: b.getWest(),
+        lamax: b.getNorth(),
+        lomax: b.getEast(),
+      });
+    }
+    map.on('moveend', sync);
+    map.on('zoomend', sync);
+    sync(); // initial sync
+    return () => {
+      map.off('moveend', sync);
+      map.off('zoomend', sync);
+    };
+  }, [map]);
+
+  return null;
+}
+
+// ── MapView ───────────────────────────────────────────────
 export function MapView({
   selectedFlightId,
   onFlightSelect,
   weatherEnabled,
   dayNightEnabled,
+  airportsEnabled,
   flyToFlightId,
   followFlightId,
 }) {
@@ -22,7 +54,7 @@ export function MapView({
     const flight = flightService.getFlight(flyToFlightId);
     if (!flight) return;
     mapRef.current.flyTo([flight.lat, flight.lng], FLY_TO_ZOOM, {
-      duration: 1.2,
+      duration:     1.2,
       easeLinearity: 0.25,
     });
   }, [flyToFlightId]);
@@ -40,10 +72,10 @@ export function MapView({
       if (!f) return;
       lastPan = now;
       mapRef.current.panTo([f.lat, f.lng], {
-        animate:     true,
-        duration:    1.8,
+        animate:      true,
+        duration:     1.8,
         easeLinearity: 0.5,
-        noMoveStart: true,
+        noMoveStart:  true,
       });
     });
 
@@ -69,11 +101,17 @@ export function MapView({
         subdomains={TILE_LAYERS.dark.subdomains}
       />
 
+      {/* Sync viewport bounds → openSkyService for bbox filtering */}
+      <BoundsSync />
+
       {/* Day / Night terminator */}
       <DayNightLayer enabled={dayNightEnabled} />
 
       {/* Weather overlay (RainViewer → canvas fallback) */}
       <WeatherLayer enabled={weatherEnabled} />
+
+      {/* Airport intelligence markers */}
+      <AirportLayer enabled={airportsEnabled} />
 
       {/* Aircraft markers (imperative, 60 fps) */}
       <FlightLayer

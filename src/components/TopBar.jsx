@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
-import { Search, Cloud, CloudOff, Sun, X } from 'lucide-react';
+import { Search, Cloud, CloudOff, Sun, Building2, X } from 'lucide-react';
 import { flightService } from '../services/flightService';
 
 function LiveDot() {
@@ -38,8 +38,8 @@ function SearchResult({ flight, onSelect }) {
 }
 
 export function TopBar({
-  weatherEnabled, dayNightEnabled,
-  onToggleWeather, onToggleDayNight,
+  weatherEnabled, dayNightEnabled, airportsEnabled,
+  onToggleWeather, onToggleDayNight, onToggleAirports,
   onFlightSelect, onFlyTo,
   totalFlights, dataSource,
 }) {
@@ -139,6 +139,20 @@ export function TopBar({
 
       {/* ── Controls ─────────────────────────────────── */}
       <div className="flex items-center gap-1.5 sm:gap-2 flex-shrink-0" style={{ pointerEvents: 'auto' }}>
+        {/* Airport markers toggle */}
+        <button
+          onClick={onToggleAirports}
+          title={airportsEnabled ? 'Hide airports' : 'Show airports'}
+          className={`glass rounded-2xl flex items-center gap-1.5 sm:gap-2 px-2.5 sm:px-3.5 py-2.5 text-sm font-medium transition-all ${
+            airportsEnabled
+              ? 'border-[#00ffcc]/30 text-[#00ffcc] bg-[#00ffcc]/8'
+              : 'text-white/35 hover:text-white/60'
+          }`}
+        >
+          <Building2 size={15} />
+          <span className="hidden md:inline text-xs">Airports</span>
+        </button>
+
         {/* Day / Night toggle */}
         <button
           onClick={onToggleDayNight}

@@ -10,7 +10,7 @@ const TIME_MULTIPLIER = 180; // sim: 1 real second = 3 sim-minutes
 const OPENSKY_POLL_MS = 15_000;
 
 // ── Airports ──────────────────────────────────────────────
-const AIRPORTS = {
+export const AIRPORTS = {
   JFK: { code: 'JFK', name: 'John F. Kennedy Intl',      city: 'New York',      country: 'US', lat: 40.6413,  lng: -73.7781  },
   LAX: { code: 'LAX', name: 'Los Angeles Intl',           city: 'Los Angeles',   country: 'US', lat: 33.9425,  lng: -118.4081 },
   ORD: { code: 'ORD', name: "O'Hare Intl",                city: 'Chicago',       country: 'US', lat: 41.9742,  lng: -87.9073  },
