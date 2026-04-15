@@ -1,9 +1,11 @@
 import { useEffect, useRef } from 'react';
 import { MapContainer, TileLayer, useMap } from 'react-leaflet';
-import { FlightLayer }   from './FlightLayer';
-import { WeatherLayer }  from './WeatherLayer';
-import { DayNightLayer } from './DayNightLayer';
-import { AirportLayer }  from './AirportLayer';
+import { FlightLayer }          from './FlightLayer';
+import { WeatherLayer }         from './WeatherLayer';
+import { DayNightLayer }        from './DayNightLayer';
+import { AirportLayer }         from './AirportLayer';
+import { ActivityHeatmapLayer } from './ActivityHeatmapLayer';
+import { BusyRoutesLayer }      from './BusyRoutesLayer';
 import { TILE_LAYERS, MAP_DEFAULTS, FLY_TO_ZOOM } from '../services/mapService';
 import { LOCATION_ZOOM }  from '../services/geoService';
 import { flightService }  from '../services/flightService';
@@ -44,11 +46,11 @@ export function MapView({
   weatherEnabled,
   dayNightEnabled,
   airportsEnabled,
+  heatmapEnabled,
+  routesEnabled,
   flyToFlightId,
   followFlightId,
-  // NEW: from geoService, set once after permission granted
   initialCenter,
-  // NEW: true when the right-side (or bottom-sheet) sidebar is open
   sidebarOpen,
 }) {
   const mapRef         = useRef(null);
@@ -147,8 +149,14 @@ export function MapView({
       {/* Weather overlay (RainViewer → canvas fallback) */}
       <WeatherLayer enabled={weatherEnabled} />
 
+      {/* Airport activity heatmap — soft glow circles, below markers */}
+      <ActivityHeatmapLayer enabled={heatmapEnabled} />
+
       {/* Airport intelligence markers */}
       <AirportLayer enabled={airportsEnabled} />
+
+      {/* Busiest route arcs — drawn above heatmap, below aircraft */}
+      <BusyRoutesLayer enabled={routesEnabled} />
 
       {/* Aircraft markers (imperative, 60 fps) */}
       <FlightLayer

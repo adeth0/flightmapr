@@ -5,7 +5,8 @@
 //  is set to 'unavailable' and an empty/stale list is held.
 // ─────────────────────────────────────────────────────────
 
-import { openSkyService } from './openSkyService.js';
+import { openSkyService }  from './openSkyService.js';
+import { enrichFlight }    from './flightEnrichmentService.js';
 
 const OPENSKY_POLL_MS = 15_000;
 
@@ -56,6 +57,30 @@ export const AIRPORTS = {
   AKL: { code: 'AKL', name: 'Auckland Airport',            city: 'Auckland',      country: 'NZ', lat: -37.0082, lng: 174.7850  },
   DEL: { code: 'DEL', name: 'Indira Gandhi Intl',          city: 'New Delhi',     country: 'IN', lat: 28.5562,  lng: 77.1000   },
   BOM: { code: 'BOM', name: 'Chhatrapati Shivaji Intl',   city: 'Mumbai',        country: 'IN', lat: 19.0896,  lng: 72.8656   },
+  // ── UK airports (required for regional visibility) ───────
+  MAN: { code: 'MAN', name: 'Manchester Airport',             city: 'Manchester',  country: 'GB', lat: 53.3537,  lng: -2.2750   },
+  LGW: { code: 'LGW', name: 'London Gatwick Airport',         city: 'London',      country: 'GB', lat: 51.1537,  lng: -0.1821   },
+  STN: { code: 'STN', name: 'London Stansted Airport',        city: 'London',      country: 'GB', lat: 51.8850,  lng:  0.2350   },
+  LTN: { code: 'LTN', name: 'London Luton Airport',           city: 'London',      country: 'GB', lat: 51.8747,  lng: -0.3683   },
+  LCY: { code: 'LCY', name: 'London City Airport',            city: 'London',      country: 'GB', lat: 51.5053,  lng:  0.0553   },
+  BHX: { code: 'BHX', name: 'Birmingham Airport',             city: 'Birmingham',  country: 'GB', lat: 52.4539,  lng: -1.7480   },
+  EDI: { code: 'EDI', name: 'Edinburgh Airport',              city: 'Edinburgh',   country: 'GB', lat: 55.9508,  lng: -3.3725   },
+  GLA: { code: 'GLA', name: 'Glasgow Airport',                city: 'Glasgow',     country: 'GB', lat: 55.8719,  lng: -4.4331   },
+  LBA: { code: 'LBA', name: 'Leeds Bradford Airport',         city: 'Leeds',       country: 'GB', lat: 53.8659,  lng: -1.6606   },
+  LPL: { code: 'LPL', name: 'Liverpool John Lennon Airport',  city: 'Liverpool',   country: 'GB', lat: 53.3336,  lng: -2.8497   },
+  BRS: { code: 'BRS', name: 'Bristol Airport',                city: 'Bristol',     country: 'GB', lat: 51.3827,  lng: -2.7190   },
+  NCL: { code: 'NCL', name: 'Newcastle Airport',              city: 'Newcastle',   country: 'GB', lat: 55.0375,  lng: -1.6917   },
+  // ── Additional European hubs ─────────────────────────────
+  VIE: { code: 'VIE', name: 'Vienna Intl Airport',            city: 'Vienna',      country: 'AT', lat: 48.1103,  lng: 16.5697   },
+  CPH: { code: 'CPH', name: 'Copenhagen Airport',             city: 'Copenhagen',  country: 'DK', lat: 55.6180,  lng: 12.6508   },
+  OSL: { code: 'OSL', name: 'Oslo Gardermoen Airport',        city: 'Oslo',        country: 'NO', lat: 60.1975,  lng: 11.1004   },
+  ARN: { code: 'ARN', name: 'Stockholm Arlanda Airport',      city: 'Stockholm',   country: 'SE', lat: 59.6519,  lng: 17.9186   },
+  HEL: { code: 'HEL', name: 'Helsinki Vantaa Airport',        city: 'Helsinki',    country: 'FI', lat: 60.3172,  lng: 24.9633   },
+  LIS: { code: 'LIS', name: 'Humberto Delgado Airport',       city: 'Lisbon',      country: 'PT', lat: 38.7756,  lng: -9.1354   },
+  ATH: { code: 'ATH', name: 'Athens Intl Airport',            city: 'Athens',      country: 'GR', lat: 37.9364,  lng: 23.9445   },
+  WAW: { code: 'WAW', name: 'Warsaw Chopin Airport',          city: 'Warsaw',      country: 'PL', lat: 52.1657,  lng: 20.9671   },
+  PRG: { code: 'PRG', name: 'Václav Havel Airport',           city: 'Prague',      country: 'CZ', lat: 50.1008,  lng: 14.2600   },
+  BUD: { code: 'BUD', name: 'Budapest Ferenc Liszt Intl',     city: 'Budapest',    country: 'HU', lat: 47.4298,  lng: 19.2611   },
 };
 
 // ── Math helpers (dead-reckoning only) ───────────────────
@@ -72,12 +97,13 @@ function haversineKm(lat1, lng1, lat2, lng2) {
 // ── FlightService ─────────────────────────────────────────
 class FlightService {
   constructor() {
-    this.flights     = [];           // starts empty — populated by OpenSky
-    this.dataSource  = 'loading';    // 'loading' | 'live' | 'unavailable'
-    this._listeners  = new Set();
-    this._rafId      = null;
-    this._lastTime   = null;
-    this._oskyTimer  = null;
+    this.flights      = [];           // starts empty — populated by OpenSky
+    this.dataSource   = 'loading';    // 'loading' | 'live' | 'unavailable'
+    this._listeners   = new Set();
+    this._rafId       = null;
+    this._lastTime    = null;
+    this._oskyTimer   = null;
+    this._enrichedIds = new Set();    // tracks flights already background-enriched
   }
 
   // ── Public API ────────────────────────────────────────
@@ -211,6 +237,29 @@ class FlightService {
     });
 
     this.dataSource = 'live';
+
+    // Silently enrich a batch of flights so the routes layer has data
+    this._backgroundEnrich(this.flights);
+  }
+
+  /**
+   * Enrich up to 6 un-enriched flights per poll cycle, spaced 600 ms apart
+   * so we never flood adsbdb.com. Results land in enrichFlight's cache and
+   * are picked up by BusyRoutesLayer / getCachedEnrichment().
+   */
+  _backgroundEnrich(flights) {
+    const batch = flights
+      .filter(f => f.callsign && !this._enrichedIds.has(f.id))
+      .slice(0, 6);
+
+    batch.forEach((f, i) => {
+      setTimeout(async () => {
+        try {
+          await enrichFlight(f.callsign);
+        } catch { /* ignore */ }
+        this._enrichedIds.add(f.id);   // mark regardless of result to avoid retries
+      }, i * 600);
+    });
   }
 }
 

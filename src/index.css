@@ -27,13 +27,13 @@ html, body, #root {
   font-family: 'Inter', system-ui, sans-serif;
 }
 
-/* ── Zoom control: right side, vertically centered ──────── */
+/* ── Zoom control: left side, vertically centered ───────── */
 /* Override Leaflet's default top-left placement so the      */
 /* controls sit clear of the top logo / search bar.         */
 .leaflet-top.leaflet-left {
   top: 50% !important;
-  left: auto !important;
-  right: 12px !important;
+  left: 12px !important;
+  right: auto !important;
   transform: translateY(-50%);
   /* Prevent the container itself from intercepting map touches */
   pointer-events: none;

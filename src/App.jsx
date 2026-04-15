@@ -11,6 +11,8 @@ export default function App() {
   const [weatherEnabled,   setWeatherEnabled]   = useState(false);
   const [dayNightEnabled,  setDayNightEnabled]  = useState(true);
   const [airportsEnabled,  setAirportsEnabled]  = useState(true);
+  const [heatmapEnabled,   setHeatmapEnabled]   = useState(false);
+  const [routesEnabled,    setRoutesEnabled]    = useState(false);
   const [flyToFlightId,    setFlyToFlightId]    = useState(null);
   const [followFlightId,   setFollowFlightId]   = useState(null);
   const [flightCount,      setFlightCount]      = useState(flightService.flights.length);
@@ -58,6 +60,8 @@ export default function App() {
   const handleToggleWeather   = useCallback(() => setWeatherEnabled((v) => !v),  []);
   const handleToggleDayNight  = useCallback(() => setDayNightEnabled((v) => !v), []);
   const handleToggleAirports  = useCallback(() => setAirportsEnabled((v) => !v), []);
+  const handleToggleHeatmap   = useCallback(() => setHeatmapEnabled((v) => !v),  []);
+  const handleToggleRoutes    = useCallback(() => setRoutesEnabled((v) => !v),   []);
 
   return (
     <div style={{ width: '100vw', height: '100vh', position: 'relative', overflow: 'hidden' }}>
@@ -67,6 +71,8 @@ export default function App() {
         weatherEnabled={weatherEnabled}
         dayNightEnabled={dayNightEnabled}
         airportsEnabled={airportsEnabled}
+        heatmapEnabled={heatmapEnabled}
+        routesEnabled={routesEnabled}
         flyToFlightId={flyToFlightId}
         followFlightId={followFlightId}
         initialCenter={geoLocation}
@@ -77,9 +83,13 @@ export default function App() {
         weatherEnabled={weatherEnabled}
         dayNightEnabled={dayNightEnabled}
         airportsEnabled={airportsEnabled}
+        heatmapEnabled={heatmapEnabled}
+        routesEnabled={routesEnabled}
         onToggleWeather={handleToggleWeather}
         onToggleDayNight={handleToggleDayNight}
         onToggleAirports={handleToggleAirports}
+        onToggleHeatmap={handleToggleHeatmap}
+        onToggleRoutes={handleToggleRoutes}
         onFlightSelect={handleFlightSelect}
         onFlyTo={handleFlyTo}
         totalFlights={flightCount}

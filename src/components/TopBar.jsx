@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
-import { Search, Cloud, CloudOff, Sun, Building2, X } from 'lucide-react';
+import { Search, Cloud, CloudOff, Sun, Building2, X, Flame, GitBranch } from 'lucide-react';
 import { flightService } from '../services/flightService';
 
 function LiveDot() {
@@ -38,8 +38,8 @@ function SearchResult({ flight, onSelect }) {
 }
 
 export function TopBar({
-  weatherEnabled, dayNightEnabled, airportsEnabled,
-  onToggleWeather, onToggleDayNight, onToggleAirports,
+  weatherEnabled, dayNightEnabled, airportsEnabled, heatmapEnabled, routesEnabled,
+  onToggleWeather, onToggleDayNight, onToggleAirports, onToggleHeatmap, onToggleRoutes,
   onFlightSelect, onFlyTo,
   totalFlights, dataSource,
 }) {
@@ -179,6 +179,34 @@ export function TopBar({
         >
           {weatherEnabled ? <Cloud size={15} /> : <CloudOff size={15} />}
           <span className="hidden sm:inline text-xs">Weather</span>
+        </button>
+
+        {/* Heatmap toggle */}
+        <button
+          onClick={onToggleHeatmap}
+          title={heatmapEnabled ? 'Hide activity heatmap' : 'Show activity heatmap'}
+          className={`glass rounded-2xl flex items-center gap-1.5 sm:gap-2 px-2.5 sm:px-3.5 py-2.5 text-sm font-medium transition-all ${
+            heatmapEnabled
+              ? 'border-orange-400/40 text-orange-400 bg-orange-400/10'
+              : 'text-white/35 hover:text-white/60'
+          }`}
+        >
+          <Flame size={15} />
+          <span className="hidden lg:inline text-xs">Heatmap</span>
+        </button>
+
+        {/* Routes toggle */}
+        <button
+          onClick={onToggleRoutes}
+          title={routesEnabled ? 'Hide busy routes' : 'Show busy routes'}
+          className={`glass rounded-2xl flex items-center gap-1.5 sm:gap-2 px-2.5 sm:px-3.5 py-2.5 text-sm font-medium transition-all ${
+            routesEnabled
+              ? 'border-[#00ffcc]/40 text-[#00ffcc] bg-[#00ffcc]/10'
+              : 'text-white/35 hover:text-white/60'
+          }`}
+        >
+          <GitBranch size={15} />
+          <span className="hidden lg:inline text-xs">Routes</span>
         </button>
 
         {/* Live badge */}

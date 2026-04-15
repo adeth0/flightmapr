@@ -15,7 +15,7 @@ export function StatusBar({ flightCount, dataSource }) {
   const isLive       = dataSource === 'live';
   const isLoading    = dataSource === 'loading';
   const isUnavail    = dataSource === 'unavailable';
-  const srcLabel     = isLive ? 'OpenSky Live' : isLoading ? 'Connecting…' : 'Unavailable';
+  const srcLabel     = isLive ? 'ADS-B Live' : isLoading ? 'Connecting…' : 'Unavailable';
   const srcColor     = isLive ? 'text-emerald-400' : isUnavail ? 'text-red-400' : 'text-white/40';
 
   return (

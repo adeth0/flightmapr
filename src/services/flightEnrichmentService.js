@@ -39,6 +39,17 @@ function parseAirport(ap) {
  * Returns enrichment object or null.
  * Results are cached for the session — subsequent calls are synchronous.
  */
+/**
+ * Synchronous cache read — returns enrichment data if already fetched,
+ * or null if the callsign hasn't been enriched yet.
+ * Used by BusyRoutesLayer to build route frequency maps without network calls.
+ */
+export function getCachedEnrichment(callsign) {
+  const key = callsign?.trim().toUpperCase().replace(/\s+/g, '');
+  if (!key) return null;
+  return _cache.has(key) ? _cache.get(key) : null;
+}
+
 export async function enrichFlight(callsign) {
   if (!callsign) return null;
 
