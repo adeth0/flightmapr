@@ -269,9 +269,17 @@ export function FlightLayer({ selectedFlightId, onFlightSelect }) {
       L.DomEvent.stopPropagation(e);
       L.DomEvent.preventDefault(e);
       lastTouchMs = Date.now();
-      handleActivate();
+      // Single tap on touch → select immediately. Skip mini-popup:
+      // Leaflet's built-in Map.Tap fires a synthetic map 'click' after
+      // touchend which would instantly dismiss any popup we open here.
+      console.log('[FlightMapr] tap:', flight.callsign, flight.id);
+      if (pendingPreviewRef.current && pendingPreviewRef.current.id !== flight.id) {
+        dismissPreview();
+      }
+      onSelectRef.current(flight);
     });
     marker.on('click', () => {
+      // Desktop only — suppressed on touch (lastTouchMs guard)
       if (Date.now() - lastTouchMs < 500) return;
       handleActivate();
     });

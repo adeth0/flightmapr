@@ -160,6 +160,33 @@ export default function App() {
 
       {/* ── PWA install banner (Android + iOS) ───────────── */}
       {!showOnboarding && <InstallBanner />}
+
+      {/* ── Mobile-only floating donate button ───────────── */}
+      {/* Hidden on sm+ (desktop has it inline in the TopBar)  */}
+      <div className="sm:hidden" style={{ position: 'absolute', bottom: 'calc(env(safe-area-inset-bottom, 0px) + 40px)', right: 14, zIndex: 1100, pointerEvents: 'auto' }}>
+        <a
+          href="https://donate.stripe.com/8x27sMaIf3Cm5O0gFEc7u00"
+          target="_blank"
+          rel="noopener noreferrer"
+          style={{
+            display: 'flex',
+            alignItems: 'center',
+            gap: 6,
+            padding: '10px 14px',
+            borderRadius: 14,
+            background: 'linear-gradient(135deg, #00ffcc 0%, #10b981 100%)',
+            color: '#000',
+            fontSize: 12,
+            fontWeight: 700,
+            textDecoration: 'none',
+            boxShadow: '0 0 20px rgba(0,255,204,0.4), 0 4px 16px rgba(0,0,0,0.35)',
+            whiteSpace: 'nowrap',
+          }}
+        >
+          <span style={{ fontSize: 14 }}>✈️</span>
+          <span>Support</span>
+        </a>
+      </div>
     </div>
   );
 }

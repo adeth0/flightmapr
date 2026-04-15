@@ -548,3 +548,90 @@ a:active {
 }
 .install-banner-close:hover  { background: rgba(255,255,255,0.12); color: rgba(255,255,255,0.7); }
 .install-banner-close:active { transform: scale(0.9); }
+
+/* ════════════════════════════════════════════════════════════
+   MOBILE FULL-SCREEN SEARCH OVERLAY
+   ════════════════════════════════════════════════════════════ */
+
+/* Full-screen overlay — sits above the map, below onboarding */
+.mobile-search-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 2500;
+  display: flex;
+  flex-direction: column;
+  background: rgba(11, 15, 23, 0.98);
+  backdrop-filter: blur(20px) saturate(150%);
+  -webkit-backdrop-filter: blur(20px) saturate(150%);
+  animation: overlay-in 0.18s var(--ease-smooth) both;
+}
+
+/* Input bar at top — always visible even when keyboard opens */
+.mobile-search-bar {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 12px 16px;
+  padding-top: calc(env(safe-area-inset-top, 0px) + 12px);
+  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+  flex-shrink: 0;
+}
+
+/* Clear (X) button */
+.mobile-search-clear {
+  width: 30px;
+  height: 30px;
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.1);
+  border: none;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: rgba(255, 255, 255, 0.5);
+  cursor: pointer;
+  flex-shrink: 0;
+  transition: background 0.15s;
+}
+.mobile-search-clear:active { background: rgba(255, 255, 255, 0.18); }
+
+/* Cancel text button */
+.mobile-search-cancel {
+  background: none;
+  border: none;
+  color: #00ffcc;
+  font-size: 15px;
+  font-weight: 600;
+  padding: 6px 4px;
+  cursor: pointer;
+  flex-shrink: 0;
+  white-space: nowrap;
+  -webkit-tap-highlight-color: transparent;
+}
+.mobile-search-cancel:active { opacity: 0.7; }
+
+/* Scrollable results area */
+.mobile-search-results {
+  flex: 1;
+  overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
+  overscroll-behavior: contain;
+  padding-bottom: env(safe-area-inset-bottom, 16px);
+}
+
+/* Empty / hint state */
+.mobile-search-empty {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding-top: 60px;
+  color: rgba(255, 255, 255, 0.3);
+  font-size: 14px;
+  text-align: center;
+  gap: 4px;
+}
+
+/* Divider between results */
+.mobile-search-results button + button {
+  border-top: 1px solid rgba(255, 255, 255, 0.05);
+}
