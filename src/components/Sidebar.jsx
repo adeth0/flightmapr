@@ -1,8 +1,10 @@
 import { useEffect, useState, useRef } from 'react';
 import {
   X, Navigation2, Plane, Clock, MapPin, TrendingUp, Radio,
+  ArrowUp, ArrowDown, Minus,
 } from 'lucide-react';
 import { flightService, formatETA } from '../services/flightService';
+import { enrichFlight }              from '../services/flightEnrichmentService';
 import { GlassCard, StatChip, Divider } from '../ui/GlassCard';
 
 // ── Sub-components ────────────────────────────────────────
@@ -50,8 +52,8 @@ function ProgressBar({ progress }) {
   );
 }
 
-/** Compact "live" row shown instead of route arrow when no route data */
-function LiveTrackingRow({ country }) {
+/** Compact row shown while route data is loading or unavailable */
+function LiveTrackingRow({ loading }) {
   return (
     <div className="flex items-center gap-3 py-1">
       <div className="w-8 h-8 rounded-lg bg-[#00ffcc]/10 flex items-center justify-center flex-shrink-0">
@@ -60,16 +62,33 @@ function LiveTrackingRow({ country }) {
       <div>
         <div className="text-xs font-semibold text-white">Live ADS-B Tracking</div>
         <div className="text-[10px] text-white/40 mt-0.5">
-          {country ? `Registered in ${country}` : 'OpenSky Network'}
+          {loading ? 'Resolving route…' : 'Route data unavailable'}
         </div>
       </div>
     </div>
   );
 }
 
+/** Vertical rate chip with direction icon */
+function VertRateChip({ fpm }) {
+  if (fpm == null) return <StatChip label="V/Rate" value="—" />;
+  const abs = Math.abs(Math.round(fpm));
+  if (abs < 64) return <StatChip label="V/Rate" value="Level" />;
+  const label = fpm > 0 ? '↑' : '↓';
+  return (
+    <StatChip
+      label="V/Rate"
+      value={`${label} ${abs.toLocaleString()}`}
+      unit="fpm"
+    />
+  );
+}
+
 // ── Sidebar ───────────────────────────────────────────────
 export function Sidebar({ flightId, isFollowing, onClose, onCenterMap, onToggleFollow }) {
-  const [flight, setFlight] = useState(() => flightService.getFlight(flightId));
+  const [flight,       setFlight]       = useState(() => flightService.getFlight(flightId));
+  const [enrichment,   setEnrichment]   = useState(null);
+  const [enrichLoading, setEnrichLoading] = useState(false);
   const flightIdRef  = useRef(flightId);
   const panelRef     = useRef(null);
   const touchStartY  = useRef(0);
@@ -84,10 +103,9 @@ export function Sidebar({ flightId, isFollowing, onClose, onCenterMap, onToggleF
   }
   function handleTouchMove(e) {
     const delta = e.touches[0].clientY - touchStartY.current;
-    if (delta <= 0) return;           // ignore upward swipe
+    if (delta <= 0) return;
     touchDeltaY.current = delta;
     if (panelRef.current) {
-      // Apply damped translation so it "sticks" a bit before releasing
       panelRef.current.style.transform  = `translateY(${Math.min(delta * 0.65, 180)}px)`;
       panelRef.current.style.transition = 'none';
     }
@@ -102,6 +120,7 @@ export function Sidebar({ flightId, isFollowing, onClose, onCenterMap, onToggleF
     touchDeltaY.current = 0;
   }
 
+  // Subscribe to live flight updates
   useEffect(() => {
     if (!flightId) return;
     setFlight(flightService.getFlight(flightId));
@@ -112,11 +131,31 @@ export function Sidebar({ flightId, isFollowing, onClose, onCenterMap, onToggleF
     return unsub;
   }, [flightId]);
 
+  // Enrich selected flight with route data (origin/destination)
+  useEffect(() => {
+    if (!flightId) return;
+    const f = flightService.getFlight(flightId);
+    if (!f?.isLive || !f?.callsign) return;
+
+    setEnrichment(null);
+    setEnrichLoading(true);
+
+    enrichFlight(f.callsign).then((data) => {
+      setEnrichment(data);
+      setEnrichLoading(false);
+    });
+  }, [flightId]);
+
   if (!flight) return null;
 
   const isLive        = !!flight.isLive;
   const eta           = formatETA(flight);
   const distRemaining = Math.round(flight.routeDistance * (1 - flight.progress));
+
+  // Route display: use real enrichment when available, fallback to live-tracking row
+  const hasRoute = enrichment?.origin && enrichment?.destination;
+  const routeOrigin      = hasRoute ? enrichment.origin      : flight.origin;
+  const routeDestination = hasRoute ? enrichment.destination : flight.destination;
 
   return (
     <aside
@@ -127,7 +166,7 @@ export function Sidebar({ flightId, isFollowing, onClose, onCenterMap, onToggleF
       onTouchMove={handleTouchMove}
       onTouchEnd={handleTouchEnd}
     >
-      {/* ── Drag handle (mobile only — visual swipe cue) ── */}
+      {/* ── Drag handle (mobile only) ─────────────────── */}
       <div className="flex justify-center pt-2 pb-0 sm:hidden flex-shrink-0 cursor-grab active:cursor-grabbing">
         <div className="w-10 h-1 rounded-full bg-white/20" />
       </div>
@@ -162,10 +201,12 @@ export function Sidebar({ flightId, isFollowing, onClose, onCenterMap, onToggleF
 
         <Divider />
 
-        {/* Route or live tracking info */}
+        {/* Route section */}
         <div className="py-3">
           {isLive
-            ? <LiveTrackingRow country={flight.airline} />
+            ? hasRoute
+              ? <RouteArrow origin={routeOrigin} destination={routeDestination} />
+              : <LiveTrackingRow loading={enrichLoading} />
             : <RouteArrow origin={flight.origin} destination={flight.destination} />
           }
         </div>
@@ -188,7 +229,10 @@ export function Sidebar({ flightId, isFollowing, onClose, onCenterMap, onToggleF
           <StatChip label="Altitude"  value={flight.altitude.toLocaleString()} unit="ft"  />
           <StatChip label="Speed"     value={flight.speed}                      unit="kts" />
           <StatChip label="Heading"   value={`${Math.round(flight.heading)}°`}             />
-          <StatChip label="Distance"  value={distRemaining.toLocaleString()}    unit="km"  />
+          {isLive
+            ? <VertRateChip fpm={flight.vertRate} />
+            : <StatChip label="Distance" value={distRemaining.toLocaleString()} unit="km" />
+          }
         </div>
       </GlassCard>
 
@@ -197,9 +241,9 @@ export function Sidebar({ flightId, isFollowing, onClose, onCenterMap, onToggleF
         <div className="text-[10px] uppercase tracking-widest text-white/30 mb-3">Flight Info</div>
         <div className="space-y-3">
           {flight.aircraft !== 'Unknown' && (
-            <InfoRow icon={<Plane size={13} />}    label="Aircraft"       value={flight.aircraft} />
+            <InfoRow icon={<Plane size={13} />}  label="Aircraft"  value={flight.aircraft} />
           )}
-          <InfoRow icon={<Clock size={13} />}      label="Est. Remaining" value={eta}            highlight />
+          <InfoRow icon={<Clock size={13} />}    label="Departure" value="See route above" highlight />
           <InfoRow
             icon={<MapPin size={13} />}
             label="Position"
@@ -212,6 +256,48 @@ export function Sidebar({ flightId, isFollowing, onClose, onCenterMap, onToggleF
               label="Route Distance"
               value={`${Math.round(flight.routeDistance).toLocaleString()} km`}
             />
+          )}
+
+          {/* Live-only enrichment rows */}
+          {isLive && (
+            <>
+              {flight.registration && (
+                <InfoRow
+                  icon={<Plane size={13} />}
+                  label="Registration"
+                  value={flight.registration}
+                  mono
+                />
+              )}
+              <InfoRow
+                icon={<Radio size={13} />}
+                label="ICAO Hex"
+                value={flight.id?.toUpperCase() ?? '—'}
+                mono
+              />
+              {flight.squawk && (
+                <InfoRow
+                  icon={<Radio size={13} />}
+                  label="Squawk"
+                  value={flight.squawk}
+                  mono
+                />
+              )}
+              {flight.vertRate != null && Math.abs(flight.vertRate) >= 64 && (
+                <InfoRow
+                  icon={flight.vertRate > 0 ? <ArrowUp size={13} /> : <ArrowDown size={13} />}
+                  label="Vertical Rate"
+                  value={`${flight.vertRate > 0 ? '+' : ''}${Math.round(flight.vertRate).toLocaleString()} fpm`}
+                />
+              )}
+              {enrichment?.airlineCallsign && (
+                <InfoRow
+                  icon={<Radio size={13} />}
+                  label="Radio Callsign"
+                  value={enrichment.airlineCallsign}
+                />
+              )}
+            </>
           )}
         </div>
 

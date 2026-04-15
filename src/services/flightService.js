@@ -193,11 +193,13 @@ class FlightService {
       updatedIds.add(f.id);
       return {
         ...f,
-        lat:      fresh.lat,
-        lng:      fresh.lng,
-        heading:  fresh.heading,
-        speed:    fresh.speed,
-        altitude: fresh.altitude,
+        lat:          fresh.lat,
+        lng:          fresh.lng,
+        heading:      fresh.heading,
+        speed:        fresh.speed,
+        altitude:     fresh.altitude,
+        squawk:       fresh.squawk,
+        vertRate:     fresh.vertRate,
       };
     }).filter(Boolean);
 

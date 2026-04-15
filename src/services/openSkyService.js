@@ -89,6 +89,10 @@ function parseState(ac) {
     flightNumber: cs,
     airline,
     aircraft:     ac.desc ?? ac.t ?? 'Unknown',
+    registration: ac.r  ?? null,          // e.g. "G-STBE"
+    squawk:       ac.squawk ?? null,       // 4-digit octal transponder code
+    vertRate:     ac.baro_rate ?? null,    // ft/min, + = climbing, − = descending
+    category:     ac.category ?? null,     // ICAO wake turbulence category
     lat:          ac.lat,
     lng:          ac.lon,
     altitude:     Math.round(altFt),
