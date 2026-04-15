@@ -4,8 +4,14 @@ import L from 'leaflet';
 import { flightService } from '../services/flightService';
 
 // ── Aircraft SVG icon ─────────────────────────────────────
+// Top-down commercial-jet silhouette: swept wings, fuselage, horizontal stabiliser
 const PLANE_PATH =
-  'M12,1 L14,8 L22,10 L21,13 L14,11 L14,20 L18,22 L12,21 L6,22 L10,20 L10,11 L3,13 L2,10 L10,8 Z';
+  'M12 2 C11 2 10 3 9.5 5 L9 9 ' +        // nose → left wing root
+  'L2 13 L2 15.5 L9 13 ' +                 // left wing out + back
+  'L9.5 19.5 L7 22.5 L9.5 21.5 ' +        // left stabiliser
+  'L12 22.5 L14.5 21.5 L17 22.5 L14.5 19.5 ' + // tail + right stabiliser
+  'L15 13 L22 15.5 L22 13 ' +              // right wing out + back
+  'L15 9 L14.5 5 C14 3 13 2 12 2Z';       // back to nose
 
 function createIcon(heading, selected = false, hovered = false) {
   const color = selected ? '#ffffff' : '#00ffcc';

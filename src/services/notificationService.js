@@ -1,46 +1,47 @@
 // ─────────────────────────────────────────────────────────
-//  notificationService
-//  Manages browser push-notification permission, service-worker
-//  registration, and per-flight tracking logic.
+//  notificationService — multi-flight push notification tracker
 //
-//  Tracking events:
-//    Departure  — altitude crosses ground→airborne threshold
+//  Supports tracking N flights simultaneously.
+//  Per-flight state machine:
+//    Departure  — altitude < GROUND_ALT then climbs > AIRBORNE_ALT
 //    Midpoint   — time-based (30–45 min after departure)
-//    Arrival    — altitude drops through final-approach threshold
-//                 while descending (negative vertRate)
+//    Arrival    — descending through FINAL_ALT at ≥ FINAL_RATE_FPM
 //
-//  Only ONE flight is tracked at a time.
-//  All failures are silent — never throws or breaks UI.
+//  All failures are silent — never throws or breaks the UI.
 // ─────────────────────────────────────────────────────────
 
 import { flightService }       from './flightService.js';
 import { getCachedEnrichment } from './flightEnrichmentService.js';
 
 // ── Altitude thresholds (feet) ────────────────────────────
-const AIRBORNE_ALT_FT  = 5_000;   // definitely airborne above this
-const GROUND_ALT_FT    = 2_000;   // definitely on/near ground below this
-const FINAL_ALT_FT     = 3_000;   // descending through this → arrival
-const FINAL_RATE_FPM   = -200;    // must be descending at ≥ 200 fpm
+const AIRBORNE_ALT_FT           = 5_000;
+const GROUND_ALT_FT             = 2_000;
+const FINAL_ALT_FT              = 3_000;
+const FINAL_RATE_FPM            = -200;
 
-// ── Midpoint delay after departure detection ──────────────
-const MIDPOINT_AFTER_DEPART_MS  = 45 * 60 * 1_000; // 45 min
-const MIDPOINT_ALREADY_UP_MS    = 30 * 60 * 1_000; // 30 min (already airborne)
+// ── Midpoint timers ───────────────────────────────────────
+const MIDPOINT_AFTER_DEPART_MS  = 45 * 60 * 1_000;  // 45 min after detected departure
+const MIDPOINT_ALREADY_UP_MS    = 30 * 60 * 1_000;  // 30 min when already airborne
 
 const ICON = '/vite.svg';
 
+/**
+ * Per-flight tracking state.
+ * @typedef {{ id:string, callsign:string, airline:string, enrichment:object|null,
+ *             prevAlt:number|null, departed:boolean, midpointFired:boolean,
+ *             arrivedFired:boolean, midpointTimer:number|null, unsub:function|null }} TrackState
+ */
+
 class NotificationService {
   constructor() {
-    this._swReg         = null;
-    this._tracked       = null;   // { id, callsign, enrichment } | null
-    this._prevAlt       = null;
-    this._departed      = false;
-    this._midpointFired = false;
-    this._arrivedFired  = false;
-    this._midpointTimer = null;
-    this._unsub         = null;
+    this._swReg    = null;
+    /** @type {Map<string, TrackState>} */
+    this._flights  = new Map();
+    /** @type {Set<function>} dashboard update listeners */
+    this._listeners = new Set();
   }
 
-  // ── Service-worker registration (lazy, idempotent) ──────
+  // ── SW registration (lazy, idempotent) ─────────────────
   async _initSW() {
     if (this._swReg || !('serviceWorker' in navigator)) return;
     try {
@@ -51,14 +52,12 @@ class NotificationService {
   }
 
   // ── Permission helpers ───────────────────────────────────
-  /** Request permission if not yet decided. Returns true if granted. */
   async requestPermission() {
     if (!('Notification' in window)) return false;
     if (Notification.permission === 'granted') return true;
     if (Notification.permission === 'denied')  return false;
     try {
-      const result = await Notification.requestPermission();
-      return result === 'granted';
+      return (await Notification.requestPermission()) === 'granted';
     } catch {
       return false;
     }
@@ -68,137 +67,143 @@ class NotificationService {
     return 'Notification' in window && Notification.permission === 'granted';
   }
 
-  /** Is the given flight ID currently being tracked? */
-  isTracking(id) {
-    return this._tracked?.id === id;
+  // ── Public query API ─────────────────────────────────────
+  isTracking(id) { return this._flights.has(id); }
+
+  /** Returns a snapshot array for the dashboard. */
+  getTrackedList() {
+    return [...this._flights.values()].map(({ id, callsign, airline, enrichment }) => ({
+      id, callsign, airline, enrichment,
+    }));
+  }
+
+  /** Subscribe to tracking-list changes (for AlertsDashboard). */
+  subscribeToChanges(fn) {
+    this._listeners.add(fn);
+    // Immediately emit current state
+    fn(this.getTrackedList());
+    return () => this._listeners.delete(fn);
   }
 
   // ── Public: start tracking a flight ─────────────────────
-  /**
-   * Begin monitoring `flight` for departure / midpoint / arrival events.
-   * Registers the service worker and reads any cached enrichment data.
-   * If another flight is currently tracked it is silently replaced.
-   */
   async trackFlight(flight) {
+    if (this._flights.has(flight.id)) return;   // already tracked
     await this._initSW();
-    this._stopTracking();
 
     const enrichment = getCachedEnrichment(flight.callsign) ?? null;
+    const already = flight.altitude > AIRBORNE_ALT_FT;
 
-    this._tracked       = { id: flight.id, callsign: flight.callsign, enrichment };
-    this._prevAlt       = flight.altitude;
-    this._departed      = flight.altitude > AIRBORNE_ALT_FT;
-    this._midpointFired = false;
-    this._arrivedFired  = false;
+    /** @type {TrackState} */
+    const state = {
+      id:            flight.id,
+      callsign:      flight.callsign,
+      airline:       flight.airline ?? 'Unknown',
+      enrichment,
+      prevAlt:       flight.altitude,
+      departed:      already,
+      midpointFired: false,
+      arrivedFired:  false,
+      midpointTimer: null,
+      unsub:         null,
+    };
 
-    // Already airborne when tracking starts → schedule midpoint now
-    if (this._departed) {
-      this._scheduleMidpoint(MIDPOINT_ALREADY_UP_MS);
-    }
+    if (already) this._scheduleMidpoint(state, MIDPOINT_ALREADY_UP_MS);
 
-    this._unsub = flightService.subscribe((flights) => {
-      if (!this._tracked) return;
-      const f = flights.find((x) => x.id === this._tracked.id);
-      if (!f) {
-        // Flight dropped from feed — stop quietly
-        this._stopTracking();
-        return;
-      }
-      this._checkEvents(f);
+    state.unsub = flightService.subscribe((flights) => {
+      if (!this._flights.has(flight.id)) return;
+      const f = flights.find((x) => x.id === flight.id);
+      if (!f) { this._remove(flight.id); return; }
+      this._checkEvents(state, f);
     });
+
+    this._flights.set(flight.id, state);
+    this._emit();
   }
 
-  /** Stop tracking the current flight. */
-  stopTracking() { this._stopTracking(); }
+  // ── Public: stop tracking by ID ──────────────────────────
+  stopTracking(id) { this._remove(id); }
 
   // ── Internal ─────────────────────────────────────────────
-  _stopTracking() {
-    if (this._unsub)         { this._unsub(); this._unsub = null; }
-    if (this._midpointTimer) { clearTimeout(this._midpointTimer); this._midpointTimer = null; }
-    this._tracked       = null;
-    this._prevAlt       = null;
-    this._departed      = false;
-    this._midpointFired = false;
-    this._arrivedFired  = false;
+  _remove(id) {
+    const state = this._flights.get(id);
+    if (!state) return;
+    if (state.unsub)         state.unsub();
+    if (state.midpointTimer) clearTimeout(state.midpointTimer);
+    this._flights.delete(id);
+    this._emit();
   }
 
-  _scheduleMidpoint(delayMs) {
-    clearTimeout(this._midpointTimer);
-    this._midpointTimer = setTimeout(() => {
-      if (this._midpointFired || !this._tracked) return;
-      this._midpointFired = true;
-      const dest = this._tracked.enrichment?.destination;
+  _emit() {
+    const list = this.getTrackedList();
+    this._listeners.forEach((fn) => fn(list));
+  }
+
+  _scheduleMidpoint(state, delayMs) {
+    clearTimeout(state.midpointTimer);
+    state.midpointTimer = setTimeout(() => {
+      if (state.midpointFired || !this._flights.has(state.id)) return;
+      state.midpointFired = true;
+      const dest = state.enrichment?.destination;
       this._show(
         '✈️ Midway Update',
         dest?.name
-          ? `${this._tracked.callsign} is halfway to ${dest.name}`
-          : `${this._tracked.callsign} is at the midpoint`,
-        'midpoint',
+          ? `${state.callsign} is halfway to ${dest.name}`
+          : `${state.callsign} is at the midpoint`,
+        `midpoint-${state.id}`,
       );
     }, delayMs);
   }
 
-  _checkEvents(f) {
+  _checkEvents(state, f) {
     const alt  = f.altitude;
-    const prev = this._prevAlt;
+    const prev = state.prevAlt;
 
     // ── Departure ────────────────────────────────────────
-    if (!this._departed && prev != null && prev < GROUND_ALT_FT && alt > AIRBORNE_ALT_FT) {
-      this._departed = true;
-      const origin = this._tracked.enrichment?.origin;
+    if (!state.departed && prev != null && prev < GROUND_ALT_FT && alt > AIRBORNE_ALT_FT) {
+      state.departed = true;
+      const origin = state.enrichment?.origin;
       this._show(
         '✈️ Flight Departed',
         origin?.name
-          ? `${this._tracked.callsign} has departed ${origin.name}`
-          : `${this._tracked.callsign} has departed`,
-        'departure',
+          ? `${state.callsign} has departed ${origin.name}`
+          : `${state.callsign} has departed`,
+        `departure-${state.id}`,
       );
-      this._scheduleMidpoint(MIDPOINT_AFTER_DEPART_MS);
+      this._scheduleMidpoint(state, MIDPOINT_AFTER_DEPART_MS);
     }
 
     // ── Arrival ──────────────────────────────────────────
     if (
-      this._departed && !this._arrivedFired &&
+      state.departed && !state.arrivedFired &&
       prev != null && prev > FINAL_ALT_FT && alt < FINAL_ALT_FT &&
       f.vertRate != null && f.vertRate < FINAL_RATE_FPM
     ) {
-      this._arrivedFired = true;
-      clearTimeout(this._midpointTimer);
-      const dest = this._tracked.enrichment?.destination;
+      state.arrivedFired = true;
+      clearTimeout(state.midpointTimer);
+      const dest = state.enrichment?.destination;
       this._show(
         '🛬 Flight Arrived',
         dest?.name
-          ? `${this._tracked.callsign} has landed at ${dest.name}`
-          : `${this._tracked.callsign} has landed`,
-        'arrival',
+          ? `${state.callsign} has landed at ${dest.name}`
+          : `${state.callsign} has landed`,
+        `arrival-${state.id}`,
       );
     }
 
-    this._prevAlt = alt;
+    state.prevAlt = alt;
   }
 
-  /** Show a notification via the service worker (background-safe) or
-   *  fall back to the foreground Notification API.  Fails silently. */
   async _show(title, body, tag) {
     if (!this.isGranted()) return;
-
-    // Prefer SW-based showNotification — works when page is backgrounded
     if (this._swReg || 'serviceWorker' in navigator) {
       try {
         const reg = await navigator.serviceWorker.ready;
         await reg.showNotification(title, {
-          body,
-          icon:           ICON,
-          badge:          ICON,
-          tag,
-          renotify:       true,
-          requireInteraction: false,
+          body, icon: ICON, badge: ICON, tag, renotify: true, requireInteraction: false,
         });
         return;
-      } catch { /* fall through to direct API */ }
+      } catch { /* fall through */ }
     }
-
-    // Fallback: direct Notification (foreground only)
     try {
       // eslint-disable-next-line no-new
       new Notification(title, { body, icon: ICON, tag });

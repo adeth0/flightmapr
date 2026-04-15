@@ -10,9 +10,34 @@
 /** Leaflet zoom level that gives roughly a 50-mile radius view */
 export const LOCATION_ZOOM = 9;
 
+// ── localStorage cache ────────────────────────────────────
+const CACHE_KEY = 'flightmapr_loc';
+const CACHE_TTL = 24 * 60 * 60 * 1_000; // 24 hours
+
+/**
+ * Synchronous cache read — returns the last known user location
+ * (within 24 h) or null.  Used as the React initial-state factory
+ * so returning users get instant map centering with no geolocation
+ * permission dialog on first render.
+ *
+ * @returns {{ lat: number, lng: number } | null}
+ */
+export function getCachedLocation() {
+  try {
+    const raw = localStorage.getItem(CACHE_KEY);
+    if (!raw) return null;
+    const { lat, lng, ts } = JSON.parse(raw);
+    if (Date.now() - ts > CACHE_TTL) return null;
+    return { lat, lng };
+  } catch {
+    return null;
+  }
+}
+
 /**
  * Asks the browser for the user's location.
  * - Never rejects — returns null instead of throwing.
+ * - Writes successful results to localStorage for instant loading next time.
  * - maximumAge: 5 min (avoids redundant GPS wakes on mobile).
  * - enableHighAccuracy: false (faster, sufficient for map centering).
  *
@@ -26,7 +51,13 @@ export function getUserLocation(timeoutMs = 8_000) {
       return;
     }
     navigator.geolocation.getCurrentPosition(
-      ({ coords }) => resolve({ lat: coords.latitude, lng: coords.longitude }),
+      ({ coords }) => {
+        const loc = { lat: coords.latitude, lng: coords.longitude };
+        try {
+          localStorage.setItem(CACHE_KEY, JSON.stringify({ ...loc, ts: Date.now() }));
+        } catch { /* ignore storage errors (private mode etc.) */ }
+        resolve(loc);
+      },
       () => resolve(null),
       { timeout: timeoutMs, enableHighAccuracy: false, maximumAge: 300_000 }
     );

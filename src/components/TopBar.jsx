@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
-import { Search, Cloud, CloudOff, Sun, Building2, X, Flame, GitBranch } from 'lucide-react';
+import { Search, Cloud, CloudOff, Sun, Building2, X, Flame, GitBranch, Bell } from 'lucide-react';
 import { flightService } from '../services/flightService';
 
 function LiveDot() {
@@ -42,6 +42,7 @@ export function TopBar({
   onToggleWeather, onToggleDayNight, onToggleAirports, onToggleHeatmap, onToggleRoutes,
   onFlightSelect, onFlyTo,
   totalFlights, dataSource,
+  alertsCount, onToggleAlerts,
 }) {
   const [query,   setQuery]   = useState('');
   const [results, setResults] = useState([]);
@@ -208,6 +209,26 @@ export function TopBar({
           <GitBranch size={15} />
           <span className="hidden lg:inline text-xs">Routes</span>
         </button>
+
+        {/* Alerts / tracked-flights toggle */}
+        {'Notification' in window && (
+          <button
+            onClick={onToggleAlerts}
+            title="Flight Alerts"
+            className={`glass rounded-2xl relative flex items-center gap-1.5 sm:gap-2 px-2.5 sm:px-3.5 py-2.5 text-sm font-medium transition-all ${
+              alertsCount > 0
+                ? 'border-amber-400/35 text-amber-400 bg-amber-400/8'
+                : 'text-white/35 hover:text-white/60'
+            }`}
+          >
+            <Bell size={15} />
+            {alertsCount > 0 && (
+              <span className="absolute -top-1 -right-1 w-4 h-4 rounded-full bg-amber-400 text-black text-[9px] font-bold flex items-center justify-center leading-none">
+                {alertsCount}
+              </span>
+            )}
+          </button>
+        )}
 
         {/* Live badge */}
         <div className="glass rounded-2xl flex items-center gap-2 px-2.5 sm:px-3.5 py-2.5">

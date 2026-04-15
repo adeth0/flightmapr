@@ -8,6 +8,27 @@ import { enrichFlight }              from '../services/flightEnrichmentService';
 import { notificationService }       from '../services/notificationService';
 import { GlassCard, StatChip, Divider } from '../ui/GlassCard';
 
+// ── Airline colour badge ──────────────────────────────────
+// Generates a consistent hue from the airline name so every
+// carrier gets a stable branded colour without an API key.
+function AirlineBadge({ name }) {
+  if (!name || name === 'Unknown') return null;
+  const initials = name.split(' ').slice(0, 2).map((w) => w[0]).join('').toUpperCase();
+  const hue = [...name].reduce((h, c) => (h * 31 + c.charCodeAt(0)) % 360, 0);
+  return (
+    <div
+      className="w-8 h-8 rounded-lg flex items-center justify-center text-[10px] font-bold flex-shrink-0"
+      style={{
+        background: `hsla(${hue},65%,30%,0.35)`,
+        border:     `1px solid hsla(${hue},65%,55%,0.45)`,
+        color:      `hsl(${hue},80%,75%)`,
+      }}
+    >
+      {initials}
+    </div>
+  );
+}
+
 // ── Sub-components ────────────────────────────────────────
 
 function RouteArrow({ origin, destination }) {
@@ -91,12 +112,37 @@ export function Sidebar({ flightId, isFollowing, onClose, onCenterMap, onToggleF
   const [enrichment,   setEnrichment]   = useState(null);
   const [enrichLoading, setEnrichLoading] = useState(false);
   const [isTracking,   setIsTracking]   = useState(() => notificationService.isTracking(flightId));
+  const [photo,        setPhoto]        = useState(null);
   const flightIdRef  = useRef(flightId);
   const panelRef     = useRef(null);
   const touchStartY  = useRef(0);
   const touchDeltaY  = useRef(0);
 
   useEffect(() => { flightIdRef.current = flightId; }, [flightId]);
+
+  // Keep isTracking in sync when the notification service removes a flight
+  // (e.g. it left the ADS-B feed) without the user clicking "Stop tracking".
+  useEffect(() => {
+    return notificationService.subscribeToChanges((list) => {
+      setIsTracking(list.some((t) => t.id === flightId));
+    });
+  }, [flightId]);
+
+  // Fetch aircraft photo from planespotters.net (free, no API key).
+  useEffect(() => {
+    if (!flightId) return;
+    let cancelled = false;
+    setPhoto(null);
+    fetch(`https://api.planespotters.net/pub/photos/hex/${flightId.toUpperCase()}`, {
+      headers: { Accept: 'application/json' },
+    })
+      .then((r) => (r.ok ? r.json() : null))
+      .then((data) => {
+        if (!cancelled) setPhoto(data?.photos?.[0]?.thumbnail?.src ?? null);
+      })
+      .catch(() => {});
+    return () => { cancelled = true; };
+  }, [flightId]);
 
   // ── Swipe-down-to-dismiss (mobile bottom sheet) ───────
   function handleTouchStart(e) {
@@ -151,7 +197,7 @@ export function Sidebar({ flightId, isFollowing, onClose, onCenterMap, onToggleF
   // ── Flight tracking (push notifications) ──────────────
   async function handleToggleTracking() {
     if (isTracking) {
-      notificationService.stopTracking();
+      notificationService.stopTracking(flightId);
       setIsTracking(false);
       return;
     }
@@ -188,26 +234,47 @@ export function Sidebar({ flightId, isFollowing, onClose, onCenterMap, onToggleF
 
       {/* ── Header ─────────────────────────────────────── */}
       <GlassCard className="p-4">
+        {/* Aircraft photo (lazy — doesn't block card render) */}
+        {photo && (
+          <div className="rounded-xl overflow-hidden mb-3 -mt-0.5" style={{ height: 110 }}>
+            <img
+              src={photo}
+              alt={flight.callsign}
+              className="w-full h-full object-cover"
+              style={{ objectPosition: 'center 60%' }}
+            />
+          </div>
+        )}
+
         <div className="flex items-start justify-between mb-3">
-          <div>
-            <div className="flex items-center gap-2 mb-0.5 flex-wrap">
-              <span className="text-lg font-bold text-[#00ffcc] tracking-tight">{flight.callsign}</span>
-              {isLive ? (
-                <span className="text-[10px] bg-red-500/20 text-red-400 rounded px-1.5 py-0.5 font-semibold uppercase tracking-wide flex items-center gap-1">
-                  <span className="w-1.5 h-1.5 rounded-full bg-red-400 blink-dot inline-block" />
-                  Live
-                </span>
-              ) : (
-                <span className="text-[10px] bg-[#00ffcc]/15 text-[#00ffcc] rounded px-1.5 py-0.5 font-semibold uppercase tracking-wide">
-                  En Route
-                </span>
+          <div className="flex items-start gap-2.5 flex-1 min-w-0">
+            {/* Airline colour badge */}
+            <AirlineBadge name={flight.airline} />
+
+            <div className="min-w-0">
+              <div className="flex items-center gap-2 mb-0.5 flex-wrap">
+                <span className="text-lg font-bold text-[#00ffcc] tracking-tight">{flight.callsign}</span>
+                {isLive ? (
+                  <span className="text-[10px] bg-red-500/20 text-red-400 rounded px-1.5 py-0.5 font-semibold uppercase tracking-wide flex items-center gap-1">
+                    <span className="w-1.5 h-1.5 rounded-full bg-red-400 blink-dot inline-block" />
+                    Live
+                  </span>
+                ) : (
+                  <span className="text-[10px] bg-[#00ffcc]/15 text-[#00ffcc] rounded px-1.5 py-0.5 font-semibold uppercase tracking-wide">
+                    En Route
+                  </span>
+                )}
+              </div>
+              <div className="text-xs text-white/45 truncate">{flight.airline}</div>
+              {flight.aircraft && flight.aircraft !== 'Unknown' && (
+                <div className="text-[10px] text-white/30 mt-0.5">{flight.aircraft}</div>
               )}
             </div>
-            <div className="text-xs text-white/45">{flight.airline}</div>
           </div>
+
           <button
             onClick={onClose}
-            className="w-8 h-8 rounded-lg bg-white/5 hover:bg-white/10 flex items-center justify-center transition-colors flex-shrink-0"
+            className="w-8 h-8 rounded-lg bg-white/5 hover:bg-white/10 flex items-center justify-center transition-colors flex-shrink-0 ml-2"
             aria-label="Close"
           >
             <X size={13} className="text-white/50" />

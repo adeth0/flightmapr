@@ -1,10 +1,12 @@
 import { useState, useCallback, useEffect } from 'react';
-import { MapView }    from './map/MapView';
-import { TopBar }     from './components/TopBar';
-import { Sidebar }    from './components/Sidebar';
-import { StatusBar }  from './components/StatusBar';
-import { flightService } from './services/flightService';
-import { getUserLocation } from './services/geoService';
+import { MapView }           from './map/MapView';
+import { TopBar }            from './components/TopBar';
+import { Sidebar }           from './components/Sidebar';
+import { StatusBar }         from './components/StatusBar';
+import { AlertsDashboard }   from './components/AlertsDashboard';
+import { flightService }     from './services/flightService';
+import { getUserLocation, getCachedLocation } from './services/geoService';
+import { notificationService } from './services/notificationService';
 
 export default function App() {
   const [selectedFlightId, setSelectedFlightId] = useState(null);
@@ -17,7 +19,10 @@ export default function App() {
   const [followFlightId,   setFollowFlightId]   = useState(null);
   const [flightCount,      setFlightCount]      = useState(flightService.flights.length);
   const [dataSource,       setDataSource]       = useState('loading');
-  const [geoLocation,      setGeoLocation]      = useState(null);
+  // getCachedLocation() is synchronous — returning users get instant geolocation
+  const [geoLocation,      setGeoLocation]      = useState(getCachedLocation);
+  const [alertsOpen,       setAlertsOpen]       = useState(false);
+  const [alertsCount,      setAlertsCount]      = useState(0);
 
   // Start simulation + OpenSky polling
   useEffect(() => {
@@ -28,6 +33,11 @@ export default function App() {
   // Request user location once on mount (non-blocking, no UI delay)
   useEffect(() => {
     getUserLocation().then((loc) => { if (loc) setGeoLocation(loc); });
+  }, []);
+
+  // Keep alertsCount badge in sync with tracked-flight list
+  useEffect(() => {
+    return notificationService.subscribeToChanges((list) => setAlertsCount(list.length));
   }, []);
 
   // Mirror live flight count and data-source label
@@ -62,6 +72,7 @@ export default function App() {
   const handleToggleAirports  = useCallback(() => setAirportsEnabled((v) => !v), []);
   const handleToggleHeatmap   = useCallback(() => setHeatmapEnabled((v) => !v),  []);
   const handleToggleRoutes    = useCallback(() => setRoutesEnabled((v) => !v),   []);
+  const handleToggleAlerts    = useCallback(() => setAlertsOpen((v) => !v),      []);
 
   return (
     <div style={{ width: '100vw', height: '100vh', position: 'relative', overflow: 'hidden' }}>
@@ -90,6 +101,8 @@ export default function App() {
         onToggleAirports={handleToggleAirports}
         onToggleHeatmap={handleToggleHeatmap}
         onToggleRoutes={handleToggleRoutes}
+        alertsCount={alertsCount}
+        onToggleAlerts={handleToggleAlerts}
         onFlightSelect={handleFlightSelect}
         onFlyTo={handleFlyTo}
         totalFlights={flightCount}
@@ -105,6 +118,10 @@ export default function App() {
           onCenterMap={handleFlyTo}
           onToggleFollow={handleToggleFollow}
         />
+      )}
+
+      {alertsOpen && (
+        <AlertsDashboard onClose={handleToggleAlerts} />
       )}
 
       <StatusBar flightCount={flightCount} dataSource={dataSource} />
