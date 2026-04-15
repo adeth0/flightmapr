@@ -89,7 +89,7 @@ export default function App() {
   const handleToggleAlerts   = useCallback(() => setAlertsOpen((v) => !v),      []);
 
   return (
-    <div style={{ width: '100vw', height: '100vh', position: 'relative', overflow: 'hidden' }}>
+    <div className={selectedFlightId ? 'flight-selected' : ''} style={{ width: '100vw', height: '100vh', position: 'relative', overflow: 'hidden' }}>
       {/* ── Map ──────────────────────────────────────────── */}
       <MapView
         selectedFlightId={selectedFlightId}

@@ -113,6 +113,8 @@ export function FlightLayer({ selectedFlightId, onFlightSelect }) {
   const onSelectRef      = useRef(onFlightSelect);
   const pendingPreviewRef = useRef(null); // { id, popup }
   const trackedIdsRef    = useRef(new Set()); // ids currently tracked for notifications
+  // Timestamp of last pane-level touch select (used to suppress duplicate click on Android)
+  const lastPaneTouchRef = useRef(0);
 
   useEffect(() => { selectedIdRef.current = selectedFlightId; }, [selectedFlightId]);
   useEffect(() => { onSelectRef.current   = onFlightSelect;   }, [onFlightSelect]);
@@ -250,38 +252,13 @@ export function FlightLayer({ selectedFlightId, onFlightSelect }) {
       if (e) marker.setTooltipContent(tooltipContent(e.flight));
     });
 
-    // ── Two-tap UX: preview → select ─────────────────────
-    // 1st tap → mini popup  |  2nd tap → full sidebar
-    // touchend fires on iOS before 'click', so we use it to avoid 300 ms delay.
-    let lastTouchMs = 0;
-
-    const handleActivate = () => {
-      const pending = pendingPreviewRef.current;
-      if (pending?.id === flight.id) {
-        dismissPreview();
-        onSelectRef.current(flight);
-      } else {
-        openMiniPopup(flight);
-      }
-    };
-
-    marker.on('touchend', (e) => {
-      L.DomEvent.stopPropagation(e);
-      L.DomEvent.preventDefault(e);
-      lastTouchMs = Date.now();
-      console.log('[FlightMapr] touch select:', flight.callsign);
-      onSelectRef.current(flight);
-    });
-
-    // ── Click handler (desktop + iOS Map.Tap fallback) ────────────
-    // On iOS, Leaflet's L.Map.Tap converts every tap to a synthetic
-    // 'click' on the marker element which then BUBBLES to the map
-    // container where map.on('click', dismissPreview) was collapsing
-    // any preview we had just opened.  We now guard against that in
-    // the map-level handler (see below), so this just does a direct
-    // select whenever a real desktop click arrives.
+    // ── Click handler (desktop mouse) ────────────────────────────
+    // Touch taps are handled at the pane level (see main useEffect)
+    // so this only needs to fire for genuine mouse clicks on desktop.
+    // The lastPaneTouchRef guard suppresses the synthetic click that
+    // Android/Leaflet fires ~300 ms after a touch tap.
     marker.on('click', () => {
-      if (Date.now() - lastTouchMs < 500) return; // suppress after touch (Android)
+      if (Date.now() - lastPaneTouchRef.current < 600) return;
       console.log('[FlightMapr] click select:', flight.callsign);
       onSelectRef.current(flight);
     });
@@ -339,11 +316,57 @@ export function FlightLayer({ selectedFlightId, onFlightSelect }) {
   useEffect(() => {
     map.on('zoomend', updateDensity);
 
+    // ── Pane-level touch delegation (iOS Safari fix) ───────────
+    // Leaflet does not route 'touchend' DOM events to marker layers
+    // on iOS, so marker.on('touchend', ...) never fires there.
+    // Map.Tap converts tap → synthetic 'click', but its timing is
+    // unreliable for our two-step preview UX.  Listening directly
+    // on the markerPane element gives us guaranteed, low-latency
+    // tap detection on every platform before Leaflet sees anything.
+    const markerPane = map.getPanes()?.markerPane;
+    let _ts = 0, _tx = 0, _ty = 0;
+
+    const onPaneTouchStart = (e) => {
+      if (!e.target.closest?.('.aircraft-marker')) return;
+      if (e.touches.length !== 1) return;
+      _ts = Date.now();
+      _tx = e.touches[0].clientX;
+      _ty = e.touches[0].clientY;
+      // Stop here so Map.Tap never starts its gesture, preventing a
+      // duplicate synthetic click 300 ms later.
+      e.stopPropagation();
+    };
+
+    const onPaneTouchEnd = (e) => {
+      const t = e.changedTouches?.[0];
+      if (!t) return;
+      const markerEl = e.target.closest?.('.aircraft-marker');
+      if (!markerEl) return;
+      const dt = Date.now() - _ts;
+      const dx = Math.abs(t.clientX - _tx);
+      const dy = Math.abs(t.clientY - _ty);
+      // Must be a quick, near-stationary tap (not a pan or long-press)
+      if (dt > 500 || dx > 20 || dy > 20) return;
+      e.stopPropagation();
+      e.preventDefault(); // suppress any subsequent synthetic click
+      // Find the flight whose marker element was tapped
+      let tappedFlight = null;
+      markersRef.current.forEach((entry) => {
+        if (entry.marker.getElement() === markerEl) tappedFlight = entry.flight;
+      });
+      if (tappedFlight) {
+        lastPaneTouchRef.current = Date.now();
+        console.log('[FlightMapr] pane tap:', tappedFlight.callsign);
+        onSelectRef.current(tappedFlight);
+      }
+    };
+
+    if (markerPane) {
+      markerPane.addEventListener('touchstart', onPaneTouchStart, { passive: false });
+      markerPane.addEventListener('touchend',   onPaneTouchEnd,   { passive: false });
+    }
+
     // ── Map background click → dismiss preview ─────────────────
-    // IMPORTANT: On iOS, L.Map.Tap fires a synthetic 'click' on
-    // the marker element which bubbles up here.  We must NOT call
-    // dismissPreview() for those — it would immediately undo the
-    // selection made in the marker click handler above.
     map.on('click', (e) => {
       if (e.originalEvent?.target?.closest?.('.aircraft-marker')) return;
       dismissPreview();
@@ -401,6 +424,10 @@ export function FlightLayer({ selectedFlightId, onFlightSelect }) {
       unsub();
       map.off('zoomend', updateDensity);
       map.off('click');
+      if (markerPane) {
+        markerPane.removeEventListener('touchstart', onPaneTouchStart);
+        markerPane.removeEventListener('touchend',   onPaneTouchEnd);
+      }
       markersRef.current.forEach(({ marker }) => marker.remove());
       markersRef.current.clear();
       if (trailRef.current) { trailRef.current.remove(); trailRef.current = null; }

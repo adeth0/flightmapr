@@ -51,8 +51,17 @@ html, body, #root {
   right: auto !important;
   transform: translateY(-50%);
   pointer-events: none;
+  transition: opacity 0.25s ease;
 }
 .leaflet-top.leaflet-left .leaflet-control { pointer-events: auto; }
+
+/* Hide zoom controls on mobile when flight sidebar is open */
+@media (max-width: 640px) {
+  .flight-selected .leaflet-top.leaflet-left {
+    opacity: 0 !important;
+    pointer-events: none !important;
+  }
+}
 
 .leaflet-control-zoom {
   border: 1px solid rgba(0,255,204,0.15) !important;
