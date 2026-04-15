@@ -121,10 +121,19 @@ export function MapView({
     return unsub;
   }, [followFlightId]);
 
+  // If we have a cached/resolved geolocation, mount the map there at street
+  // zoom so that BoundsSync sends a local bbox on its very first sync() call.
+  // Without this, the map mounts at zoom 3 over the mid-Atlantic and the
+  // first ADS-B fetch covers a 500 nm global radius.
+  const mountCenter = initialCenter
+    ? [initialCenter.lat, initialCenter.lng]
+    : MAP_DEFAULTS.center;
+  const mountZoom = initialCenter ? LOCATION_ZOOM : MAP_DEFAULTS.zoom;
+
   return (
     <MapContainer
-      center={MAP_DEFAULTS.center}
-      zoom={MAP_DEFAULTS.zoom}
+      center={mountCenter}
+      zoom={mountZoom}
       minZoom={MAP_DEFAULTS.minZoom}
       maxZoom={MAP_DEFAULTS.maxZoom}
       style={{ width: '100%', height: '100%' }}

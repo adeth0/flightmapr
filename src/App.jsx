@@ -6,6 +6,7 @@ import { StatusBar }         from './components/StatusBar';
 import { AlertsDashboard }   from './components/AlertsDashboard';
 import { flightService }     from './services/flightService';
 import { getUserLocation, getCachedLocation } from './services/geoService';
+import { openSkyService }    from './services/openSkyService';
 import { notificationService } from './services/notificationService';
 
 export default function App() {
@@ -19,8 +20,15 @@ export default function App() {
   const [followFlightId,   setFollowFlightId]   = useState(null);
   const [flightCount,      setFlightCount]      = useState(flightService.flights.length);
   const [dataSource,       setDataSource]       = useState('loading');
-  // getCachedLocation() is synchronous — returning users get instant geolocation
-  const [geoLocation,      setGeoLocation]      = useState(getCachedLocation);
+  // getCachedLocation() is synchronous — returning users get instant geolocation.
+  // We also pre-seed openSkyService with a 50 nm local bbox right here in the
+  // state initialiser (runs before BoundsSync mounts) so the very first ADS-B
+  // fetch targets the user's neighbourhood instead of a global viewport.
+  const [geoLocation,      setGeoLocation]      = useState(() => {
+    const loc = getCachedLocation();
+    if (loc) openSkyService.preFetchLocation(loc.lat, loc.lng, 50);
+    return loc;
+  });
   const [alertsOpen,       setAlertsOpen]       = useState(false);
   const [alertsCount,      setAlertsCount]      = useState(0);
 
@@ -30,9 +38,15 @@ export default function App() {
     return () => flightService.stop();
   }, []);
 
-  // Request user location once on mount (non-blocking, no UI delay)
+  // Request user location once on mount (non-blocking, no UI delay).
+  // For new users (no cache), also pre-fetch the local 50 nm area as soon
+  // as geolocation resolves — before the flyTo animation fires BoundsSync.
   useEffect(() => {
-    getUserLocation().then((loc) => { if (loc) setGeoLocation(loc); });
+    getUserLocation().then((loc) => {
+      if (!loc) return;
+      openSkyService.preFetchLocation(loc.lat, loc.lng, 50);
+      setGeoLocation(loc);
+    });
   }, []);
 
   // Keep alertsCount badge in sync with tracked-flight list

@@ -126,6 +126,27 @@ class OpenSkyService {
    * On first call, triggers an immediate fetch so the map populates
    * without waiting for the 15-second interval.
    */
+  /**
+   * Seed an immediate local-area fetch from a known lat/lng before the map
+   * viewport is available.  Called from App.jsx with the user's cached or
+   * freshly-resolved geolocation so the first ADS-B response covers their
+   * 50 nm neighbourhood rather than a global viewport.
+   * If bounds have already been set (BoundsSync fired first), this is a no-op.
+   */
+  preFetchLocation(lat, lng, radiusNm = 50) {
+    if (this._bbox) return;            // BoundsSync already set a bbox — don't override
+    const latDelta = radiusNm / 60;
+    const lonDelta = radiusNm / (60 * Math.cos(lat * Math.PI / 180));
+    this._bbox = {
+      lamin: lat - latDelta,
+      lomin: lng - lonDelta,
+      lamax: lat + latDelta,
+      lomax: lng + lonDelta,
+    };
+    this._lastFetch = 0;
+    this.fetchOnce().catch(() => {});
+  }
+
   setBounds(raw) {
     const latSpan = raw.lamax - raw.lamin;
     const lonSpan = raw.lomax - raw.lomin;

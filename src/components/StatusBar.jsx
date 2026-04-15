@@ -36,8 +36,20 @@ export function StatusBar({ flightCount, dataSource }) {
         <Stat label="UTC" value={time} className="hidden sm:flex" />
       </div>
 
-      <div className="glass rounded-xl px-3 sm:px-4 py-1.5 hidden sm:block">
-        <span className="text-[10px] text-white/25">
+      <div
+        className="glass rounded-xl px-3 sm:px-4 py-1.5 flex items-center gap-2 sm:gap-3"
+        style={{ pointerEvents: 'auto' }}
+      >
+        <a
+          href="https://donate.stripe.com/8x27sMaIf3Cm5O0gFEc7u00"
+          target="_blank"
+          rel="noopener noreferrer"
+          className="text-[10px] font-semibold text-[#00ffcc]/60 hover:text-[#00ffcc] transition-colors whitespace-nowrap"
+        >
+          Support FlightMapr ✈️
+        </a>
+        <span className="text-white/15 hidden sm:inline text-[10px]">·</span>
+        <span className="text-[10px] text-white/25 hidden sm:inline">
           © 2025 FlightMapr · Map © OpenStreetMap / CARTO
         </span>
       </div>

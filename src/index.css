@@ -214,16 +214,24 @@ html, body, #root {
 /* ── Mobile sidebar bottom sheet ────────────────────────── */
 @media (max-width: 640px) {
   .sidebar-panel {
-    position: fixed  !important;
-    right:    0      !important;
-    left:     0      !important;
-    bottom:   0      !important;
-    top:      auto   !important;
-    width:    100%   !important;
-    max-height: 60dvh;
+    position: fixed     !important;
+    right:    0         !important;
+    left:     0         !important;
+    bottom:   0         !important;
+    top:      auto      !important;
+    width:    100%      !important;
+    /* Use dvh (dynamic viewport height) when available so the panel respects
+       the iOS browser chrome. Fall back to vh for older Safari.          */
+    max-height: 78vh;
+    max-height: 78dvh;
     border-radius: 20px 20px 0 0;
     overflow-y: auto;
-    padding-bottom: env(safe-area-inset-bottom, 12px);
+    /* Momentum scrolling on iOS Safari */
+    -webkit-overflow-scrolling: touch;
+    overscroll-behavior: contain;
+    padding-bottom: env(safe-area-inset-bottom, 16px);
+    /* Isolate this stacking context so z-index works correctly */
+    isolation: isolate;
   }
 }
 

@@ -106,6 +106,52 @@ function VertRateChip({ fpm }) {
   );
 }
 
+// ── ETA helpers ───────────────────────────────────────────
+function haversineNm(lat1, lng1, lat2, lng2) {
+  const R  = 3440.065; // Earth radius in nautical miles
+  const φ1 = (lat1 * Math.PI) / 180;
+  const φ2 = (lat2 * Math.PI) / 180;
+  const Δφ = ((lat2 - lat1) * Math.PI) / 180;
+  const Δλ = ((lng2 - lng1) * Math.PI) / 180;
+  const a  = Math.sin(Δφ / 2) ** 2 + Math.cos(φ1) * Math.cos(φ2) * Math.sin(Δλ / 2) ** 2;
+  return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+}
+
+/**
+ * Estimate departure (UTC) and ETA using haversine distance + current ground speed.
+ * Returns null when data is insufficient.
+ */
+function calcFlightTimes(flight, enrichment) {
+  const origin = enrichment?.origin;
+  const dest   = enrichment?.destination;
+  if (!origin?.lat || !dest?.lat || origin.lat === 0 || dest.lat === 0) return null;
+  if (!flight.speed || flight.speed < 50) return null;
+
+  const remainNm = haversineNm(flight.lat, flight.lng, dest.lat, dest.lng);
+  const totalNm  = haversineNm(origin.lat, origin.lng, dest.lat, dest.lng);
+  if (totalNm < 1) return null;
+
+  const remainHours = remainNm / flight.speed;
+  const totalHours  = totalNm  / flight.speed;
+  const etaMs       = Date.now() + remainHours * 3_600_000;
+  const deptMs      = etaMs - totalHours * 3_600_000;
+
+  return { etaMs, deptMs, remainNm: Math.round(remainNm) };
+}
+
+function fmtUtc(ms) {
+  const d  = new Date(ms);
+  const hh = d.getUTCHours().toString().padStart(2, '0');
+  const mm = d.getUTCMinutes().toString().padStart(2, '0');
+  return `${hh}:${mm} UTC`;
+}
+
+// Detect iOS Safari running outside standalone (PWA) mode
+const isIosSafari =
+  /iPad|iPhone|iPod/.test(navigator.userAgent) &&
+  !window.navigator.standalone;
+const supportsNotifications = 'Notification' in window;
+
 // ── Sidebar ───────────────────────────────────────────────
 export function Sidebar({ flightId, isFollowing, onClose, onCenterMap, onToggleFollow }) {
   const [flight,       setFlight]       = useState(() => flightService.getFlight(flightId));
@@ -145,18 +191,22 @@ export function Sidebar({ flightId, isFollowing, onClose, onCenterMap, onToggleF
   }, [flightId]);
 
   // ── Swipe-down-to-dismiss (mobile bottom sheet) ───────
+  // Only activate when the panel is scrolled to the top — otherwise
+  // the gesture is a scroll and we let native scrolling handle it.
   function handleTouchStart(e) {
     touchStartY.current = e.touches[0].clientY;
     touchDeltaY.current = 0;
   }
   function handleTouchMove(e) {
+    const panel = panelRef.current;
+    if (!panel) return;
+    // If the user has scrolled down into the content, don't swipe-dismiss
+    if (panel.scrollTop > 5) return;
     const delta = e.touches[0].clientY - touchStartY.current;
     if (delta <= 0) return;
     touchDeltaY.current = delta;
-    if (panelRef.current) {
-      panelRef.current.style.transform  = `translateY(${Math.min(delta * 0.65, 180)}px)`;
-      panelRef.current.style.transition = 'none';
-    }
+    panel.style.transform  = `translateY(${Math.min(delta * 0.65, 180)}px)`;
+    panel.style.transition = 'none';
   }
   function handleTouchEnd() {
     if (touchDeltaY.current > 80) {
@@ -212,6 +262,7 @@ export function Sidebar({ flightId, isFollowing, onClose, onCenterMap, onToggleF
   const isLive        = !!flight.isLive;
   const eta           = formatETA(flight);
   const distRemaining = Math.round(flight.routeDistance * (1 - flight.progress));
+  const flightTimes   = enrichment ? calcFlightTimes(flight, enrichment) : null;
 
   // Route display: use real enrichment when available, fallback to live-tracking row
   const hasRoute = enrichment?.origin && enrichment?.destination;
@@ -319,13 +370,38 @@ export function Sidebar({ flightId, isFollowing, onClose, onCenterMap, onToggleF
       </GlassCard>
 
       {/* ── Info + actions ─────────────────────────────── */}
-      <GlassCard className="p-4 flex-1 overflow-y-auto">
+      {/* On mobile the panel itself scrolls (overflow-y:auto in CSS).       */}
+      {/* flex-1/overflow-y-auto only apply on desktop (sm:) where the panel */}
+      {/* is a fixed-height column.                                           */}
+      <GlassCard className="p-4 sm:flex-1 sm:overflow-y-auto">
         <div className="text-[10px] uppercase tracking-widest text-white/30 mb-3">Flight Info</div>
         <div className="space-y-3">
           {flight.aircraft !== 'Unknown' && (
             <InfoRow icon={<Plane size={13} />}  label="Aircraft"  value={flight.aircraft} />
           )}
-          <InfoRow icon={<Clock size={13} />}    label="Departure" value="See route above" highlight />
+          {/* ETA / departure — shown when we have enrichment + speed */}
+          {flightTimes ? (
+            <>
+              <InfoRow
+                icon={<Clock size={13} />}
+                label="Est. Departure"
+                value={fmtUtc(flightTimes.deptMs)}
+              />
+              <InfoRow
+                icon={<Clock size={13} />}
+                label="ETA"
+                value={fmtUtc(flightTimes.etaMs)}
+                highlight
+              />
+              <InfoRow
+                icon={<Navigation2 size={13} />}
+                label="Remaining"
+                value={`${flightTimes.remainNm.toLocaleString()} nm`}
+              />
+            </>
+          ) : isLive && !enrichLoading && hasRoute && (
+            <InfoRow icon={<Clock size={13} />} label="ETA" value="Calculating…" />
+          )}
           <InfoRow
             icon={<MapPin size={13} />}
             label="Position"
@@ -404,7 +480,7 @@ export function Sidebar({ flightId, isFollowing, onClose, onCenterMap, onToggleF
             {isFollowing ? '⊙ Following' : '◎ Follow Flight'}
           </button>
 
-          {'Notification' in window && (
+          {supportsNotifications && (
             <button
               onClick={handleToggleTracking}
               className={`w-full py-2.5 rounded-xl text-xs font-semibold transition-all flex items-center justify-center gap-2 ${
@@ -416,6 +492,24 @@ export function Sidebar({ flightId, isFollowing, onClose, onCenterMap, onToggleF
               <Bell size={12} />
               {isTracking ? 'Tracking Flight' : 'Track Flight'}
             </button>
+          )}
+
+          {/* iOS Safari: Notification API is only available as a PWA.
+              Show install instructions so the user knows how to enable alerts. */}
+          {isIosSafari && !supportsNotifications && (
+            <div className="rounded-xl border border-amber-400/20 bg-amber-400/5 p-3">
+              <div className="flex items-start gap-2">
+                <Bell size={12} className="text-amber-400/60 mt-0.5 flex-shrink-0" />
+                <div>
+                  <p className="text-[10px] font-semibold text-amber-400/80 mb-1">
+                    Enable Flight Alerts
+                  </p>
+                  <p className="text-[10px] text-white/40 leading-relaxed">
+                    Tap <span className="text-white/60">Share ↑</span> → <span className="text-white/60">Add to Home Screen</span>, then open FlightMapr from your home screen to receive departure &amp; arrival notifications.
+                  </p>
+                </div>
+              </div>
+            </div>
           )}
         </div>
       </GlassCard>
