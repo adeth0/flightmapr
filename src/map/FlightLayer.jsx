@@ -1,4 +1,4 @@
-import { useEffect, useRef } from 'react';
+import { useEffect, useRef, useCallback } from 'react';
 import { useMap } from 'react-leaflet';
 import L from 'leaflet';
 import { flightService } from '../services/flightService';
@@ -7,11 +7,6 @@ import { flightService } from '../services/flightService';
 const PLANE_PATH =
   'M12,1 L14,8 L22,10 L21,13 L14,11 L14,20 L18,22 L12,21 L6,22 L10,20 L10,11 L3,13 L2,10 L10,8 Z';
 
-/**
- * Creates the Leaflet DivIcon for an aircraft marker.
- * The inner div carries data-plane-rot so the 60fps update loop
- * can rotate it via direct style mutation instead of recreating the icon.
- */
 function createIcon(heading, selected = false, hovered = false) {
   const color = selected ? '#ffffff' : '#00ffcc';
   const glow  = selected
@@ -37,16 +32,6 @@ function createIcon(heading, selected = false, hovered = false) {
 }
 
 // ── Route / trail polylines ───────────────────────────────
-function createRoutePolyline(flight, map) {
-  const pts = flight.routePoints.map((p) => [p.lat, p.lng]);
-  return L.polyline(pts, {
-    color:       'rgba(0,255,204,0.18)',
-    weight:      1.5,
-    dashArray:   '5,7',
-    interactive: false,
-  }).addTo(map);
-}
-
 function createTrailPolyline(flight, map) {
   const pts = flight.trail.map((p) => [p.lat, p.lng]);
   return L.polyline(pts, {
@@ -57,7 +42,6 @@ function createTrailPolyline(flight, map) {
   }).addTo(map);
 }
 
-// ── All-flight trail (subtle, shown for every aircraft) ───
 function createDimTrail(map) {
   return L.polyline([], {
     color:       'rgba(0,255,204,0.18)',
@@ -78,133 +62,135 @@ function tooltipContent(f) {
         <span style="color:#00ffcc;">→</span>
         <span style="font-weight:600">${f.destination.code}</span>
       </div>
-      <div style="margin-top:4px;color:rgba(255,255,255,0.5);font-size:11px;">${f.aircraft}</div>
     </div>`;
 }
 
 // ── FlightLayer component ─────────────────────────────────
 export function FlightLayer({ selectedFlightId, onFlightSelect }) {
-  const map             = useMap();
-  const markersRef      = useRef(new Map());
-  const dimTrailsRef    = useRef(new Map());   // subtle trail for every flight
-  const routeRef        = useRef(null);
-  const trailRef        = useRef(null);
-  const selectedIdRef   = useRef(selectedFlightId);
-  const onSelectRef     = useRef(onFlightSelect);
+  const map           = useMap();
+  const markersRef    = useRef(new Map());
+  const dimTrailsRef  = useRef(new Map());
+  const trailRef      = useRef(null);
+  const selectedIdRef = useRef(selectedFlightId);
+  const onSelectRef   = useRef(onFlightSelect);
 
-  // Keep refs in sync without re-creating the subscription
   useEffect(() => { selectedIdRef.current = selectedFlightId; }, [selectedFlightId]);
   useEffect(() => { onSelectRef.current   = onFlightSelect;   }, [onFlightSelect]);
 
-  // Update dedicated route & trail lines when selection changes
+  // Update dedicated trail line when selection changes
   useEffect(() => {
-    if (routeRef.current) { routeRef.current.remove(); routeRef.current = null; }
     if (trailRef.current) { trailRef.current.remove(); trailRef.current = null; }
-
     if (!selectedFlightId) return;
     const flight = flightService.getFlight(selectedFlightId);
     if (!flight) return;
-
-    if (flight.routePoints.length > 0) {
-      routeRef.current = createRoutePolyline(flight, map);
-    }
     trailRef.current = createTrailPolyline(flight, map);
   }, [selectedFlightId, map]);
 
-  // Main effect: create markers once, subscribe to position updates
-  useEffect(() => {
+  // ── Helper: add a single marker + dim-trail to the map ──
+  const addMarker = useCallback((flight) => {
     const markers   = markersRef.current;
     const dimTrails = dimTrailsRef.current;
+    if (markers.has(flight.id)) return;   // already tracked
 
-    // ── Create one marker + dim-trail per flight ─────────
-    flightService.flights.forEach((flight) => {
-      const isSelected = selectedIdRef.current === flight.id;
-      const marker = L.marker([flight.lat, flight.lng], {
-        icon:        createIcon(flight.heading, isSelected),
-        zIndexOffset: isSelected ? 1000 : 0,
-      }).addTo(map);
+    const isSelected = selectedIdRef.current === flight.id;
+    const marker = L.marker([flight.lat, flight.lng], {
+      icon:        createIcon(flight.heading, isSelected),
+      zIndexOffset: isSelected ? 1000 : 0,
+    }).addTo(map);
 
-      // Tooltip — updated lazily on tooltipopen to avoid per-tick rebuilds
-      marker.bindTooltip(tooltipContent(flight), {
-        permanent:  false,
-        direction:  'top',
-        offset:     [0, -4],
-        opacity:    1,
-        className:  '',
-      });
-      marker.on('tooltipopen', () => {
-        const e = markers.get(flight.id);
-        if (e) marker.setTooltipContent(tooltipContent(e.flight));
-      });
-
-      // Click to select
-      marker.on('click', () => onSelectRef.current(flight));
-
-      // Hover — infrequent, safe to rebuild icon
-      marker.on('mouseover', () => {
-        const e = markers.get(flight.id);
-        if (e && selectedIdRef.current !== flight.id) {
-          e.rotEl = null;
-          marker.setIcon(createIcon(e.flight.heading, false, true));
-        }
-      });
-      marker.on('mouseout', () => {
-        const e = markers.get(flight.id);
-        if (e && selectedIdRef.current !== flight.id) {
-          e.rotEl = null;
-          marker.setIcon(createIcon(e.flight.heading, false, false));
-        }
-      });
-
-      // entry.rotEl is acquired lazily — points to the [data-plane-rot] div
-      markers.set(flight.id, { marker, flight, rotEl: null, lastSel: isSelected });
-
-      // Dim trail for every aircraft
-      const dimTrail = createDimTrail(map);
-      if (flight.trail.length >= 2) {
-        dimTrail.setLatLngs(flight.trail.map((p) => [p.lat, p.lng]));
+    marker.bindTooltip(tooltipContent(flight), {
+      permanent: false, direction: 'top', offset: [0, -4], opacity: 1, className: '',
+    });
+    marker.on('tooltipopen', () => {
+      const e = markers.get(flight.id);
+      if (e) marker.setTooltipContent(tooltipContent(e.flight));
+    });
+    marker.on('click', () => onSelectRef.current(flight));
+    marker.on('mouseover', () => {
+      const e = markers.get(flight.id);
+      if (e && selectedIdRef.current !== flight.id) {
+        e.rotEl = null;
+        marker.setIcon(createIcon(e.flight.heading, false, true));
       }
-      dimTrails.set(flight.id, dimTrail);
+    });
+    marker.on('mouseout', () => {
+      const e = markers.get(flight.id);
+      if (e && selectedIdRef.current !== flight.id) {
+        e.rotEl = null;
+        marker.setIcon(createIcon(e.flight.heading, false, false));
+      }
     });
 
-    // ── Zoom-based marker density ─────────────────────────
-    // At very low zoom levels hundreds of markers overlap uselessly.
-    // Hide a fraction of them on zoomend; always keep selected visible.
-    function updateDensity() {
-      const zoom = map.getZoom();
-      let idx = 0;
-      markers.forEach((entry, id) => {
-        idx++;
-        if (id === selectedIdRef.current) { entry.marker.setOpacity(1); return; }
-        let visible = true;
-        if      (zoom < 3) visible = idx % 4 === 0;   // show ~25 %
-        else if (zoom < 5) visible = idx % 2 === 0;   // show ~50 %
-        const opacity = visible ? 1 : 0;
-        entry.marker.setOpacity(opacity);
-        const dt = dimTrails.get(id);
-        if (dt) dt.setStyle({ opacity: visible ? 1 : 0 });
-      });
+    markers.set(flight.id, { marker, flight, rotEl: null, lastSel: isSelected });
+
+    const dimTrail = createDimTrail(map);
+    if (flight.trail.length >= 2) {
+      dimTrail.setLatLngs(flight.trail.map((p) => [p.lat, p.lng]));
     }
+    dimTrails.set(flight.id, dimTrail);
+  }, [map]);
+
+  // ── Helper: remove a single marker + trail ───────────────
+  const removeMarker = useCallback((id) => {
+    const markers   = markersRef.current;
+    const dimTrails = dimTrailsRef.current;
+    const entry = markers.get(id);
+    if (entry) { entry.marker.remove(); markers.delete(id); }
+    const dt = dimTrails.get(id);
+    if (dt) { dt.remove(); dimTrails.delete(id); }
+  }, []);
+
+  // ── Zoom-based density culling ────────────────────────────
+  const updateDensity = useCallback(() => {
+    const markers = markersRef.current;
+    const zoom = map.getZoom();
+    let idx = 0;
+    markers.forEach((entry, id) => {
+      idx++;
+      if (id === selectedIdRef.current) { entry.marker.setOpacity(1); return; }
+      let visible = true;
+      if      (zoom < 3) visible = idx % 4 === 0;
+      else if (zoom < 5) visible = idx % 2 === 0;
+      entry.marker.setOpacity(visible ? 1 : 0);
+      const dt = dimTrailsRef.current.get(id);
+      if (dt) dt.setStyle({ opacity: visible ? 1 : 0 });
+    });
+  }, [map]);
+
+  // ── Main effect: subscribe to live updates ─────────────
+  useEffect(() => {
     map.on('zoomend', updateDensity);
 
-    // ── Subscribe to simulation ticks (60 fps) ───────────
     const unsub = flightService.subscribe((flights) => {
-      const selId = selectedIdRef.current;
+      const markers   = markersRef.current;
+      const dimTrails = dimTrailsRef.current;
+      const selId     = selectedIdRef.current;
 
+      // 1. Remove markers for aircraft no longer in the feed
+      const incomingIds = new Set(flights.map((f) => f.id));
+      markers.forEach((_, id) => {
+        if (!incomingIds.has(id)) removeMarker(id);
+      });
+
+      // 2. Update or create a marker for every current aircraft
       flights.forEach((flight) => {
+        // Create marker if this aircraft wasn't tracked yet
+        if (!markers.has(flight.id)) {
+          addMarker(flight);
+        }
+
         const entry = markers.get(flight.id);
         if (!entry) return;
 
         const { marker } = entry;
         entry.flight = flight;
 
-        // Position update (Leaflet handles this efficiently via CSS transform)
+        // Position update
         marker.setLatLng([flight.lat, flight.lng]);
 
         const isSel = selId === flight.id;
 
-        // ── Fast path: direct DOM rotation ───────────────
-        // Acquire [data-plane-rot] element lazily; null it out after any setIcon.
+        // Fast path: direct DOM rotation (avoids icon rebuild every frame)
         if (!entry.rotEl) {
           const el = marker.getElement();
           if (el) entry.rotEl = el.querySelector('[data-plane-rot]');
@@ -213,30 +199,27 @@ export function FlightLayer({ selectedFlightId, onFlightSelect }) {
           entry.rotEl.style.transform = `rotate(${flight.heading}deg)`;
         }
 
-        // ── Slow path: icon rebuild only on selection change ──
+        // Slow path: icon rebuild only on selection change
         if (isSel !== entry.lastSel) {
           entry.lastSel = isSel;
-          entry.rotEl   = null;   // will be re-acquired next tick
+          entry.rotEl   = null;
           marker.setIcon(createIcon(flight.heading, isSel));
           marker.setZIndexOffset(isSel ? 1000 : 0);
         }
 
-        // ── Selected flight: update high-visibility trail ─
+        // Selected flight: update high-visibility trail
         if (isSel && trailRef.current) {
           trailRef.current.setLatLngs(flight.trail.map((p) => [p.lat, p.lng]));
         }
 
-        // ── All-flight dim trails ─────────────────────────
+        // Dim trail for every aircraft
         const dimTrail = dimTrails.get(flight.id);
-        if (dimTrail) {
-          if (flight.trail.length >= 2) {
-            // Hide for selected flight — its dedicated trail is more prominent
-            if (isSel) {
-              dimTrail.setStyle({ opacity: 0 });
-            } else {
-              dimTrail.setLatLngs(flight.trail.map((p) => [p.lat, p.lng]));
-              dimTrail.setStyle({ opacity: 1 });
-            }
+        if (dimTrail && flight.trail.length >= 2) {
+          if (isSel) {
+            dimTrail.setStyle({ opacity: 0 });
+          } else {
+            dimTrail.setLatLngs(flight.trail.map((p) => [p.lat, p.lng]));
+            dimTrail.setStyle({ opacity: 1 });
           }
         }
       });
@@ -245,14 +228,13 @@ export function FlightLayer({ selectedFlightId, onFlightSelect }) {
     return () => {
       unsub();
       map.off('zoomend', updateDensity);
-      markers.forEach(({ marker }) => marker.remove());
-      markers.clear();
-      dimTrails.forEach((t) => t.remove());
-      dimTrails.clear();
-      if (routeRef.current) { routeRef.current.remove(); routeRef.current = null; }
+      markersRef.current.forEach(({ marker }) => marker.remove());
+      markersRef.current.clear();
+      dimTrailsRef.current.forEach((t) => t.remove());
+      dimTrailsRef.current.clear();
       if (trailRef.current) { trailRef.current.remove(); trailRef.current = null; }
     };
-  }, [map]); // run once after mount
+  }, [map, addMarker, removeMarker, updateDensity]);
 
   return null;
 }

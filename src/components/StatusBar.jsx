@@ -12,8 +12,11 @@ export function StatusBar({ flightCount, dataSource }) {
     return () => clearInterval(id);
   }, []);
 
-  const isLive  = dataSource === 'live';
-  const srcLabel = isLive ? 'OpenSky Live' : 'Simulation';
+  const isLive       = dataSource === 'live';
+  const isLoading    = dataSource === 'loading';
+  const isUnavail    = dataSource === 'unavailable';
+  const srcLabel     = isLive ? 'OpenSky Live' : isLoading ? 'Connecting…' : 'Unavailable';
+  const srcColor     = isLive ? 'text-emerald-400' : isUnavail ? 'text-red-400' : 'text-white/40';
 
   return (
     <div
@@ -25,7 +28,7 @@ export function StatusBar({ flightCount, dataSource }) {
         <div className="w-px h-3 bg-white/10" />
         <div className="flex items-center gap-1.5">
           <span className="text-[9px] uppercase tracking-widest text-white/25">Source</span>
-          <span className={`text-[10px] font-semibold ${isLive ? 'text-red-400' : 'text-white/60'}`}>
+          <span className={`text-[10px] font-semibold ${srcColor}`}>
             {srcLabel}
           </span>
         </div>

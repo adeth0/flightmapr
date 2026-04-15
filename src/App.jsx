@@ -14,7 +14,7 @@ export default function App() {
   const [flyToFlightId,    setFlyToFlightId]    = useState(null);
   const [followFlightId,   setFollowFlightId]   = useState(null);
   const [flightCount,      setFlightCount]      = useState(flightService.flights.length);
-  const [dataSource,       setDataSource]       = useState('sim');
+  const [dataSource,       setDataSource]       = useState('loading');
   const [geoLocation,      setGeoLocation]      = useState(null);
 
   // Start simulation + OpenSky polling
@@ -98,6 +98,29 @@ export default function App() {
       )}
 
       <StatusBar flightCount={flightCount} dataSource={dataSource} />
+
+      {/* "Live data unavailable" overlay — only shown after API failure */}
+      {dataSource === 'unavailable' && (
+        <div
+          style={{
+            position: 'absolute',
+            top: '50%',
+            left: '50%',
+            transform: 'translate(-50%, -50%)',
+            zIndex: 1200,
+            pointerEvents: 'none',
+          }}
+        >
+          <div
+            className="glass rounded-2xl px-6 py-4 flex flex-col items-center gap-2 text-center"
+            style={{ border: '1px solid rgba(239,68,68,0.3)' }}
+          >
+            <span style={{ fontSize: 28 }}>⚠</span>
+            <p className="text-sm font-semibold text-red-400">Live data unavailable</p>
+            <p className="text-xs text-white/40">OpenSky Network could not be reached.<br />Retrying automatically…</p>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
