@@ -15,6 +15,44 @@ const MIN_ALT_FT    = 1_000;   // filter ground vehicles / taxiing aircraft
 const MAX_RADIUS_NM = 500;     // cap so we never request the whole globe
 const MAX_BACKOFF   = 120_000;
 
+// ── localStorage caching ──────────────────────────────────
+// Persist the last successful ADS-B response so returning
+// users see planes instantly while a fresh fetch runs in the
+// background.  Cache is keyed by a rounded bbox so that a
+// visit from a different location doesn't serve stale data.
+const LS_KEY     = 'flightmapr_osky_v2';
+const LS_MAX_AGE = 5 * 60 * 1_000; // 5 minutes — beyond this the cache is stale
+
+function lsWrite(data, bbox) {
+  try {
+    localStorage.setItem(LS_KEY, JSON.stringify({
+      ts:   Date.now(),
+      bbox: bbox ? [
+        +bbox.lamin.toFixed(2), +bbox.lomin.toFixed(2),
+        +bbox.lamax.toFixed(2), +bbox.lomax.toFixed(2),
+      ] : null,
+      data,
+    }));
+  } catch { /* localStorage may be full or unavailable */ }
+}
+
+function lsRead(bbox) {
+  try {
+    const raw = localStorage.getItem(LS_KEY);
+    if (!raw) return null;
+    const { ts, bbox: savedBbox, data } = JSON.parse(raw);
+    if (!data || Date.now() - ts > LS_MAX_AGE) return null;
+    // Rough bbox match — centre within ≈50 nm
+    if (bbox && savedBbox) {
+      const [la1, lo1, la2, lo2] = savedBbox;
+      const cLat = (la1 + la2) / 2, cLon = (lo1 + lo2) / 2;
+      const bLat = (bbox.lamin + bbox.lamax) / 2, bLon = (bbox.lomin + bbox.lomax) / 2;
+      if (Math.abs(cLat - bLat) > 2 || Math.abs(cLon - bLon) > 2) return null;
+    }
+    return data;
+  } catch { return null; }
+}
+
 // ── ICAO 3-letter operator prefix → airline name ──────────
 const ICAO_AIRLINES = {
   AAL: 'American Airlines',  AAR: 'Asiana Airlines',
@@ -112,7 +150,8 @@ function parseState(ac) {
 // (name kept for compatibility — now backed by airplanes.live)
 class OpenSkyService {
   constructor() {
-    this._cache     = null;
+    // Pre-load last-session cache so the first render has data immediately
+    this._cache     = lsRead(null);
     this._lastFetch = 0;
     this._inflight  = null;
     this.available  = null;     // null=unknown, true=ok, false=failed
@@ -220,6 +259,8 @@ class OpenSkyService {
       this._cache     = flights;
       this._failCount = 0;
       this.available  = true;
+      // Persist to localStorage so next page load is instant
+      lsWrite(flights, this._bbox);
       console.info(`[AirplanesLive] ${flights.length} aircraft (r=${radiusNm} nm)`);
       return flights;
     } catch (err) {

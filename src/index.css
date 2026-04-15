@@ -2,46 +2,57 @@
 @tailwind components;
 @tailwind utilities;
 
+/* ════════════════════════════════════════════════════════════
+   DESIGN TOKENS
+   ════════════════════════════════════════════════════════════ */
 :root {
-  --emerald: #00ffcc;
-  --emerald-dim: #10b981;
-  --bg: #0b0f17;
-  --card: #111827;
-  --border: rgba(0, 255, 204, 0.12);
+  --emerald:       #00ffcc;
+  --emerald-dim:   #10b981;
+  --bg:            #0b0f17;
+  --card:          #111827;
+  --border:        rgba(0, 255, 204, 0.12);
+
+  /* Animation easing — natural, iOS-grade curves */
+  --ease-spring:   cubic-bezier(0.34, 1.56, 0.64, 1);
+  --ease-smooth:   cubic-bezier(0.25, 0.46, 0.45, 0.94);
+  --ease-in-out:   cubic-bezier(0.4, 0, 0.2, 1);
 }
 
+/* ════════════════════════════════════════════════════════════
+   BASE
+   ════════════════════════════════════════════════════════════ */
 * { box-sizing: border-box; margin: 0; padding: 0; }
 
 html, body, #root {
-  width: 100%;
-  height: 100%;
+  width: 100%; height: 100%;
   overflow: hidden;
   font-family: 'Inter', system-ui, sans-serif;
   background: var(--bg);
   color: #fff;
+  /* Prevent rubber-band on iOS when touching the map */
+  overscroll-behavior: none;
+  -webkit-overflow-scrolling: touch;
 }
 
-/* ── Leaflet overrides ────────────────────────────────── */
+/* ════════════════════════════════════════════════════════════
+   LEAFLET OVERRIDES
+   ════════════════════════════════════════════════════════════ */
+/* Voyager tiles are coloured — use a matching land-fill colour */
 .leaflet-container {
-  background: #0b0f17 !important;
+  background: #e5e0d8 !important;
   font-family: 'Inter', system-ui, sans-serif;
+  touch-action: pan-x pan-y;
 }
 
-/* ── Zoom control: left side, vertically centered ───────── */
-/* Override Leaflet's default top-left placement so the      */
-/* controls sit clear of the top logo / search bar.         */
+/* Zoom control: vertically centred on the left edge */
 .leaflet-top.leaflet-left {
   top: 50% !important;
   left: 12px !important;
   right: auto !important;
   transform: translateY(-50%);
-  /* Prevent the container itself from intercepting map touches */
   pointer-events: none;
 }
-
-.leaflet-top.leaflet-left .leaflet-control {
-  pointer-events: auto;
-}
+.leaflet-top.leaflet-left .leaflet-control { pointer-events: auto; }
 
 .leaflet-control-zoom {
   border: 1px solid rgba(0,255,204,0.15) !important;
@@ -49,107 +60,38 @@ html, body, #root {
   overflow: hidden;
   box-shadow: 0 4px 24px rgba(0,0,0,0.4) !important;
 }
-
 .leaflet-control-zoom a {
   background: rgba(17,24,39,0.88) !important;
   color: #00ffcc !important;
   border-bottom: 1px solid rgba(0,255,204,0.1) !important;
-  width: 36px !important;
-  height: 36px !important;
-  line-height: 36px !important;
+  width: 36px !important; height: 36px !important; line-height: 36px !important;
   font-size: 18px !important;
-  backdrop-filter: blur(12px);
-  -webkit-backdrop-filter: blur(12px);
-  transition: background 0.15s, color 0.15s;
-  display: flex !important;
-  align-items: center !important;
-  justify-content: center !important;
+  backdrop-filter: blur(12px); -webkit-backdrop-filter: blur(12px);
+  transition: background 0.18s var(--ease-in-out), color 0.18s var(--ease-in-out);
+  display: flex !important; align-items: center !important; justify-content: center !important;
 }
-
 .leaflet-control-zoom a:hover {
   background: rgba(0,255,204,0.15) !important;
   color: #fff !important;
 }
 
-/* Mobile: 44 px minimum touch target */
 @media (pointer: coarse) {
   .leaflet-control-zoom a {
-    width: 44px !important;
-    height: 44px !important;
-    line-height: 44px !important;
-    font-size: 20px !important;
+    width: 44px !important; height: 44px !important;
+    line-height: 44px !important; font-size: 20px !important;
   }
 }
 
 .leaflet-control-attribution {
   background: rgba(11,15,23,0.6) !important;
   color: rgba(255,255,255,0.25) !important;
-  font-size: 9px !important;
-  padding: 2px 6px !important;
+  font-size: 9px !important; padding: 2px 6px !important;
   border-radius: 6px 0 0 0 !important;
   backdrop-filter: blur(8px);
 }
-
 .leaflet-control-attribution a { color: rgba(0,255,204,0.4) !important; }
 
-/* ── Aircraft marker ──────────────────────────────────── */
-.aircraft-marker {
-  background: none !important;
-  border: none !important;
-  cursor: pointer !important;
-  /* Ensure touch events reach the marker on iOS Safari.
-     'manipulation' removes 300 ms click delay without blocking map pan. */
-  touch-action: manipulation !important;
-  /* Prevent iOS long-press callout from interrupting taps */
-  -webkit-touch-callout: none;
-}
-
-/* ── Glassmorphism utility ────────────────────────────── */
-.glass {
-  background: rgba(17, 24, 39, 0.78);
-  backdrop-filter: blur(18px) saturate(160%);
-  -webkit-backdrop-filter: blur(18px) saturate(160%);
-  border: 1px solid rgba(0, 255, 204, 0.12);
-}
-
-.glass-lighter {
-  background: rgba(22, 29, 46, 0.7);
-  backdrop-filter: blur(14px);
-  -webkit-backdrop-filter: blur(14px);
-  border: 1px solid rgba(0, 255, 204, 0.08);
-}
-
-/* ── Scrollbar ────────────────────────────────────────── */
-::-webkit-scrollbar { width: 3px; }
-::-webkit-scrollbar-track { background: transparent; }
-::-webkit-scrollbar-thumb {
-  background: rgba(0,255,204,0.3);
-  border-radius: 2px;
-}
-
-/* ── Animations ───────────────────────────────────────── */
-@keyframes ping-ring {
-  0% { transform: scale(1); opacity: 0.8; }
-  100% { transform: scale(2.2); opacity: 0; }
-}
-
-.ping-ring {
-  animation: ping-ring 1.8s ease-out infinite;
-}
-
-@keyframes blink-dot {
-  0%, 100% { opacity: 1; }
-  50% { opacity: 0.3; }
-}
-.blink-dot { animation: blink-dot 1.4s ease-in-out infinite; }
-
-/* Progress bar fill animation */
-@keyframes fill-bar {
-  from { width: 0; }
-}
-.fill-bar { animation: fill-bar 0.6s ease-out; }
-
-/* Leaflet popup cleanup */
+/* ── Leaflet popups ──────────────────────────────────────── */
 .leaflet-popup-content-wrapper,
 .leaflet-popup-tip {
   background: rgba(17,24,39,0.92) !important;
@@ -159,22 +101,225 @@ html, body, #root {
   box-shadow: 0 8px 32px rgba(0,0,0,0.5) !important;
   border-radius: 10px !important;
 }
-
-.leaflet-popup-tip {
-  border-radius: 0 !important;
-}
-
+.leaflet-popup-tip { border-radius: 0 !important; }
 .leaflet-popup-content { margin: 12px 14px !important; }
 
-/* ══════════════════════════════════════════════════════════
-   MOBILE / iOS OPTIMISATIONS
-   ══════════════════════════════════════════════════════════ */
+/* ── Mini preview popup (first-tap card) ─────────────────── */
+.flight-mini-popup .leaflet-popup-content-wrapper {
+  background: rgba(13, 17, 30, 0.97) !important;
+  backdrop-filter: blur(24px) saturate(160%) !important;
+  -webkit-backdrop-filter: blur(24px) saturate(160%) !important;
+  border: 1px solid rgba(0,255,204,0.22) !important;
+  border-radius: 16px !important;
+  box-shadow: 0 12px 40px rgba(0,0,0,0.65), 0 0 0 1px rgba(0,255,204,0.07) !important;
+  padding: 0 !important;
+  animation: popup-appear 0.18s var(--ease-spring);
+}
+@keyframes popup-appear {
+  from { opacity: 0; transform: scale(0.94) translateY(4px); }
+  to   { opacity: 1; transform: scale(1)    translateY(0); }
+}
+.flight-mini-popup .leaflet-popup-content { margin: 12px 14px !important; }
+.flight-mini-popup .leaflet-popup-tip-container { display: none !important; }
+.flight-mini-popup .leaflet-popup-close-button {
+  color: rgba(255,255,255,0.4) !important;
+  font-size: 18px !important; top: 6px !important; right: 8px !important; padding: 4px !important;
+}
+.flight-mini-popup .leaflet-popup-close-button:hover { color: rgba(255,255,255,0.8) !important; background: none !important; }
 
-/* Safe-area insets (notch, home indicator, Dynamic Island) */
+/* ════════════════════════════════════════════════════════════
+   AIRCRAFT MARKERS
+   ════════════════════════════════════════════════════════════ */
+.aircraft-marker {
+  background: none !important; border: none !important;
+  cursor: pointer !important;
+  touch-action: manipulation !important;
+  -webkit-touch-callout: none;
+}
+
+/* ── Tracked-aircraft amber ring ────────────────────────── */
+@keyframes tracked-ring {
+  0%, 100% { opacity: 0.7; transform: scale(1); }
+  50%       { opacity: 1;   transform: scale(1.2); }
+}
+
+/* ── Follow mode pulse ───────────────────────────────────── */
+@keyframes follow-pulse {
+  0%, 100% { filter: drop-shadow(0 0 6px #00ffcc80); }
+  50%       { filter: drop-shadow(0 0 16px #00ffcc) drop-shadow(0 0 4px #fff); }
+}
+.aircraft-following svg { animation: follow-pulse 1.2s ease-in-out infinite; }
+
+/* ════════════════════════════════════════════════════════════
+   GLASSMORPHISM UTILITIES
+   ════════════════════════════════════════════════════════════ */
+.glass {
+  background: rgba(17, 24, 39, 0.78);
+  backdrop-filter: blur(18px) saturate(160%);
+  -webkit-backdrop-filter: blur(18px) saturate(160%);
+  border: 1px solid rgba(0, 255, 204, 0.12);
+  /* GPU-composite so paint is cheap on scroll */
+  will-change: transform;
+  transform: translateZ(0);
+  -webkit-transform: translateZ(0);
+}
+.glass-lighter {
+  background: rgba(22, 29, 46, 0.7);
+  backdrop-filter: blur(14px);
+  -webkit-backdrop-filter: blur(14px);
+  border: 1px solid rgba(0, 255, 204, 0.08);
+  will-change: transform;
+  transform: translateZ(0);
+  -webkit-transform: translateZ(0);
+}
+
+/* ════════════════════════════════════════════════════════════
+   SCROLLBAR
+   ════════════════════════════════════════════════════════════ */
+::-webkit-scrollbar { width: 3px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb { background: rgba(0,255,204,0.3); border-radius: 2px; }
+
+/* ════════════════════════════════════════════════════════════
+   BUTTON MICRO-INTERACTIONS
+   ════════════════════════════════════════════════════════════ */
+
+/* Remove iOS tap flash everywhere */
+button, a, [role="button"], input, label {
+  -webkit-tap-highlight-color: transparent;
+  touch-action: manipulation;
+}
+
+/* Subtle scale-down on press — feels native */
+button:active:not(:disabled),
+a:active {
+  transform: scale(0.96);
+  transition: transform 0.08s var(--ease-in-out);
+}
+
+/* Minimum 44 px tap targets on touch devices */
+@media (pointer: coarse) {
+  button { min-height: 44px; min-width: 44px; }
+}
+
+/* ── Sidebar action buttons ──────────────────────────────── */
+.sidebar-btn {
+  width: 100%;
+  padding: 11px 0;
+  border-radius: 12px;
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background 0.18s var(--ease-in-out),
+              border-color 0.18s var(--ease-in-out),
+              color 0.18s var(--ease-in-out),
+              transform 0.08s var(--ease-in-out),
+              box-shadow 0.18s var(--ease-in-out);
+}
+.sidebar-btn:active { transform: scale(0.97); }
+
+.sidebar-btn-outline {
+  color: #00ffcc;
+  border: 1px solid rgba(0,255,204,0.25);
+  background: transparent;
+}
+.sidebar-btn-outline:hover { background: rgba(0,255,204,0.08); border-color: rgba(0,255,204,0.5); }
+
+.sidebar-btn-active {
+  background: rgba(0,255,204,0.15);
+  color: #00ffcc;
+  border: 1px solid rgba(0,255,204,0.4);
+  box-shadow: 0 0 12px rgba(0,255,204,0.15);
+}
+
+.sidebar-btn-follow:hover  { border-color: rgba(0,255,204,0.25); color: #00ffcc; }
+
+.sidebar-btn-tracking-on {
+  background: rgba(245,158,11,0.15);
+  color: #f59e0b;
+  border: 1px solid rgba(245,158,11,0.4);
+  box-shadow: 0 0 10px rgba(245,158,11,0.12);
+}
+.sidebar-btn-tracking-off {
+  color: rgba(255,255,255,0.4);
+  border: 1px solid rgba(255,255,255,0.08);
+}
+.sidebar-btn-tracking-off:hover { border-color: rgba(245,158,11,0.25); color: #f59e0b; }
+
+/* ── Icon button (close, etc.) ───────────────────────────── */
+.btn-icon {
+  width: 32px; height: 32px;
+  border-radius: 8px;
+  background: rgba(255,255,255,0.05);
+  border: none;
+  display: flex; align-items: center; justify-content: center;
+  cursor: pointer;
+  transition: background 0.15s var(--ease-in-out), transform 0.08s var(--ease-in-out);
+}
+.btn-icon:hover  { background: rgba(255,255,255,0.1); }
+.btn-icon:active { transform: scale(0.9); }
+
+/* ════════════════════════════════════════════════════════════
+   ANIMATIONS — PANELS & TRANSITIONS
+   ════════════════════════════════════════════════════════════ */
+
+/* Slide right — desktop sidebar entrance */
+@keyframes slide-right {
+  from { opacity: 0; transform: translateX(24px); }
+  to   { opacity: 1; transform: translateX(0); }
+}
+.animate-slide-right { animation: slide-right 0.22s var(--ease-smooth) both; }
+
+/* Slide up — mobile bottom sheet entrance */
+@keyframes slide-up-sheet {
+  from { opacity: 0; transform: translateY(40px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+@media (max-width: 640px) {
+  .animate-slide-right { animation: slide-up-sheet 0.28s var(--ease-spring) both; }
+}
+
+/* Slide down — dropdowns (layers, search) */
+@keyframes slide-down {
+  from { opacity: 0; transform: translateY(-8px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+.animate-slide-down { animation: slide-down 0.18s var(--ease-smooth) both; }
+
+/* Photo fade-in */
+@keyframes photo-fade {
+  from { opacity: 0; transform: scale(1.02); }
+  to   { opacity: 1; transform: scale(1); }
+}
+.photo-fade-in { animation: photo-fade 0.3s var(--ease-smooth) both; }
+
+/* Progress bar fill */
+@keyframes fill-bar { from { width: 0; } }
+.fill-bar { animation: fill-bar 0.6s var(--ease-smooth); }
+
+/* Live dot */
+@keyframes blink-dot {
+  0%, 100% { opacity: 1; }
+  50%       { opacity: 0.3; }
+}
+.blink-dot { animation: blink-dot 1.4s ease-in-out infinite; }
+
+/* Ping ring (topbar live indicator) */
+@keyframes ping-ring {
+  0%   { transform: scale(1); opacity: 0.8; }
+  100% { transform: scale(2.2); opacity: 0; }
+}
+.ping-ring { animation: ping-ring 1.8s ease-out infinite; }
+
+/* Day/Night layer */
+.day-night-layer { pointer-events: none !important; }
+
+/* ════════════════════════════════════════════════════════════
+   MOBILE / iOS / SAFE AREA
+   ════════════════════════════════════════════════════════════ */
 .pb-safe { padding-bottom: env(safe-area-inset-bottom, 0px); }
 
 @supports (padding: env(safe-area-inset-top)) {
-  /* Push top bar below status bar on standalone PWA */
   body {
     padding-top:    env(safe-area-inset-top,    0px);
     padding-left:   env(safe-area-inset-left,   0px);
@@ -182,82 +327,34 @@ html, body, #root {
   }
 }
 
-/* Remove iOS tap flash on every interactive element */
-button, a, [role="button"], input, label {
-  -webkit-tap-highlight-color: transparent;
-  touch-action: manipulation;
-}
-
-/* Minimum 44 px tap targets on mobile */
-@media (pointer: coarse) {
-  button { min-height: 44px; min-width: 44px; }
-}
-
-/* GPU-composite the glass panels so they don't repaint on scroll */
-.glass, .glass-lighter {
-  will-change: transform;
-  transform: translateZ(0);
-  -webkit-transform: translateZ(0);
-}
-
-/* Prevent the whole page rubber-banding on iOS when using the map */
-html, body, #root {
-  overscroll-behavior: none;
-  -webkit-overflow-scrolling: touch;
-}
-
-/* Leaflet: tell the browser these elements are touch-scrollable surfaces */
-.leaflet-container {
-  touch-action: pan-x pan-y;
-}
-
-/* ── Mobile sidebar bottom sheet ────────────────────────── */
+/* ── Mobile bottom sheet ─────────────────────────────────── */
 @media (max-width: 640px) {
   .sidebar-panel {
-    position: fixed     !important;
-    right:    0         !important;
-    left:     0         !important;
-    bottom:   0         !important;
-    top:      auto      !important;
-    width:    100%      !important;
-    /* Use dvh (dynamic viewport height) when available so the panel respects
-       the iOS browser chrome. Fall back to vh for older Safari.          */
-    max-height: 78vh;
-    max-height: 78dvh;
+    position:   fixed !important;
+    left:       0    !important;
+    right:      0    !important;
+    bottom:     0    !important;
+    top:        auto !important;
+    width:      100% !important;
     border-radius: 20px 20px 0 0;
     overflow-y: auto;
-    /* Momentum scrolling on iOS Safari */
     -webkit-overflow-scrolling: touch;
     overscroll-behavior: contain;
     padding-bottom: env(safe-area-inset-bottom, 16px);
-    /* Isolate this stacking context so z-index works correctly */
     isolation: isolate;
+    /* Default snap: half */
+    max-height: 62dvh;
+    max-height: 62vh;
   }
+  /* Full snap driven by inline style — transition handled there */
 }
 
-/* ── Day/Night layer: ensure it sits under aircraft ─────── */
-.day-night-layer {
-  pointer-events: none !important;
-}
-
-/* ── Follow-mode glow on selected marker ────────────────── */
-@keyframes follow-pulse {
-  0%, 100% { filter: drop-shadow(0 0 6px #00ffcc80); }
-  50%       { filter: drop-shadow(0 0 16px #00ffcc) drop-shadow(0 0 4px #fff); }
-}
-.aircraft-following svg {
-  animation: follow-pulse 1.2s ease-in-out infinite;
-}
-
-/* ── Mobile GPU: reduce expensive SVG drop-shadow glows ─── */
-/* On coarse-pointer (touch) devices the GPU rasterises SVG  */
-/* filters per-frame which burns battery. Cap to a simple    */
-/* 3-px shadow — still visible, fraction of the render cost. */
+/* ── GPU optimisation on coarse-pointer (mobile) ─────────── */
 @media (pointer: coarse) {
+  /* Yellow plane with dark outline → legible on both Voyager and dark tiles */
   [data-plane-rot] svg {
-    filter: drop-shadow(0 0 3px rgba(0, 255, 204, 0.55)) !important;
+    filter: drop-shadow(0 0 2px rgba(0,0,0,0.75)) drop-shadow(0 0 3px rgba(255,215,0,0.5)) !important;
   }
-  /* Reduce glass panel blur on mobile for compositing cost */
   .glass {
     backdrop-filter: blur(10px) saturate(140%);
     -webkit-backdrop-filter: blur(10px) saturate(140%);
@@ -267,3 +364,187 @@ html, body, #root {
     -webkit-backdrop-filter: blur(8px);
   }
 }
+
+/* Extra-small phones: shrink placeholder font */
+@media (max-width: 380px) {
+  header input::placeholder { font-size: 12px; }
+}
+
+/* ════════════════════════════════════════════════════════════
+   ONBOARDING
+   ════════════════════════════════════════════════════════════ */
+.onboarding-overlay {
+  position: fixed; inset: 0; z-index: 2000;
+  display: flex; align-items: flex-end; justify-content: center;
+  background: rgba(0, 0, 0, 0.65);
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
+  animation: overlay-in 0.25s var(--ease-smooth) both;
+}
+.onboarding-leaving {
+  animation: overlay-out 0.28s var(--ease-smooth) both;
+}
+@keyframes overlay-in  { from { opacity: 0; } to { opacity: 1; } }
+@keyframes overlay-out { from { opacity: 1; } to { opacity: 0; } }
+
+.onboarding-sheet {
+  width: 100%; max-width: 440px;
+  background: rgba(11, 16, 28, 0.98);
+  backdrop-filter: blur(28px) saturate(160%);
+  -webkit-backdrop-filter: blur(28px) saturate(160%);
+  border: 1px solid rgba(0, 255, 204, 0.12);
+  border-radius: 28px 28px 0 0;
+  /* Slide up from bottom */
+  animation: sheet-in 0.35s var(--ease-spring) both;
+}
+.onboarding-sheet-leaving {
+  animation: sheet-out 0.25s var(--ease-smooth) both;
+}
+@keyframes sheet-in {
+  from { transform: translateY(60px); opacity: 0; }
+  to   { transform: translateY(0);    opacity: 1; }
+}
+@keyframes sheet-out {
+  from { transform: translateY(0);    opacity: 1; }
+  to   { transform: translateY(60px); opacity: 0; }
+}
+
+.onboarding-skip {
+  position: absolute; top: 16px; right: 20px;
+  background: none; border: none;
+  color: rgba(255,255,255,0.3);
+  font-size: 13px; font-weight: 500;
+  cursor: pointer; padding: 6px 10px;
+  border-radius: 8px;
+  transition: color 0.15s;
+}
+.onboarding-skip:hover { color: rgba(255,255,255,0.6); }
+
+.onboarding-body {
+  text-align: center;
+  padding: 36px 28px 8px;
+  position: relative;
+}
+
+.onboarding-icon {
+  width: 76px; height: 76px;
+  border-radius: 22px;
+  margin: 0 auto 22px;
+  display: flex; align-items: center; justify-content: center;
+  animation: icon-pop 0.4s var(--ease-spring) 0.1s both;
+}
+@keyframes icon-pop {
+  from { transform: scale(0.7); opacity: 0; }
+  to   { transform: scale(1);   opacity: 1; }
+}
+
+.onboarding-title {
+  font-size: 22px; font-weight: 700;
+  color: #fff; letter-spacing: -0.5px;
+  margin-bottom: 10px;
+  line-height: 1.2;
+}
+
+.onboarding-desc {
+  font-size: 14px; line-height: 1.6;
+  color: rgba(255,255,255,0.5);
+  max-width: 300px; margin: 0 auto;
+}
+
+.onboarding-dots {
+  display: flex; justify-content: center; gap: 7px;
+  padding: 20px 0 8px;
+}
+.onboarding-dot {
+  height: 7px; border-radius: 4px;
+  background: rgba(255,255,255,0.18);
+  border: none; cursor: pointer;
+  transition: width 0.25s var(--ease-smooth), background 0.25s var(--ease-smooth);
+}
+
+.onboarding-actions {
+  padding: 8px 24px max(28px, env(safe-area-inset-bottom, 28px));
+  display: flex; flex-direction: column; gap: 10px;
+}
+
+.onboarding-btn-primary {
+  width: 100%; padding: 15px 0;
+  background: linear-gradient(135deg, #00ffcc 0%, #10b981 100%);
+  border-radius: 16px; border: none;
+  color: #000; font-weight: 700; font-size: 15px;
+  letter-spacing: -0.2px; cursor: pointer;
+  box-shadow: 0 0 28px rgba(0,255,204,0.35);
+  transition: transform 0.12s var(--ease-in-out), box-shadow 0.18s;
+}
+.onboarding-btn-primary:active {
+  transform: scale(0.97);
+  box-shadow: 0 0 16px rgba(0,255,204,0.25);
+}
+
+.onboarding-btn-ghost {
+  width: 100%; padding: 12px 0;
+  background: transparent;
+  border: 1px solid rgba(255,255,255,0.1);
+  border-radius: 16px;
+  color: rgba(255,255,255,0.35); font-weight: 600; font-size: 13px;
+  cursor: pointer;
+  transition: border-color 0.15s, color 0.15s, transform 0.08s;
+}
+.onboarding-btn-ghost:hover  { border-color: rgba(255,255,255,0.2); color: rgba(255,255,255,0.55); }
+.onboarding-btn-ghost:active { transform: scale(0.97); }
+
+/* ════════════════════════════════════════════════════════════
+   INSTALL BANNER
+   ════════════════════════════════════════════════════════════ */
+.install-banner {
+  position: fixed;
+  bottom: calc(env(safe-area-inset-bottom, 0px) + 58px);
+  left: 14px; right: 14px;
+  z-index: 1500;
+  background: rgba(13, 18, 32, 0.97);
+  backdrop-filter: blur(24px) saturate(160%);
+  -webkit-backdrop-filter: blur(24px) saturate(160%);
+  border: 1px solid rgba(0,255,204,0.18);
+  border-radius: 18px;
+  padding: 12px 14px;
+  display: flex; align-items: center; gap: 12px;
+  box-shadow: 0 8px 36px rgba(0,0,0,0.55), 0 0 0 1px rgba(0,255,204,0.06);
+  animation: banner-rise 0.3s var(--ease-spring) both;
+}
+@keyframes banner-rise {
+  from { opacity: 0; transform: translateY(18px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+.install-banner-icon {
+  width: 40px; height: 40px; border-radius: 12px; flex-shrink: 0;
+  background: rgba(0,255,204,0.1);
+  border: 1px solid rgba(0,255,204,0.25);
+  display: flex; align-items: center; justify-content: center;
+}
+
+.install-banner-text { flex: 1; min-width: 0; }
+.install-banner-title {
+  font-size: 13px; font-weight: 700; color: #fff;
+  margin-bottom: 2px; white-space: nowrap;
+}
+.install-banner-desc { font-size: 11px; color: rgba(255,255,255,0.45); line-height: 1.4; }
+
+.install-banner-cta {
+  padding: 9px 16px; border-radius: 11px; border: none; flex-shrink: 0;
+  background: linear-gradient(135deg, #00ffcc 0%, #10b981 100%);
+  color: #000; font-weight: 700; font-size: 12px;
+  cursor: pointer; white-space: nowrap;
+  transition: transform 0.1s var(--ease-in-out);
+}
+.install-banner-cta:active { transform: scale(0.95); }
+
+.install-banner-close {
+  width: 30px; height: 30px; border-radius: 9px; border: none; flex-shrink: 0;
+  background: rgba(255,255,255,0.06);
+  color: rgba(255,255,255,0.35); cursor: pointer;
+  display: flex; align-items: center; justify-content: center;
+  transition: background 0.15s, color 0.15s, transform 0.08s;
+}
+.install-banner-close:hover  { background: rgba(255,255,255,0.12); color: rgba(255,255,255,0.7); }
+.install-banner-close:active { transform: scale(0.9); }

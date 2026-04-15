@@ -1,22 +1,30 @@
 import { useState, useEffect } from 'react';
 
-function utcTime() {
-  return new Date().toUTCString().slice(17, 25) + ' UTC';
+// Format the current time in the user's local timezone.
+// Shows "HH:MM:SS TZ" — e.g. "14:35:22 BST" for someone in the UK.
+function localTime() {
+  const d  = new Date();
+  const hh = d.getHours().toString().padStart(2, '0');
+  const mm = d.getMinutes().toString().padStart(2, '0');
+  const ss = d.getSeconds().toString().padStart(2, '0');
+  // Extract short timezone name (e.g. "BST", "GMT", "EST")
+  const tz = d.toLocaleTimeString('en-GB', { timeZoneName: 'short' }).split(' ').pop() || '';
+  return `${hh}:${mm}:${ss}${tz ? ' ' + tz : ''}`;
 }
 
 export function StatusBar({ flightCount, dataSource }) {
-  const [time, setTime] = useState(utcTime());
+  const [time, setTime] = useState(localTime());
 
   useEffect(() => {
-    const id = setInterval(() => setTime(utcTime()), 1000);
+    const id = setInterval(() => setTime(localTime()), 1000);
     return () => clearInterval(id);
   }, []);
 
-  const isLive       = dataSource === 'live';
-  const isLoading    = dataSource === 'loading';
-  const isUnavail    = dataSource === 'unavailable';
-  const srcLabel     = isLive ? 'ADS-B Live' : isLoading ? 'Connecting…' : 'Unavailable';
-  const srcColor     = isLive ? 'text-emerald-400' : isUnavail ? 'text-red-400' : 'text-white/40';
+  const isLive    = dataSource === 'live';
+  const isLoading = dataSource === 'loading';
+  const isUnavail = dataSource === 'unavailable';
+  const srcLabel  = isLive ? 'ADS-B Live' : isLoading ? 'Connecting…' : 'Unavailable';
+  const srcColor  = isLive ? 'text-emerald-400' : isUnavail ? 'text-red-400' : 'text-white/40';
 
   return (
     <div
@@ -33,7 +41,8 @@ export function StatusBar({ flightCount, dataSource }) {
           </span>
         </div>
         <div className="w-px h-3 bg-white/10 hidden sm:block" />
-        <Stat label="UTC" value={time} className="hidden sm:flex" />
+        {/* Local time — no more UTC offset confusion */}
+        <Stat label="Time" value={time} className="hidden sm:flex" />
       </div>
 
       <div

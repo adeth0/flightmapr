@@ -118,6 +118,21 @@ class NotificationService {
 
     this._flights.set(flight.id, state);
     this._emit();
+
+    // ── Immediate "Now Tracking" notification ──────────────
+    // Fires as soon as the user clicks Track — no altitude events needed.
+    const dest   = enrichment?.destination;
+    const origin = enrichment?.origin;
+    const routeStr = (origin?.code && dest?.code)
+      ? ` (${origin.code} → ${dest.code})`
+      : '';
+    this._show(
+      '✈️ Now Tracking',
+      dest?.name
+        ? `Tracking ${flight.callsign}${routeStr} to ${dest.name}`
+        : `Tracking ${flight.callsign} — you'll be notified on departure, midway & landing`,
+      `tracking-start-${flight.id}`,
+    );
   }
 
   // ── Public: stop tracking by ID ──────────────────────────
@@ -182,10 +197,10 @@ class NotificationService {
       clearTimeout(state.midpointTimer);
       const dest = state.enrichment?.destination;
       this._show(
-        '🛬 Flight Arrived',
+        '🛬 Landed Safely',
         dest?.name
-          ? `${state.callsign} has landed at ${dest.name}`
-          : `${state.callsign} has landed`,
+          ? `${state.callsign} has landed safely at ${dest.name}. Track more flights on FlightMapr! ✈️`
+          : `${state.callsign} has landed safely. Check out more flights on FlightMapr! ✈️`,
         `arrival-${state.id}`,
       );
     }
