@@ -39,6 +39,22 @@ class NotificationService {
     this._flights  = new Map();
     /** @type {Set<function>} dashboard update listeners */
     this._listeners = new Set();
+    /** @type {Set<function>} in-app toast listeners (fallback when push unavailable) */
+    this._inAppListeners = new Set();
+  }
+
+  // ── In-app notification fallback ────────────────────────
+  // Used on iOS Safari browser (no push support) and as a
+  // fallback when system notifications are denied or fail.
+  subscribeToInApp(fn) {
+    this._inAppListeners.add(fn);
+    return () => this._inAppListeners.delete(fn);
+  }
+
+  _showInApp(title, body) {
+    this._inAppListeners.forEach((fn) => {
+      try { fn({ title, body }); } catch { /* ignore */ }
+    });
   }
 
   // ── SW registration (lazy, idempotent) ─────────────────
@@ -209,20 +225,29 @@ class NotificationService {
   }
 
   async _show(title, body, tag) {
-    if (!this.isGranted()) return;
-    if (this._swReg || 'serviceWorker' in navigator) {
+    // ── Attempt system notifications ────────────────────────
+    if (this.isGranted()) {
+      // 1. Service Worker showNotification (works in iOS PWA 16.4+ and Android)
+      if ('serviceWorker' in navigator) {
+        try {
+          const reg = await navigator.serviceWorker.ready;
+          await reg.showNotification(title, {
+            body, icon: ICON, badge: ICON, tag, renotify: true, requireInteraction: false,
+          });
+          return; // system notification succeeded — no in-app needed
+        } catch { /* fall through */ }
+      }
+      // 2. Direct Notification API (desktop / Android Chrome)
       try {
-        const reg = await navigator.serviceWorker.ready;
-        await reg.showNotification(title, {
-          body, icon: ICON, badge: ICON, tag, renotify: true, requireInteraction: false,
-        });
-        return;
+        // eslint-disable-next-line no-new
+        new Notification(title, { body, icon: ICON, tag });
+        return; // succeeded
       } catch { /* fall through */ }
     }
-    try {
-      // eslint-disable-next-line no-new
-      new Notification(title, { body, icon: ICON, tag });
-    } catch { /* fail silently */ }
+    // ── Fallback: in-app toast ──────────────────────────────
+    // Covers: iOS Safari browser (no push support), permission
+    // denied/not-yet-granted, and any system notification failure.
+    this._showInApp(title, body);
   }
 }
 

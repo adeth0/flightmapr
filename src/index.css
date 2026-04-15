@@ -635,3 +635,83 @@ a:active {
 .mobile-search-results button + button {
   border-top: 1px solid rgba(255, 255, 255, 0.05);
 }
+
+/* ════════════════════════════════════════════════════════════
+   IN-APP NOTIFICATION TOAST
+   Fallback when system push notifications are unavailable:
+   iOS Safari browser, permission not granted, SW failure.
+   ════════════════════════════════════════════════════════════ */
+
+.in-app-toast {
+  position: fixed;
+  top: calc(env(safe-area-inset-top, 0px) + 66px); /* below TopBar */
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 1800;
+
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  padding: 12px 14px;
+  min-width: 260px;
+  max-width: min(420px, calc(100vw - 32px));
+
+  background: rgba(13, 18, 32, 0.97);
+  backdrop-filter: blur(24px) saturate(160%);
+  -webkit-backdrop-filter: blur(24px) saturate(160%);
+  border: 1px solid rgba(0, 255, 204, 0.2);
+  border-radius: 16px;
+  box-shadow: 0 8px 36px rgba(0, 0, 0, 0.55), 0 0 0 1px rgba(0, 255, 204, 0.06);
+
+  animation: toast-in 0.28s var(--ease-spring) both;
+}
+
+@keyframes toast-in {
+  from { opacity: 0; transform: translateX(-50%) translateY(-12px) scale(0.96); }
+  to   { opacity: 1; transform: translateX(-50%) translateY(0)      scale(1);    }
+}
+
+.in-app-toast-icon {
+  font-size: 20px;
+  line-height: 1;
+  flex-shrink: 0;
+  margin-top: 1px;
+}
+
+.in-app-toast-text {
+  flex: 1;
+  min-width: 0;
+}
+
+.in-app-toast-title {
+  font-size: 13px;
+  font-weight: 700;
+  color: #fff;
+  margin-bottom: 2px;
+  line-height: 1.3;
+}
+
+.in-app-toast-body {
+  font-size: 11px;
+  color: rgba(255, 255, 255, 0.5);
+  line-height: 1.45;
+}
+
+.in-app-toast-close {
+  width: 22px;
+  height: 22px;
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.08);
+  border: none;
+  color: rgba(255, 255, 255, 0.4);
+  font-size: 16px;
+  line-height: 1;
+  cursor: pointer;
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: background 0.15s, color 0.15s;
+}
+.in-app-toast-close:hover  { background: rgba(255,255,255,0.15); color: #fff; }
+.in-app-toast-close:active { transform: scale(0.9); }

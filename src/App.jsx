@@ -1,4 +1,4 @@
-import { useState, useCallback, useEffect } from 'react';
+import { useState, useCallback, useEffect, useRef } from 'react';
 import { MapView }           from './map/MapView';
 import { TopBar }            from './components/TopBar';
 import { Sidebar }           from './components/Sidebar';
@@ -31,6 +31,9 @@ export default function App() {
   const [alertsCount,      setAlertsCount]      = useState(0);
   // Onboarding: show once per install (localStorage flag)
   const [showOnboarding,   setShowOnboarding]   = useState(() => !hasOnboarded());
+  // In-app notification toast (fallback for iOS Safari / no push permission)
+  const [toast,            setToast]            = useState(null);
+  const toastTimer                              = useRef(null);
 
   // ── Service lifecycle ────────────────────────────────────
   useEffect(() => {
@@ -48,6 +51,16 @@ export default function App() {
 
   useEffect(() => {
     return notificationService.subscribeToChanges((list) => setAlertsCount(list.length));
+  }, []);
+
+  // In-app toast — shown when system notifications are unavailable
+  // (iOS Safari browser, permission denied, or SW failure).
+  useEffect(() => {
+    return notificationService.subscribeToInApp(({ title, body }) => {
+      setToast({ title, body });
+      clearTimeout(toastTimer.current);
+      toastTimer.current = setTimeout(() => setToast(null), 4500);
+    });
   }, []);
 
   useEffect(() => {
@@ -161,9 +174,28 @@ export default function App() {
       {/* ── PWA install banner (Android + iOS) ───────────── */}
       {!showOnboarding && <InstallBanner />}
 
+      {/* ── In-app notification toast ────────────────────── */}
+      {/* Fallback for iOS Safari / push not granted          */}
+      {toast && (
+        <div className="in-app-toast" role="alert" aria-live="polite">
+          <span className="in-app-toast-icon">✈️</span>
+          <div className="in-app-toast-text">
+            <div className="in-app-toast-title">{toast.title}</div>
+            <div className="in-app-toast-body">{toast.body}</div>
+          </div>
+          <button
+            className="in-app-toast-close"
+            onClick={() => { clearTimeout(toastTimer.current); setToast(null); }}
+            aria-label="Dismiss"
+          >×</button>
+        </div>
+      )}
+
       {/* ── Mobile-only floating donate button ───────────── */}
-      {/* Hidden on sm+ (desktop has it inline in the TopBar)  */}
-      <div className="sm:hidden" style={{ position: 'absolute', bottom: 'calc(env(safe-area-inset-bottom, 0px) + 40px)', right: 14, zIndex: 1100, pointerEvents: 'auto' }}>
+      {/* position:fixed so it CANNOT be clipped by the App root's
+          overflow:hidden — critical for iOS PWA standalone mode
+          where absolute children fall outside the clipping rect.  */}
+      <div className="sm:hidden" style={{ position: 'fixed', bottom: 'calc(env(safe-area-inset-bottom, 0px) + 40px)', right: 14, zIndex: 1100, pointerEvents: 'auto' }}>
         <a
           href="https://donate.stripe.com/8x27sMaIf3Cm5O0gFEc7u00"
           target="_blank"

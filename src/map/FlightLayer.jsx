@@ -269,19 +269,21 @@ export function FlightLayer({ selectedFlightId, onFlightSelect }) {
       L.DomEvent.stopPropagation(e);
       L.DomEvent.preventDefault(e);
       lastTouchMs = Date.now();
-      // Single tap on touch → select immediately. Skip mini-popup:
-      // Leaflet's built-in Map.Tap fires a synthetic map 'click' after
-      // touchend which would instantly dismiss any popup we open here.
-      console.log('[FlightMapr] tap:', flight.callsign, flight.id);
-      if (pendingPreviewRef.current && pendingPreviewRef.current.id !== flight.id) {
-        dismissPreview();
-      }
+      console.log('[FlightMapr] touch select:', flight.callsign);
       onSelectRef.current(flight);
     });
+
+    // ── Click handler (desktop + iOS Map.Tap fallback) ────────────
+    // On iOS, Leaflet's L.Map.Tap converts every tap to a synthetic
+    // 'click' on the marker element which then BUBBLES to the map
+    // container where map.on('click', dismissPreview) was collapsing
+    // any preview we had just opened.  We now guard against that in
+    // the map-level handler (see below), so this just does a direct
+    // select whenever a real desktop click arrives.
     marker.on('click', () => {
-      // Desktop only — suppressed on touch (lastTouchMs guard)
-      if (Date.now() - lastTouchMs < 500) return;
-      handleActivate();
+      if (Date.now() - lastTouchMs < 500) return; // suppress after touch (Android)
+      console.log('[FlightMapr] click select:', flight.callsign);
+      onSelectRef.current(flight);
     });
 
     marker.on('mouseover', () => {
@@ -336,7 +338,16 @@ export function FlightLayer({ selectedFlightId, onFlightSelect }) {
   // ── Main subscription ─────────────────────────────────────
   useEffect(() => {
     map.on('zoomend', updateDensity);
-    map.on('click', dismissPreview);
+
+    // ── Map background click → dismiss preview ─────────────────
+    // IMPORTANT: On iOS, L.Map.Tap fires a synthetic 'click' on
+    // the marker element which bubbles up here.  We must NOT call
+    // dismissPreview() for those — it would immediately undo the
+    // selection made in the marker click handler above.
+    map.on('click', (e) => {
+      if (e.originalEvent?.target?.closest?.('.aircraft-marker')) return;
+      dismissPreview();
+    });
 
     const unsub = flightService.subscribe((flights) => {
       const markers = markersRef.current;
@@ -389,7 +400,7 @@ export function FlightLayer({ selectedFlightId, onFlightSelect }) {
     return () => {
       unsub();
       map.off('zoomend', updateDensity);
-      map.off('click',   dismissPreview);
+      map.off('click');
       markersRef.current.forEach(({ marker }) => marker.remove());
       markersRef.current.clear();
       if (trailRef.current) { trailRef.current.remove(); trailRef.current = null; }
