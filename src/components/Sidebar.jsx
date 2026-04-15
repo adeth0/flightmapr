@@ -1,10 +1,11 @@
 import { useEffect, useState, useRef } from 'react';
 import {
   X, Navigation2, Plane, Clock, MapPin, TrendingUp, Radio,
-  ArrowUp, ArrowDown, Minus,
+  ArrowUp, ArrowDown, Minus, Bell,
 } from 'lucide-react';
 import { flightService, formatETA } from '../services/flightService';
 import { enrichFlight }              from '../services/flightEnrichmentService';
+import { notificationService }       from '../services/notificationService';
 import { GlassCard, StatChip, Divider } from '../ui/GlassCard';
 
 // ── Sub-components ────────────────────────────────────────
@@ -89,6 +90,7 @@ export function Sidebar({ flightId, isFollowing, onClose, onCenterMap, onToggleF
   const [flight,       setFlight]       = useState(() => flightService.getFlight(flightId));
   const [enrichment,   setEnrichment]   = useState(null);
   const [enrichLoading, setEnrichLoading] = useState(false);
+  const [isTracking,   setIsTracking]   = useState(() => notificationService.isTracking(flightId));
   const flightIdRef  = useRef(flightId);
   const panelRef     = useRef(null);
   const touchStartY  = useRef(0);
@@ -145,6 +147,19 @@ export function Sidebar({ flightId, isFollowing, onClose, onCenterMap, onToggleF
       setEnrichLoading(false);
     });
   }, [flightId]);
+
+  // ── Flight tracking (push notifications) ──────────────
+  async function handleToggleTracking() {
+    if (isTracking) {
+      notificationService.stopTracking();
+      setIsTracking(false);
+      return;
+    }
+    const granted = await notificationService.requestPermission();
+    if (!granted) return; // permission denied — fail silently
+    await notificationService.trackFlight(flight);
+    setIsTracking(true);
+  }
 
   if (!flight) return null;
 
@@ -321,6 +336,20 @@ export function Sidebar({ flightId, isFollowing, onClose, onCenterMap, onToggleF
           >
             {isFollowing ? '⊙ Following' : '◎ Follow Flight'}
           </button>
+
+          {'Notification' in window && (
+            <button
+              onClick={handleToggleTracking}
+              className={`w-full py-2.5 rounded-xl text-xs font-semibold transition-all flex items-center justify-center gap-2 ${
+                isTracking
+                  ? 'bg-amber-500/15 text-amber-400 border border-amber-400/40 shadow-[0_0_10px_rgba(251,191,36,0.12)]'
+                  : 'text-white/40 border border-white/8 hover:border-amber-400/25 hover:text-amber-400'
+              }`}
+            >
+              <Bell size={12} />
+              {isTracking ? 'Tracking Flight' : 'Track Flight'}
+            </button>
+          )}
         </div>
       </GlassCard>
     </aside>

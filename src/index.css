@@ -97,6 +97,11 @@ html, body, #root {
   background: none !important;
   border: none !important;
   cursor: pointer !important;
+  /* Ensure touch events reach the marker on iOS Safari.
+     'manipulation' removes 300 ms click delay without blocking map pan. */
+  touch-action: manipulation !important;
+  /* Prevent iOS long-press callout from interrupting taps */
+  -webkit-touch-callout: none;
 }
 
 /* ── Glassmorphism utility ────────────────────────────── */

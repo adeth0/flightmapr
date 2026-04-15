@@ -2,6 +2,7 @@ import { useEffect, useRef } from 'react';
 import { useMap } from 'react-leaflet';
 import L from 'leaflet';
 import { weatherService } from '../services/weatherService';
+import { MAP_DEFAULTS }   from '../services/mapService';
 
 // ─────────────────────────────────────────────────────────
 //  WeatherLayer
@@ -94,13 +95,17 @@ export function WeatherLayer({ enabled }) {
       if (cancelled) return;
 
       if (url) {
-        // Real radar tile layer
+        // Real radar tile layer.
+        // maxNativeZoom: RainViewer tiles top out at z12; Leaflet scales
+        // them up beyond that rather than requesting missing tiles → fixes
+        // the "zoom level not supported" console error.
         tileRef.current = L.tileLayer(url, {
-          opacity:      0.6,
-          interactive:  false,
-          zIndex:       350,
-          attribution:  'Radar © <a href="https://www.rainviewer.com">RainViewer</a>',
-          // GPU-friendly: Leaflet handles tile compositing
+          opacity:         0.6,
+          interactive:     false,
+          zIndex:          350,
+          maxNativeZoom:   12,
+          maxZoom:         MAP_DEFAULTS.maxZoom,
+          attribution:     'Radar © <a href="https://www.rainviewer.com">RainViewer</a>',
         }).addTo(map);
 
         // Refresh URL periodically

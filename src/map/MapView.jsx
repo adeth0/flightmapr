@@ -133,9 +133,11 @@ export function MapView({
       ref={mapRef}
       worldCopyJump={true}
     >
+      {/* Base tile layer — swaps between dark (night) and light (day) */}
       <TileLayer
-        url={TILE_LAYERS.dark.url}
-        attribution={TILE_LAYERS.dark.attribution}
+        key={dayNightEnabled ? 'dark' : 'light'}
+        url={dayNightEnabled ? TILE_LAYERS.dark.url      : TILE_LAYERS.light.url}
+        attribution={dayNightEnabled ? TILE_LAYERS.dark.attribution : TILE_LAYERS.light.attribution}
         maxZoom={TILE_LAYERS.dark.maxZoom}
         subdomains={TILE_LAYERS.dark.subdomains}
       />

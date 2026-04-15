@@ -105,7 +105,22 @@ export function FlightLayer({ selectedFlightId, onFlightSelect }) {
       const e = markers.get(flight.id);
       if (e) marker.setTooltipContent(tooltipContent(e.flight));
     });
-    marker.on('click', () => onSelectRef.current(flight));
+
+    // ── Tap/click handling (mobile + desktop) ────────────
+    // iOS Safari can swallow Leaflet's synthetic 'click' on SVG-inside-divIcon.
+    // We fire the handler on touchend (tap detection) and suppress the
+    // subsequent click so desktop doesn't double-select.
+    let lastTouchMs = 0;
+    marker.on('touchend', (e) => {
+      L.DomEvent.stopPropagation(e);
+      lastTouchMs = Date.now();
+      onSelectRef.current(flight);
+    });
+    marker.on('click', () => {
+      if (Date.now() - lastTouchMs < 500) return; // already handled by touchend
+      onSelectRef.current(flight);
+    });
+
     marker.on('mouseover', () => {
       const e = markers.get(flight.id);
       if (e && selectedIdRef.current !== flight.id) {
