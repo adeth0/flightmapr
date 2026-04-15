@@ -1,23 +1,21 @@
 // ─────────────────────────────────────────────────────────
-//  OpenSky Network API — free, no key, anonymous tier
-//  Rate limit: poll no faster than every 10 s (we use 15 s)
-//  Docs: https://opensky-network.org/apidoc/rest.html
+//  ADS-B data via airplanes.live
+//  Free · No API key · access-control-allow-origin: *
+//  (OpenSky blocks browser fetches: ACAO locked to opensky-network.org)
 //
-//  Enhancements over v1:
-//    • ICAO airline callsign-prefix → airline name lookup
-//    • Viewport bbox filtering (only fetch visible airspace)
-//    • Exponential backoff on repeated failures
+//  Endpoint: https://api.airplanes.live/v2/point/{lat}/{lon}/{radius_nm}
+//  Polling : every 15 s
+//  Docs    : https://airplanes.live/api-access/
 // ─────────────────────────────────────────────────────────
 
-const OPENSKY_BASE  = 'https://opensky-network.org/api/states/all';
+const BASE_URL      = 'https://api.airplanes.live/v2/point';
 const POLL_MS       = 15_000;
 const MAX_AIRCRAFT  = 250;
-const MIN_ALT_M     = 3000;
-const MAX_BACKOFF   = 120_000; // cap retry delay at 2 minutes
+const MIN_ALT_FT    = 1_000;   // filter ground vehicles / taxiing aircraft
+const MAX_RADIUS_NM = 500;     // cap so we never request the whole globe
+const MAX_BACKOFF   = 120_000;
 
 // ── ICAO 3-letter operator prefix → airline name ──────────
-// Maps the first 3 chars of a callsign to a human-readable name.
-// Coverage: ~80 major operators. Unknown prefixes fall back to origin country.
 const ICAO_AIRLINES = {
   AAL: 'American Airlines',  AAR: 'Asiana Airlines',
   ACA: 'Air Canada',         AFR: 'Air France',
@@ -72,33 +70,33 @@ function lookupAirline(callsign) {
   );
 }
 
-// ── State-vector parser ───────────────────────────────────
-function parseState(s) {
-  if (!s || s[5] === null || s[6] === null || s[8]) return null;
-  const altM = s[7] ?? s[13] ?? 0;
-  if (altM < MIN_ALT_M) return null;
+// ── airplanes.live state-vector parser ────────────────────
+// Response fields: hex, flight, lat, lon, alt_baro, alt_geom,
+//   gs (knots), track (true track °), t (type code), desc, r (reg)
+function parseState(ac) {
+  if (!ac || ac.lat == null || ac.lon == null) return null;
 
-  const altFt    = Math.round(altM * 3.281);
-  const speedKts = s[9] !== null ? Math.round(s[9] * 1.944) : 450;
-  const heading  = s[10] ?? 0;
-  const cs       = (s[1] ?? s[0]).trim().replace(/\s+/g, '') || s[0];
-  const country  = s[2] ?? 'Unknown';
-  const airline  = lookupAirline(cs) ?? country;
+  const altFt = typeof ac.alt_baro === 'number' ? ac.alt_baro
+              : typeof ac.alt_geom === 'number' ? ac.alt_geom : null;
+  if (altFt === null || altFt < MIN_ALT_FT) return null;
+
+  const cs      = ((ac.flight ?? ac.hex ?? '').trim().replace(/\s+/g, '')) || ac.hex;
+  const airline = lookupAirline(cs) ?? 'Unknown';
 
   return {
-    id:           s[0],
+    id:           ac.hex,
     callsign:     cs,
     flightNumber: cs,
     airline,
-    aircraft:     'Unknown',
-    lat:          s[6],
-    lng:          s[5],
-    altitude:     altFt,
-    speed:        speedKts,
-    heading,
+    aircraft:     ac.desc ?? ac.t ?? 'Unknown',
+    lat:          ac.lat,
+    lng:          ac.lon,
+    altitude:     Math.round(altFt),
+    speed:        ac.gs != null ? Math.round(ac.gs) : 0,
+    heading:      ac.track ?? ac.true_heading ?? 0,
     isLive:       true,
-    origin:      { code: '----', name: 'Live Aircraft', city: country, country, lat: 0, lng: 0 },
-    destination: { code: '----', name: 'En Route',      city: '',      country: '', lat: 0, lng: 0 },
+    origin:      { code: '----', name: 'Live Aircraft', city: '', country: '', lat: 0, lng: 0 },
+    destination: { code: '----', name: 'En Route',      city: '', country: '', lat: 0, lng: 0 },
     progress:    0.5,
     routeDistance: 1000,
     routePoints: [],
@@ -107,36 +105,47 @@ function parseState(s) {
 }
 
 // ── OpenSkyService ────────────────────────────────────────
+// (name kept for compatibility — now backed by airplanes.live)
 class OpenSkyService {
   constructor() {
     this._cache     = null;
     this._lastFetch = 0;
     this._inflight  = null;
-    this.available  = null;
-    this._bbox      = null;     // { lamin, lomin, lamax, lomax } — set by BoundsSync
-    this._failCount = 0;        // consecutive failures for backoff
+    this.available  = null;     // null=unknown, true=ok, false=failed
+    this._bbox      = null;     // { lamin, lomin, lamax, lomax }
+    this._failCount = 0;
   }
 
   /**
    * Called by MapView's BoundsSync whenever the viewport changes.
-   * Adds a 25% margin so aircraft near the edge aren't clipped.
+   * Adds a 25 % margin so aircraft near the edge stay visible.
+   * On first call, triggers an immediate fetch so the map populates
+   * without waiting for the 15-second interval.
    */
   setBounds(raw) {
     const latSpan = raw.lamax - raw.lamin;
     const lonSpan = raw.lomax - raw.lomin;
-    const pad = 0.25;
+    const pad     = 0.25;
+    const isFirst = !this._bbox;
+
     this._bbox = {
       lamin: Math.max(-90,  raw.lamin - latSpan * pad),
       lomin: Math.max(-180, raw.lomin - lonSpan * pad),
       lamax: Math.min(90,   raw.lamax + latSpan * pad),
       lomax: Math.min(180,  raw.lomax + lonSpan * pad),
     };
+
+    if (isFirst) {
+      // Reset the poll timer so fetchOnce() fires immediately
+      this._lastFetch = 0;
+      this.fetchOnce().catch(() => {});
+    }
   }
 
   /** Returns cached data if fresh enough, otherwise fetches. Never throws. */
   async fetchOnce() {
+    if (!this._bbox) return this._cache;   // bounds not yet available
     const now = Date.now();
-    // Respect backoff after failures
     if (this._failCount > 0) {
       const backoff = Math.min(POLL_MS * 2 ** (this._failCount - 1), MAX_BACKOFF);
       if (now - this._lastFetch < backoff) return this._cache;
@@ -151,25 +160,25 @@ class OpenSkyService {
 
   async _doFetch() {
     try {
-      // Build URL — add bbox when viewport is narrow enough to be useful
-      let url = OPENSKY_BASE;
-      if (this._bbox) {
-        const { lamin, lomin, lamax, lomax } = this._bbox;
-        // Only filter by bbox when not viewing the full globe
-        const latSpan = lamax - lamin;
-        const lonSpan = lomax - lomin;
-        if (latSpan < 150 && lonSpan < 300) {
-          url += `?lamin=${lamin.toFixed(2)}&lomin=${lomin.toFixed(2)}` +
-                 `&lamax=${lamax.toFixed(2)}&lomax=${lomax.toFixed(2)}`;
-        }
-      }
+      const { lamin, lomin, lamax, lomax } = this._bbox;
+
+      // Convert bbox → center + radius (nm) for the airplanes.live endpoint
+      const centerLat    = (lamin + lamax) / 2;
+      const centerLon    = (lomin + lomax) / 2;
+      const latRadiusNm  = (lamax - lamin) / 2 * 60;
+      const lonRadiusNm  = (lomax - lomin) / 2 * 60 * Math.cos(centerLat * Math.PI / 180);
+      const radiusNm     = Math.min(
+        Math.ceil(Math.max(latRadiusNm, lonRadiusNm)),
+        MAX_RADIUS_NM
+      );
+
+      const url = `${BASE_URL}/${centerLat.toFixed(4)}/${centerLon.toFixed(4)}/${radiusNm}`;
 
       const ctrl  = new AbortController();
-      const timer = setTimeout(() => ctrl.abort(), 8000);
+      const timer = setTimeout(() => ctrl.abort(), 10_000);
 
       const res = await fetch(url, {
         signal:  ctrl.signal,
-        cache:   'no-store',
         headers: { Accept: 'application/json' },
       });
       clearTimeout(timer);
@@ -177,25 +186,24 @@ class OpenSkyService {
       if (!res.ok) throw new Error(`HTTP ${res.status}`);
 
       const json    = await res.json();
-      const raw     = json.states ?? [];
+      const raw     = json.ac ?? [];
       const flights = raw
-        .sort((a, b) => (b[4] ?? 0) - (a[4] ?? 0))
         .map(parseState)
         .filter(Boolean)
         .slice(0, MAX_AIRCRAFT);
 
       this._cache     = flights;
       this._failCount = 0;
-      this.available  = flights.length > 0;
-      console.info(`[OpenSky] ${flights.length} aircraft (bbox: ${this._bbox ? 'yes' : 'global'})`);
+      this.available  = true;
+      console.info(`[AirplanesLive] ${flights.length} aircraft (r=${radiusNm} nm)`);
       return flights;
     } catch (err) {
       if (err.name !== 'AbortError') {
         this._failCount++;
-        console.warn(`[OpenSky] fetch failed (attempt ${this._failCount}):`, err.message);
+        console.warn(`[AirplanesLive] fetch failed (attempt ${this._failCount}):`, err.message);
       }
       this.available = false;
-      return this._cache ?? null;   // return stale cache on failure rather than null
+      return this._cache ?? null;
     }
   }
 }

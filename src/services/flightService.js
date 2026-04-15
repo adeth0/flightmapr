@@ -168,13 +168,12 @@ class FlightService {
     const data = await openSkyService.fetchOnce();
     if (data && data.length > 0) {
       this._mergeOpenSkyData(data);
-    } else if (openSkyService.available === false) {
-      // API failed and there's no usable cache
-      if (this.flights.length === 0) {
-        this.dataSource = 'unavailable';
-        this._listeners.forEach((fn) => fn(this.flights));
-      }
+    } else if (openSkyService.available === false && this.flights.length === 0) {
+      // API genuinely failed (not just "bounds not set yet") with no stale cache
+      this.dataSource = 'unavailable';
+      this._listeners.forEach((fn) => fn(this.flights));
     }
+    // If available === null bounds aren't ready yet — stay in 'loading' state
   }
 
   /**
