@@ -215,7 +215,7 @@ export function MapView({
       {/* Day / Night terminator */}
       <DayNightLayer enabled={dayNightEnabled} />
 
-      {/* Weather overlay (RainViewer → canvas fallback) */}
+      {/* Weather overlay — proper raster tile layer */}
       <WeatherLayer enabled={weatherEnabled} />
 
       {/* Airport activity heatmap — soft glow circles, below markers */}
