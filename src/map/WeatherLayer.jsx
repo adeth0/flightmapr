@@ -44,27 +44,54 @@ function drawCanvas(canvas, map) {
 // ── Component ─────────────────────────────────────────────
 export function WeatherLayer({ enabled }) {
   const map          = useMap();
-  const canvasRef    = useRef(null);  // canvas element (fallback)
+  const canvasRef    = useRef(null);
   const rafRef       = useRef(null);
   const lastTimeRef  = useRef(null);
+  const removeTimerRef = useRef(null);
 
-  function cleanup() {
+  function cleanup(immediate = true) {
     cancelAnimationFrame(rafRef.current);
-    if (canvasRef.current) { canvasRef.current.remove(); canvasRef.current = null; }
+    clearTimeout(removeTimerRef.current);
+    if (canvasRef.current) {
+      const canvas = canvasRef.current;
+      if (immediate) {
+        canvas.remove();
+      } else {
+        canvas.style.opacity = '0';
+        removeTimerRef.current = setTimeout(() => {
+          canvas.remove();
+        }, 220);
+      }
+      canvasRef.current = null;
+    }
     lastTimeRef.current = null;
   }
 
   useEffect(() => {
-    if (!enabled) { cleanup(); return; }
+    if (!enabled) {
+      cleanup(false);
+      return undefined;
+    }
 
     let cancelled = false;
 
-    function startCanvasSim() {
+    function syncWeather() {
+      weatherService.syncToViewport(map.getBounds(), map.getZoom());
+      if (canvasRef.current) drawCanvas(canvasRef.current, map);
+    }
+
+    function startCanvasOverlay() {
       const canvas = document.createElement('canvas');
       canvas.style.cssText =
-        'position:absolute;top:0;left:0;pointer-events:none;z-index:350;mix-blend-mode:screen;';
+        'position:absolute;top:0;left:0;pointer-events:none;z-index:350;mix-blend-mode:screen;opacity:0;transition:opacity 180ms ease;';
       map.getPane('overlayPane').appendChild(canvas);
       canvasRef.current = canvas;
+      syncWeather();
+      requestAnimationFrame(() => {
+        if (canvasRef.current === canvas) canvas.style.opacity = '1';
+      });
+
+      map.on('moveend zoomend resize', syncWeather);
 
       function tick(now) {
         if (cancelled) return;
@@ -77,11 +104,12 @@ export function WeatherLayer({ enabled }) {
       rafRef.current = requestAnimationFrame(tick);
     }
 
-    startCanvasSim();
+    startCanvasOverlay();
 
     return () => {
       cancelled = true;
-      cleanup();
+      map.off('moveend zoomend resize', syncWeather);
+      cleanup(false);
     };
   }, [map, enabled]);
 

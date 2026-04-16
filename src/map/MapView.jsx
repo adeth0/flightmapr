@@ -1,5 +1,5 @@
 import { useEffect, useRef } from 'react';
-import { MapContainer, TileLayer, useMap } from 'react-leaflet';
+import { MapContainer, Pane, TileLayer, useMap } from 'react-leaflet';
 import { FlightLayer }          from './FlightLayer';
 import { WeatherLayer }         from './WeatherLayer';
 import { DayNightLayer }        from './DayNightLayer';
@@ -195,6 +195,19 @@ export function MapView({
         maxZoom={TILE_LAYERS.dark.maxZoom}
         subdomains={TILE_LAYERS.dark.subdomains}
       />
+
+      {/* Labels-only tile layer so ocean/sea/place names stay readable */}
+      <Pane name="map-labels" style={{ zIndex: 360, pointerEvents: 'none' }}>
+        <TileLayer
+          key={dayNightEnabled ? 'dark-labels' : 'light-labels'}
+          url={dayNightEnabled ? TILE_LAYERS.dark.labelsUrl : TILE_LAYERS.light.labelsUrl}
+          attribution={dayNightEnabled ? TILE_LAYERS.dark.attribution : TILE_LAYERS.light.attribution}
+          maxZoom={TILE_LAYERS.dark.maxZoom}
+          subdomains={TILE_LAYERS.dark.subdomains}
+          pane="map-labels"
+          opacity={0.95}
+        />
+      </Pane>
 
       {/* Sync viewport bounds → openSkyService for bbox filtering */}
       <BoundsSync />
