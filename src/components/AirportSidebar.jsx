@@ -118,7 +118,7 @@ export function AirportSidebar({ airportCode, onClose, onCenterMap, onSelectFlig
             </div>
           ) : departures.map((item) => (
             <button
-              key={item.flight.id}
+              key={item.flight?.id ?? item.id ?? `${airportCode}-${item.destination?.code ?? 'unknown'}`}
               onClick={() => handleFlightPress(item)}
               className="airport-flight-row w-full text-left"
             >

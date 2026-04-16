@@ -79,8 +79,11 @@ export function MapView({
   // ── Logo tap: fly to user location (re-triggerable) ───
   useEffect(() => {
     if (!flyToCenter || !mapRef.current) return;
+    const lat = Number(flyToCenter.lat);
+    const lng = Number(flyToCenter.lng);
+    if (!Number.isFinite(lat) || !Number.isFinite(lng)) return;
     mapRef.current.flyTo(
-      [flyToCenter.lat, flyToCenter.lng],
+      [lat, lng],
       LOCATION_ZOOM,
       { duration: 1.5, easeLinearity: 0.25 }
     );

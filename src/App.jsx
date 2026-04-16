@@ -131,9 +131,15 @@ export default function App() {
   }, []);
 
   const handleAirportSelect = useCallback((airport) => {
+    if (!airport?.code) return;
+    const lat = Number(airport.lat);
+    const lng = Number(airport.lng);
+
     setSelectedFlightId(null);
     setSelectedAirportCode(airport.code);
-    setFlyToCenter({ lat: airport.lat, lng: airport.lng, _t: Date.now() });
+    if (Number.isFinite(lat) && Number.isFinite(lng)) {
+      setFlyToCenter({ lat, lng, _t: Date.now() });
+    }
   }, []);
 
   // On mobile: closing the card must NOT stop follow — the user may have
