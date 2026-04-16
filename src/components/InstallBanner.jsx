@@ -12,6 +12,7 @@
 
 import { useState, useEffect } from 'react';
 import { X } from 'lucide-react';
+import logoSrc from '../assets/flightmapr-logo.png';
 
 const DISMISSED_KEY = 'flightmapr_install_dismissed_at';
 const DISMISS_TTL   = 14 * 24 * 3600 * 1000; // 14 days
@@ -85,7 +86,13 @@ export function InstallBanner() {
     <div className="install-banner" role="banner" aria-label="Install FlightMapr">
       {/* App icon */}
       <div className="install-banner-icon">
-        <span style={{ fontSize: 20 }}>✈️</span>
+        <img
+          src={logoSrc}
+          alt="FlightMapr"
+          draggable={false}
+          style={{ width: 26, height: 26, objectFit: 'contain',
+            filter: 'drop-shadow(0 0 5px rgba(0,255,204,0.5))' }}
+        />
       </div>
 
       {/* Text */}

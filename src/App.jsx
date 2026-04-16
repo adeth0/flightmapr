@@ -11,6 +11,13 @@ import { getUserLocation, getCachedLocation } from './services/geoService';
 import { openSkyService }    from './services/openSkyService';
 import { notificationService } from './services/notificationService';
 
+// ── Mobile viewport check ─────────────────────────────────
+// Matches the Tailwind `sm:` breakpoint (640 px) used everywhere.
+// Called at event time so it always reflects the current viewport.
+function isMobileViewport() {
+  return typeof window !== 'undefined' && window.innerWidth < 640;
+}
+
 export default function App() {
   const [selectedFlightId, setSelectedFlightId] = useState(null);
   const [weatherEnabled,   setWeatherEnabled]   = useState(false);
@@ -73,15 +80,44 @@ export default function App() {
   }, []);
 
   // ── Handlers ─────────────────────────────────────────────
-  const handleFlightSelect   = useCallback((flight) => setSelectedFlightId(flight.id), []);
-  const handleSidebarClose   = useCallback(() => { setSelectedFlightId(null); setFollowFlightId(null); }, []);
-  const handleFlyTo          = useCallback((flightId) => {
+
+  // On mobile: selecting a new aircraft stops following the previous one
+  // (per spec: "tracking stops when user taps a different aircraft").
+  // On desktop: unchanged — selecting a flight only opens the sidebar.
+  const handleFlightSelect = useCallback((flight) => {
+    if (isMobileViewport()) {
+      setFollowFlightId((prev) => (prev === flight.id ? prev : null));
+    }
+    setSelectedFlightId(flight.id);
+  }, []);
+
+  // On mobile: closing the card must NOT stop follow — the user may have
+  // tapped "Follow" and then dismissed the sheet to watch the open map.
+  // On desktop: closing the sidebar is an intentional "stop everything"
+  // action, so both selectedFlightId and followFlightId are cleared.
+  const handleSidebarClose = useCallback(() => {
+    setSelectedFlightId(null);
+    if (!isMobileViewport()) setFollowFlightId(null);
+  }, []);
+
+  const handleFlyTo = useCallback((flightId) => {
     setFlyToFlightId(null);
     requestAnimationFrame(() => setFlyToFlightId(flightId));
   }, []);
-  const handleToggleFollow   = useCallback((flightId) => {
-    setFollowFlightId((prev) => (prev === flightId ? null : flightId));
-  }, []);
+
+  // On mobile: enabling follow auto-dismisses the detail card so the
+  // user gets a clear, unobstructed map view of the tracked aircraft.
+  // Disabling follow (toggling off) behaves the same on all platforms.
+  // followFlightId is in deps so we always read the current value.
+  const handleToggleFollow = useCallback((flightId) => {
+    const nowFollowing = followFlightId !== flightId;
+    setFollowFlightId(nowFollowing ? flightId : null);
+    if (nowFollowing && isMobileViewport()) {
+      // Close the card WITHOUT triggering handleSidebarClose (which would
+      // clear followFlightId on desktop). Directly clear selectedFlightId.
+      setSelectedFlightId(null);
+    }
+  }, [followFlightId]);
   const handleToggleWeather  = useCallback(() => setWeatherEnabled((v) => !v),  []);
   const handleToggleDayNight = useCallback(() => setDayNightEnabled((v) => !v), []);
   const handleToggleAirports = useCallback(() => setAirportsEnabled((v) => !v), []);

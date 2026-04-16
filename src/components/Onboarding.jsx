@@ -6,6 +6,7 @@
 
 import { useState } from 'react';
 import { notificationService } from '../services/notificationService';
+import logoSrc from '../assets/flightmapr-logo.png';
 
 export const ONBOARDING_KEY = 'flightmapr_onboarded';
 export const hasOnboarded    = () => !!localStorage.getItem(ONBOARDING_KEY);
@@ -69,9 +70,22 @@ export function Onboarding({ onComplete }) {
         {/* Skip — top-right */}
         <button className="onboarding-skip" onClick={finish}>Skip</button>
 
+        {/* ── Logo header — always visible across all slides ── */}
+        <div className="onboarding-logo-header">
+          <img
+            src={logoSrc}
+            alt="FlightMapr"
+            className="onboarding-logo-img"
+            draggable={false}
+          />
+          <span className="onboarding-logo-wordmark">
+            Flight<span style={{ color: '#00ffcc' }}>Mapr</span>
+          </span>
+        </div>
+
         {/* Slide content */}
-        <div className="onboarding-body">
-          {/* Animated icon */}
+        <div className="onboarding-body" style={{ paddingTop: 20 }}>
+          {/* Per-slide animated icon */}
           <div
             className="onboarding-icon"
             style={{ background: `${color}15`, border: `1.5px solid ${color}30` }}
