@@ -98,7 +98,7 @@ function LayerRow({ icon, label, enabled, onToggle }) {
 export function EnhancedTopBar({
   weatherEnabled, dayNightEnabled, airportsEnabled, heatmapEnabled, routesEnabled,
   onToggleWeather, onToggleDayNight, onToggleAirports, onToggleHeatmap, onToggleRoutes,
-  onFlightSelect, onAirportSelect, onFlyTo,
+  onFlightSelect, onSearchFlightSelect, onAirportSelect, onFlyTo,
   totalFlights, dataSource,
   alertsCount, onToggleAlerts,
   onLogoClick,
@@ -175,9 +175,8 @@ export function EnhancedTopBar({
 
   const handleFlightPick = useCallback((flight) => {
     resetSearch();
-    onFlightSelect(flight);
-    onFlyTo(flight.id);
-  }, [onFlightSelect, onFlyTo, resetSearch]);
+    onSearchFlightSelect?.(flight);
+  }, [onSearchFlightSelect, resetSearch]);
 
   const handleAirportPick = useCallback((airport) => {
     resetSearch();

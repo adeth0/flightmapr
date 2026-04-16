@@ -47,6 +47,7 @@ export default function App() {
   const [heatmapEnabled,   setHeatmapEnabled]   = useState(false);
   const [routesEnabled,    setRoutesEnabled]    = useState(false);
   const [flyToFlightId,    setFlyToFlightId]    = useState(null);
+  const [searchFocusFlightId, setSearchFocusFlightId] = useState(null);
   const [flyToCenter,      setFlyToCenter]      = useState(null);
   const [followFlightId,   setFollowFlightId]   = useState(persistedFollow.followFlightId);
   // Tracks whether follow-panning is temporarily paused due to user map interaction.
@@ -150,6 +151,16 @@ export default function App() {
     requestAnimationFrame(() => setFlyToFlightId(flightId));
   }, []);
 
+  const handleSearchFlight = useCallback((flight) => {
+    if (isMobileViewport()) {
+      setFollowFlightId((prev) => (prev === flight.id ? prev : null));
+    }
+    setSelectedAirportCode(null);
+    setSelectedFlightId(flight.id);
+    setSearchFocusFlightId(null);
+    requestAnimationFrame(() => setSearchFocusFlightId(flight.id));
+  }, []);
+
   // On mobile: enabling follow auto-dismisses the detail card so the
   // user gets a clear, unobstructed map view of the tracked aircraft.
   // Disabling follow (toggling off) behaves the same on all platforms.
@@ -204,6 +215,7 @@ export default function App() {
         heatmapEnabled={heatmapEnabled}
         routesEnabled={routesEnabled}
         flyToFlightId={flyToFlightId}
+        searchFocusFlightId={searchFocusFlightId}
         flyToCenter={flyToCenter}
         followFlightId={followFlightId}
         followPaused={followPaused}
@@ -227,6 +239,7 @@ export default function App() {
         alertsCount={alertsCount}
         onToggleAlerts={handleToggleAlerts}
         onFlightSelect={handleFlightSelect}
+        onSearchFlightSelect={handleSearchFlight}
         onAirportSelect={handleAirportSelect}
         onFlyTo={handleFlyTo}
         onLogoClick={handleLogoClick}

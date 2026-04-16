@@ -65,6 +65,10 @@ export function AirportSidebar({ airportCode, onClose, onCenterMap, onSelectFlig
   if (!airport) return null;
 
   async function handleFlightPress(item) {
+    if (!item.flight) {
+      onCenterMap(airport);
+      return;
+    }
     await notificationService.trackFlight(item.flight).catch(() => {});
     onSelectFlight(item.flight);
   }
@@ -122,7 +126,12 @@ export function AirportSidebar({ airportCode, onClose, onCenterMap, onSelectFlig
                 <div className="min-w-0">
                   <div className="flex items-center gap-2">
                     <Plane size={13} className="text-[#00ffcc] flex-shrink-0" />
-                    <span className="text-sm font-semibold text-white truncate">{item.flight.callsign}</span>
+                    <span className="text-sm font-semibold text-white truncate">{item.flight?.callsign ?? item.flightNumber}</span>
+                    {item.isFallback && (
+                      <span className="text-[9px] rounded px-1.5 py-0.5 bg-white/8 text-white/45 uppercase tracking-wide">
+                        Scheduled
+                      </span>
+                    )}
                   </div>
                   <div className="text-xs text-white/45 mt-1 truncate">
                     {item.destination?.name ?? item.destination?.city ?? 'Destination unavailable'}

@@ -49,6 +49,7 @@ export function MapView({
   heatmapEnabled,
   routesEnabled,
   flyToFlightId,
+  searchFocusFlightId,
   followFlightId,
   followPaused,
   onFollowPausedChange,
@@ -111,6 +112,23 @@ export function MapView({
       );
     });
   }, [flyToFlightId]); // sidebarOpen consumed via ref — intentionally not in deps
+
+  // Search focus: preserve map context, avoid sidebar offset, and zoom gently.
+  useEffect(() => {
+    if (!searchFocusFlightId || !mapRef.current) return;
+    const flight = flightService.getFlight(searchFocusFlightId);
+    if (!flight) return;
+
+    const map = mapRef.current;
+    const currentZoom = map.getZoom();
+    const targetZoom = Math.max(8, Math.min(10, currentZoom));
+
+    map.flyTo([flight.lat, flight.lng], targetZoom, {
+      duration: 0.9,
+      easeLinearity: 0.3,
+      noMoveStart: true,
+    });
+  }, [searchFocusFlightId]);
 
   // ── Follow mode: pan every 2 s while active ────────────
   useEffect(() => {
@@ -216,7 +234,7 @@ export function MapView({
       <DayNightLayer enabled={dayNightEnabled} />
 
       {/* Weather overlay — proper raster tile layer */}
-      <WeatherLayer enabled={weatherEnabled} />
+      <WeatherLayer enabled={weatherEnabled} dayNightEnabled={dayNightEnabled} />
 
       {/* Airport activity heatmap — soft glow circles, below markers */}
       <ActivityHeatmapLayer enabled={heatmapEnabled} />

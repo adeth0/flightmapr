@@ -357,6 +357,48 @@ a:active {
   box-shadow: 0 0 10px rgba(0, 255, 204, 0.35);
 }
 
+.smart-weather-marker {
+  background: transparent !important;
+  border: none !important;
+}
+
+.smart-weather-chip {
+  width: 76px;
+  height: 34px;
+  border-radius: 14px;
+  border: 1px solid rgba(148, 163, 184, 0.18);
+  box-shadow: 0 10px 24px rgba(15, 23, 42, 0.12);
+  backdrop-filter: blur(10px) saturate(140%);
+  -webkit-backdrop-filter: blur(10px) saturate(140%);
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 0 9px;
+}
+
+.smart-weather-icon {
+  font-size: 14px;
+  line-height: 1;
+}
+
+.smart-weather-copy {
+  display: flex;
+  flex-direction: column;
+  line-height: 1;
+  gap: 3px;
+}
+
+.smart-weather-copy strong {
+  font-size: 12px;
+  letter-spacing: -0.02em;
+}
+
+.smart-weather-label {
+  font-size: 9px;
+  text-transform: uppercase;
+  letter-spacing: 0.12em;
+}
+
 /* ── Icon button (close, etc.) ───────────────────────────── */
 .btn-icon {
   width: 32px; height: 32px;

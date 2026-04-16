@@ -1,78 +1,143 @@
-import { useEffect, useRef } from 'react';
+import { useEffect, useMemo, useRef } from 'react';
 import { useMap } from 'react-leaflet';
 import L from 'leaflet';
 
-const WEATHER_PROVIDERS = [
-  'https://tile.openweathermap.org/map/clouds_new/{z}/{x}/{y}.png?appid=4d347aea54c8d9a8e94c2bb6f13ed5cc',
-  'https://tile.openweathermap.org/map/precipitation_new/{z}/{x}/{y}.png?appid=4d347aea54c8d9a8e94c2bb6f13ed5cc',
-];
+const WEATHER_API_KEY = '4d347aea54c8d9a8e94c2bb6f13ed5cc';
+const WEATHER_TTL_MS = 15 * 60 * 1_000;
+const weatherCache = new Map();
 
-const ERROR_THRESHOLD = 6;
+function describeWeather(weatherId) {
+  if (weatherId >= 200 && weatherId < 300) return { icon: '⛈', label: 'Storms' };
+  if (weatherId >= 300 && weatherId < 600) return { icon: '🌧', label: 'Rain' };
+  if (weatherId >= 600 && weatherId < 700) return { icon: '❄️', label: 'Snow' };
+  if (weatherId >= 700 && weatherId < 800) return { icon: '🌫', label: 'Haze' };
+  if (weatherId === 800) return { icon: '☀️', label: 'Clear' };
+  return { icon: '☁️', label: 'Clouds' };
+}
 
-function createWeatherLayer(url) {
-  return L.tileLayer(url, {
-    attribution: '&copy; OpenWeatherMap',
-    opacity: 0.52,
-    pane: 'overlayPane',
-    tileSize: 256,
-    updateWhenIdle: false,
-    updateWhenZooming: true,
-    keepBuffer: 2,
-    crossOrigin: true,
-    noWrap: false,
+function getGridSize(zoom) {
+  if (zoom >= 9) return { rows: 2, cols: 3 };
+  if (zoom >= 6) return { rows: 2, cols: 2 };
+  return { rows: 1, cols: 3 };
+}
+
+function buildSamplePoints(bounds, zoom) {
+  const { rows, cols } = getGridSize(zoom);
+  const south = bounds.getSouth();
+  const north = bounds.getNorth();
+  const west = bounds.getWest();
+  const east = bounds.getEast();
+  const latStep = (north - south) / (rows + 1);
+  const lngStep = (east - west) / (cols + 1);
+  const points = [];
+
+  for (let row = 1; row <= rows; row += 1) {
+    for (let col = 1; col <= cols; col += 1) {
+      points.push({
+        lat: south + (latStep * row),
+        lng: west + (lngStep * col),
+      });
+    }
+  }
+
+  return points;
+}
+
+function cacheKey(lat, lng) {
+  return `${lat.toFixed(2)}:${lng.toFixed(2)}`;
+}
+
+async function loadWeather(lat, lng) {
+  const key = cacheKey(lat, lng);
+  const cached = weatherCache.get(key);
+  if (cached && (Date.now() - cached.ts) < WEATHER_TTL_MS) return cached.data;
+
+  const url = `https://api.openweathermap.org/data/2.5/weather?lat=${lat.toFixed(3)}&lon=${lng.toFixed(3)}&appid=${WEATHER_API_KEY}&units=metric`;
+  const response = await fetch(url, { headers: { Accept: 'application/json' } });
+  if (!response.ok) throw new Error(`Weather ${response.status}`);
+  const json = await response.json();
+  const summary = describeWeather(json.weather?.[0]?.id ?? 801);
+  const data = {
+    lat,
+    lng,
+    temp: Math.round(json.main?.temp ?? 0),
+    ...summary,
+  };
+  weatherCache.set(key, { ts: Date.now(), data });
+  return data;
+}
+
+function createWeatherIcon(weather, darkMode) {
+  const bg = darkMode ? 'rgba(8,14,24,0.78)' : 'rgba(255,255,255,0.78)';
+  const fg = darkMode ? '#ecfeff' : '#0f172a';
+  const sub = darkMode ? 'rgba(236,254,255,0.68)' : 'rgba(15,23,42,0.62)';
+  return L.divIcon({
+    className: 'smart-weather-marker',
+    html:
+      `<div class="smart-weather-chip" style="background:${bg};color:${fg};">` +
+      `<span class="smart-weather-icon">${weather.icon}</span>` +
+      `<div class="smart-weather-copy">` +
+      `<span class="smart-weather-label" style="color:${sub};">${weather.label}</span>` +
+      `<strong>${weather.temp}°</strong>` +
+      `</div></div>`,
+    iconSize: [76, 34],
+    iconAnchor: [38, 17],
   });
 }
 
-export function WeatherLayer({ enabled }) {
+export function WeatherLayer({ enabled, dayNightEnabled }) {
   const map = useMap();
-  const layerRef = useRef(null);
-  const providerIndexRef = useRef(0);
-  const tileErrorsRef = useRef(0);
+  const layerGroupRef = useRef(null);
+  const requestIdRef = useRef(0);
+  const darkMode = useMemo(() => dayNightEnabled, [dayNightEnabled]);
 
   useEffect(() => {
-    function mountProvider(index) {
-      if (layerRef.current) {
-        map.removeLayer(layerRef.current);
-      }
+    async function syncWeather() {
+      if (!enabled) return;
 
-      providerIndexRef.current = index;
-      tileErrorsRef.current = 0;
+      const requestId = ++requestIdRef.current;
+      const group = layerGroupRef.current ?? L.layerGroup().addTo(map);
+      layerGroupRef.current = group;
+      group.clearLayers();
 
-      const layer = createWeatherLayer(WEATHER_PROVIDERS[index]);
-      layer.on('tileerror', () => {
-        tileErrorsRef.current += 1;
-        if (tileErrorsRef.current < ERROR_THRESHOLD) return;
+      const points = buildSamplePoints(map.getBounds(), map.getZoom());
+      const results = await Promise.allSettled(points.map((point) => loadWeather(point.lat, point.lng)));
+      if (requestId !== requestIdRef.current) return;
 
-        const nextIndex = providerIndexRef.current + 1;
-        if (nextIndex < WEATHER_PROVIDERS.length) {
-          mountProvider(nextIndex);
-        } else if (layerRef.current) {
-          map.removeLayer(layerRef.current);
-          layerRef.current = null;
-        }
-      });
-
-      layer.addTo(map);
-      layerRef.current = layer;
+      results
+        .filter((result) => result.status === 'fulfilled')
+        .forEach((result) => {
+          const weather = result.value;
+          L.marker([weather.lat, weather.lng], {
+            icon: createWeatherIcon(weather, darkMode),
+            interactive: false,
+            keyboard: false,
+            zIndexOffset: -200,
+          }).addTo(group);
+        });
     }
 
     if (!enabled) {
-      if (layerRef.current) {
-        map.removeLayer(layerRef.current);
-        layerRef.current = null;
+      if (layerGroupRef.current) {
+        map.removeLayer(layerGroupRef.current);
+        layerGroupRef.current = null;
       }
       return undefined;
     }
 
-    mountProvider(0);
+    syncWeather().catch(() => {});
+    map.on('moveend', syncWeather);
+    map.on('zoomend', syncWeather);
 
     return () => {
-      if (layerRef.current) {
-        map.removeLayer(layerRef.current);
-        layerRef.current = null;
+      map.off('moveend', syncWeather);
+      map.off('zoomend', syncWeather);
+      if (layerGroupRef.current) {
+        map.removeLayer(layerGroupRef.current);
+        layerGroupRef.current = null;
       }
     };
-  }, [enabled, map]);
+  }, [darkMode, enabled, map]);
 
   return null;
 }
