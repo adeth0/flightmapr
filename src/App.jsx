@@ -19,6 +19,7 @@ export default function App() {
   const [heatmapEnabled,   setHeatmapEnabled]   = useState(false);
   const [routesEnabled,    setRoutesEnabled]    = useState(false);
   const [flyToFlightId,    setFlyToFlightId]    = useState(null);
+  const [flyToCenter,      setFlyToCenter]      = useState(null);
   const [followFlightId,   setFollowFlightId]   = useState(null);
   const [flightCount,      setFlightCount]      = useState(flightService.flights.length);
   const [dataSource,       setDataSource]       = useState('loading');
@@ -88,6 +89,27 @@ export default function App() {
   const handleToggleRoutes   = useCallback(() => setRoutesEnabled((v) => !v),   []);
   const handleToggleAlerts   = useCallback(() => setAlertsOpen((v) => !v),      []);
 
+  // ── Logo tap: reset map to user location ─────────────
+  // Reuses the same geo + prefetch logic as initial app load.
+  // getCachedLocation gives an instant response; getUserLocation
+  // runs in the background and updates the position if it differs.
+  const handleLogoClick = useCallback(() => {
+    // Instant fly-to using cached location (if available)
+    const cached = getCachedLocation();
+    if (cached) {
+      setFlyToCenter({ lat: cached.lat, lng: cached.lng, _t: Date.now() });
+      openSkyService.preFetchLocation(cached.lat, cached.lng, 50);
+    }
+
+    // Request fresh position; fly again if it differs from cache
+    getUserLocation().then((loc) => {
+      if (!loc) return;
+      setGeoLocation(loc);
+      setFlyToCenter({ lat: loc.lat, lng: loc.lng, _t: Date.now() });
+      openSkyService.preFetchLocation(loc.lat, loc.lng, 50);
+    });
+  }, []);
+
   return (
     <div className={selectedFlightId ? 'flight-selected' : ''} style={{ width: '100vw', height: '100vh', position: 'relative', overflow: 'hidden' }}>
       {/* ── Map ──────────────────────────────────────────── */}
@@ -100,6 +122,7 @@ export default function App() {
         heatmapEnabled={heatmapEnabled}
         routesEnabled={routesEnabled}
         flyToFlightId={flyToFlightId}
+        flyToCenter={flyToCenter}
         followFlightId={followFlightId}
         initialCenter={geoLocation}
         sidebarOpen={!!selectedFlightId}
@@ -121,6 +144,7 @@ export default function App() {
         onToggleAlerts={handleToggleAlerts}
         onFlightSelect={handleFlightSelect}
         onFlyTo={handleFlyTo}
+        onLogoClick={handleLogoClick}
         totalFlights={flightCount}
         dataSource={dataSource}
       />

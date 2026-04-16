@@ -3,6 +3,7 @@ import {
   Search, Cloud, CloudOff, Sun, Building2, X, Flame, GitBranch, Bell, Layers, ArrowLeft,
 } from 'lucide-react';
 import { flightService } from '../services/flightService';
+import logoSrc from '../assets/flightmapr-logo.png';
 
 function LiveDot() {
   return (
@@ -74,12 +75,14 @@ export function TopBar({
   onFlightSelect, onFlyTo,
   totalFlights, dataSource,
   alertsCount, onToggleAlerts,
+  onLogoClick,
 }) {
   const [query,      setQuery]      = useState('');
   const [results,    setResults]    = useState([]);
   const [focused,    setFocused]    = useState(false);
   const [layersOpen, setLayersOpen] = useState(false);
   const [searchOpen, setSearchOpen] = useState(false); // mobile full-screen overlay
+  const [logoPulse,  setLogoPulse]  = useState(false); // brief glow on tap
 
   const inputRef       = useRef(null);
   const mobileInputRef = useRef(null);
@@ -145,6 +148,13 @@ export function TopBar({
     closeSearch();
     handleSelect(flight);
   }, [closeSearch, handleSelect]);
+
+  const handleLogoTap = useCallback(() => {
+    // Brief emerald pulse feedback
+    setLogoPulse(true);
+    setTimeout(() => setLogoPulse(false), 500);
+    onLogoClick?.();
+  }, [onLogoClick]);
 
   const showDrop = focused && results.length > 0;
   const isLive   = dataSource === 'live';
@@ -214,15 +224,26 @@ export function TopBar({
         className="absolute top-0 left-0 right-0 z-[1000] flex items-center gap-2 px-3 py-3"
         style={{ pointerEvents: 'none' }}
       >
-        {/* ── Logo ─────────────────────────────────────────── */}
-        <div
-          className="glass rounded-2xl flex items-center gap-2 px-3 py-2.5 flex-shrink-0"
-          style={{ pointerEvents: 'auto' }}
+        {/* ── Logo — tapping resets map to user location ──── */}
+        <button
+          onClick={handleLogoTap}
+          className="glass rounded-2xl flex items-center gap-2 px-3 py-2.5 flex-shrink-0 transition-all active:scale-95 hover:bg-[#00ffcc]/5"
+          style={{ pointerEvents: 'auto', cursor: 'pointer' }}
+          aria-label="Reset map to my location"
+          title="Reset map to my location"
         >
-          <div className="relative w-6 h-6 flex items-center justify-center">
-            <div className="absolute inset-0 rounded-lg bg-[#00ffcc]/20" />
-            <span className="relative text-sm leading-none">✈</span>
-          </div>
+          <img
+            src={logoSrc}
+            alt="FlightMapr"
+            draggable={false}
+            className="w-7 h-7 object-contain flex-shrink-0"
+            style={{
+              filter: logoPulse
+                ? 'drop-shadow(0 0 8px rgba(0,255,204,0.9))'
+                : 'drop-shadow(0 0 4px rgba(0,255,204,0.45))',
+              transition: 'filter 0.3s ease',
+            }}
+          />
           <div className="hidden sm:block">
             <div className="text-sm font-bold tracking-tight leading-none text-white">
               Flight<span className="text-[#00ffcc]">Mapr</span>
@@ -231,7 +252,7 @@ export function TopBar({
               {isLive ? 'Live ADS-B' : 'Simulation'}
             </div>
           </div>
-        </div>
+        </button>
 
         {/* ── Search ───────────────────────────────────────── */}
 

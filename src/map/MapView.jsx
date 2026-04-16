@@ -50,6 +50,7 @@ export function MapView({
   routesEnabled,
   flyToFlightId,
   followFlightId,
+  flyToCenter,
   initialCenter,
   sidebarOpen,
 }) {
@@ -70,6 +71,16 @@ export function MapView({
       { duration: 1.5, easeLinearity: 0.25 }
     );
   }, [initialCenter]);
+
+  // ── Logo tap: fly to user location (re-triggerable) ───
+  useEffect(() => {
+    if (!flyToCenter || !mapRef.current) return;
+    mapRef.current.flyTo(
+      [flyToCenter.lat, flyToCenter.lng],
+      LOCATION_ZOOM,
+      { duration: 1.5, easeLinearity: 0.25 }
+    );
+  }, [flyToCenter]);
 
   // ── One-shot fly-to (with panel offset) ───────────────
   useEffect(() => {
