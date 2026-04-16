@@ -6,7 +6,7 @@ import {
 import { flightService, formatETA } from '../services/flightService';
 import { enrichFlight }              from '../services/flightEnrichmentService';
 import { notificationService }       from '../services/notificationService';
-import { computeFlightTimes }       from '../services/flightTimingService';
+import { computeFlightProgress, computeFlightTimes } from '../services/flightTimingService';
 import { GlassCard, StatChip, Divider } from '../ui/GlassCard';
 
 // ── Airline colour badge ──────────────────────────────────
@@ -52,7 +52,7 @@ function RouteArrow({ origin, destination }) {
 
 // ── Progress bar ──────────────────────────────────────────
 function ProgressBar({ progress }) {
-  const pct = Math.round(progress * 100);
+  const pct = Math.max(0, Math.min(100, Math.round(progress * 100)));
   return (
     <div>
       <div className="flex justify-between items-center mb-1.5">
@@ -254,6 +254,7 @@ export function Sidebar({ flightId, isFollowing, onClose, onCenterMap, onToggleF
   const isLive        = !!flight.isLive;
   const distRemaining = Math.round(flight.routeDistance * (1 - flight.progress));
   const flightTimes   = enrichment ? computeFlightTimes(flight, enrichment) : null;
+  const liveProgress  = enrichment ? computeFlightProgress(flight, enrichment) : null;
   const hasRoute      = enrichment?.origin && enrichment?.destination;
   const routeOrigin      = hasRoute ? enrichment.origin      : flight.origin;
   const routeDestination = hasRoute ? enrichment.destination : flight.destination;
@@ -353,11 +354,11 @@ export function Sidebar({ flightId, isFollowing, onClose, onCenterMap, onToggleF
           }
         </div>
 
-        {!isLive && (
+        {(liveProgress || !isLive) && (
           <>
             <Divider />
             <div className="pt-3">
-              <ProgressBar progress={flight.progress} />
+              <ProgressBar progress={liveProgress?.progress ?? flight.progress} />
             </div>
           </>
         )}
@@ -387,7 +388,7 @@ export function Sidebar({ flightId, isFollowing, onClose, onCenterMap, onToggleF
 
           {flightTimes ? (
             <>
-              <InfoRow icon={<Clock size={13} />} label="Est. Departure" value={fmtLocal(flightTimes.deptMs)} />
+              <InfoRow icon={<Clock size={13} />} label="Departure" value={fmtLocal(flightTimes.deptMs)} />
               <InfoRow icon={<Clock size={13} />} label="ETA"            value={fmtLocal(flightTimes.etaMs)} highlight />
               <InfoRow icon={<Navigation2 size={13} />} label="Remaining" value={`${flightTimes.remainNm.toLocaleString()} nm`} />
             </>

@@ -1,8 +1,9 @@
 import { useState, useCallback, useEffect, useRef } from 'react';
 import { MapView }           from './map/MapView';
-import { TopBar }            from './components/TopBar';
+import { EnhancedTopBar }    from './components/EnhancedTopBar';
 import { TrackingBar }       from './components/TrackingBar';
 import { Sidebar }           from './components/Sidebar';
+import { AirportSidebar }    from './components/AirportSidebar';
 import { StatusBar }         from './components/StatusBar';
 import { AlertsDashboard }   from './components/AlertsDashboard';
 import { Onboarding, hasOnboarded } from './components/Onboarding';
@@ -39,6 +40,7 @@ function readPersistedFollowState() {
 export default function App() {
   const persistedFollow = readPersistedFollowState();
   const [selectedFlightId, setSelectedFlightId] = useState(null);
+  const [selectedAirportCode, setSelectedAirportCode] = useState(null);
   const [weatherEnabled,   setWeatherEnabled]   = useState(false);
   const [dayNightEnabled,  setDayNightEnabled]  = useState(false); // colourful day map by default
   const [airportsEnabled,  setAirportsEnabled]  = useState(true);
@@ -123,7 +125,14 @@ export default function App() {
     if (isMobileViewport()) {
       setFollowFlightId((prev) => (prev === flight.id ? prev : null));
     }
+    setSelectedAirportCode(null);
     setSelectedFlightId(flight.id);
+  }, []);
+
+  const handleAirportSelect = useCallback((airport) => {
+    setSelectedFlightId(null);
+    setSelectedAirportCode(airport.code);
+    setFlyToCenter({ lat: airport.lat, lng: airport.lng, _t: Date.now() });
   }, []);
 
   // On mobile: closing the card must NOT stop follow — the user may have
@@ -132,6 +141,7 @@ export default function App() {
   // action, so both selectedFlightId and followFlightId are cleared.
   const handleSidebarClose = useCallback(() => {
     setSelectedFlightId(null);
+    setSelectedAirportCode(null);
     if (!isMobileViewport()) setFollowFlightId(null);
   }, []);
 
@@ -183,7 +193,7 @@ export default function App() {
   }, []);
 
   return (
-    <div className={selectedFlightId ? 'flight-selected' : ''} style={{ width: '100vw', height: '100vh', position: 'relative', overflow: 'hidden' }}>
+    <div className={selectedFlightId || selectedAirportCode ? 'flight-selected' : ''} style={{ width: '100vw', height: '100vh', position: 'relative', overflow: 'hidden' }}>
       {/* ── Map ──────────────────────────────────────────── */}
       <MapView
         selectedFlightId={selectedFlightId}
@@ -203,7 +213,7 @@ export default function App() {
       />
 
       {/* ── Top bar ──────────────────────────────────────── */}
-      <TopBar
+      <EnhancedTopBar
         weatherEnabled={weatherEnabled}
         dayNightEnabled={dayNightEnabled}
         airportsEnabled={airportsEnabled}
@@ -217,6 +227,7 @@ export default function App() {
         alertsCount={alertsCount}
         onToggleAlerts={handleToggleAlerts}
         onFlightSelect={handleFlightSelect}
+        onAirportSelect={handleAirportSelect}
         onFlyTo={handleFlyTo}
         onLogoClick={handleLogoClick}
         totalFlights={flightCount}
@@ -240,6 +251,19 @@ export default function App() {
           onClose={handleSidebarClose}
           onCenterMap={handleFlyTo}
           onToggleFollow={handleToggleFollow}
+        />
+      )}
+
+      {selectedAirportCode && (
+        <AirportSidebar
+          key={selectedAirportCode}
+          airportCode={selectedAirportCode}
+          onClose={handleSidebarClose}
+          onCenterMap={handleAirportSelect}
+          onSelectFlight={(flight) => {
+            handleFlightSelect(flight);
+            handleFlyTo(flight.id);
+          }}
         />
       )}
 

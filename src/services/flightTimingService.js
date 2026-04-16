@@ -38,3 +38,17 @@ export function computeFlightTimes(flight, enrichment) {
   return { etaMs, deptMs, remainNm: Math.round(remainNm) };
 }
 
+export function computeFlightProgress(flight, enrichment, now = Date.now()) {
+  const times = computeFlightTimes(flight, enrichment);
+  if (!times) return null;
+
+  const durationMs = times.etaMs - times.deptMs;
+  if (durationMs <= 0) return null;
+
+  const rawProgress = (now - times.deptMs) / durationMs;
+  return {
+    ...times,
+    progress: Math.max(0, Math.min(1, rawProgress)),
+    percent: Math.max(0, Math.min(100, Math.round(rawProgress * 100))),
+  };
+}

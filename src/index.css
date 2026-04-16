@@ -314,6 +314,49 @@ a:active {
 }
 .sidebar-btn-tracking-off:hover { border-color: rgba(245,158,11,0.25); color: #f59e0b; }
 
+.airport-flight-row {
+  padding: 12px 14px;
+  border-radius: 16px;
+  background: rgba(22, 29, 46, 0.7);
+  border: 1px solid rgba(0, 255, 204, 0.08);
+  transition: background 0.18s var(--ease-in-out), border-color 0.18s var(--ease-in-out), transform 0.08s var(--ease-in-out);
+}
+
+.airport-flight-row:hover {
+  background: rgba(22, 29, 46, 0.92);
+  border-color: rgba(0, 255, 204, 0.18);
+}
+
+.airport-flight-row:active {
+  transform: scale(0.985);
+}
+
+.airport-progress-pill {
+  min-width: 54px;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 6px;
+  font-size: 11px;
+  font-weight: 700;
+  color: #00ffcc;
+}
+
+.airport-progress-pill-track {
+  width: 54px;
+  height: 6px;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.08);
+  overflow: hidden;
+}
+
+.airport-progress-pill-fill {
+  height: 100%;
+  border-radius: inherit;
+  background: linear-gradient(90deg, #10b981 0%, #00ffcc 100%);
+  box-shadow: 0 0 10px rgba(0, 255, 204, 0.35);
+}
+
 /* ── Icon button (close, etc.) ───────────────────────────── */
 .btn-icon {
   width: 32px; height: 32px;

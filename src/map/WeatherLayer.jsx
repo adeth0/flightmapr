@@ -1,25 +1,78 @@
-import { Pane, TileLayer } from 'react-leaflet';
+import { useEffect, useRef } from 'react';
+import { useMap } from 'react-leaflet';
+import L from 'leaflet';
 
-const WEATHER_TILE_URL =
-  'https://tile.openweathermap.org/map/clouds_new/{z}/{x}/{y}.png?appid=cd3e281bc7303afd1c264fb229cfdf05';
+const WEATHER_PROVIDERS = [
+  'https://tile.openweathermap.org/map/clouds_new/{z}/{x}/{y}.png?appid=4d347aea54c8d9a8e94c2bb6f13ed5cc',
+  'https://tile.openweathermap.org/map/precipitation_new/{z}/{x}/{y}.png?appid=4d347aea54c8d9a8e94c2bb6f13ed5cc',
+];
+
+const ERROR_THRESHOLD = 6;
+
+function createWeatherLayer(url) {
+  return L.tileLayer(url, {
+    attribution: '&copy; OpenWeatherMap',
+    opacity: 0.52,
+    pane: 'overlayPane',
+    tileSize: 256,
+    updateWhenIdle: false,
+    updateWhenZooming: true,
+    keepBuffer: 2,
+    crossOrigin: true,
+    noWrap: false,
+  });
+}
 
 export function WeatherLayer({ enabled }) {
-  if (!enabled) return null;
+  const map = useMap();
+  const layerRef = useRef(null);
+  const providerIndexRef = useRef(0);
+  const tileErrorsRef = useRef(0);
 
-  return (
-    <Pane name="weather-layer" style={{ zIndex: 330, pointerEvents: 'none' }}>
-      <TileLayer
-        key="openweather-clouds"
-        url={WEATHER_TILE_URL}
-        attribution="&copy; OpenWeatherMap"
-        pane="weather-layer"
-        opacity={0.5}
-        tileSize={256}
-        updateWhenIdle={false}
-        updateWhenZooming={true}
-        keepBuffer={2}
-        crossOrigin
-      />
-    </Pane>
-  );
+  useEffect(() => {
+    function mountProvider(index) {
+      if (layerRef.current) {
+        map.removeLayer(layerRef.current);
+      }
+
+      providerIndexRef.current = index;
+      tileErrorsRef.current = 0;
+
+      const layer = createWeatherLayer(WEATHER_PROVIDERS[index]);
+      layer.on('tileerror', () => {
+        tileErrorsRef.current += 1;
+        if (tileErrorsRef.current < ERROR_THRESHOLD) return;
+
+        const nextIndex = providerIndexRef.current + 1;
+        if (nextIndex < WEATHER_PROVIDERS.length) {
+          mountProvider(nextIndex);
+        } else if (layerRef.current) {
+          map.removeLayer(layerRef.current);
+          layerRef.current = null;
+        }
+      });
+
+      layer.addTo(map);
+      layerRef.current = layer;
+    }
+
+    if (!enabled) {
+      if (layerRef.current) {
+        map.removeLayer(layerRef.current);
+        layerRef.current = null;
+      }
+      return undefined;
+    }
+
+    mountProvider(0);
+
+    return () => {
+      if (layerRef.current) {
+        map.removeLayer(layerRef.current);
+        layerRef.current = null;
+      }
+    };
+  }, [enabled, map]);
+
+  return null;
 }
