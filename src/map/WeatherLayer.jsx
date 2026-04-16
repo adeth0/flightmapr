@@ -13,6 +13,17 @@ import { MAP_DEFAULTS }   from '../services/mapService';
 const RAINVIEWER_API = 'https://api.rainviewer.com/public/weather-maps.json';
 const RAINVIEWER_TTL = 10 * 60 * 1000; // refresh tiles every 10 min
 
+// RainViewer radar tiles are available at zoom 0–12.
+// Leaflet upscales z12 tiles for any higher zoom (no tile requests above z12).
+const RV_MIN_NATIVE_ZOOM = 0;
+const RV_MAX_NATIVE_ZOOM = 12;
+
+// 1×1 transparent GIF — used as the errorTileUrl so any tile that fails
+// to load (network hiccup, out-of-range zoom on first paint, etc.) is
+// replaced silently with nothing rather than a broken image or error text.
+const TRANSPARENT_TILE =
+  'data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7';
+
 // ── RainViewer helpers ────────────────────────────────────
 async function fetchRainViewerUrl() {
   const ctrl  = new AbortController();
@@ -79,7 +90,11 @@ export function WeatherLayer({ enabled }) {
   function cleanup() {
     cancelAnimationFrame(rafRef.current);
     clearTimeout(refreshTimer.current);
-    if (tileRef.current)   { tileRef.current.remove();   tileRef.current   = null; }
+    if (tileRef.current) {
+      tileRef.current.off('tileerror');
+      tileRef.current.remove();
+      tileRef.current = null;
+    }
     if (canvasRef.current) { canvasRef.current.remove(); canvasRef.current = null; }
     lastTimeRef.current = null;
   }
@@ -96,17 +111,29 @@ export function WeatherLayer({ enabled }) {
 
       if (url) {
         // Real radar tile layer.
-        // maxNativeZoom: RainViewer tiles top out at z12; Leaflet scales
-        // them up beyond that rather than requesting missing tiles → fixes
-        // the "zoom level not supported" console error.
+        // minNativeZoom/maxNativeZoom clamp all tile requests to the range
+        // RainViewer supports (z0–z12). Leaflet upscales z12 tiles for any
+        // higher zoom level, so the overlay renders at all map zoom levels
+        // without ever requesting an unsupported tile.
+        // errorTileUrl replaces any failed tile with a transparent pixel —
+        // no broken images, no error text, no console tile-error spam.
         tileRef.current = L.tileLayer(url, {
           opacity:         0.6,
           interactive:     false,
           zIndex:          350,
-          maxNativeZoom:   12,
+          minNativeZoom:   RV_MIN_NATIVE_ZOOM,
+          maxNativeZoom:   RV_MAX_NATIVE_ZOOM,
           maxZoom:         MAP_DEFAULTS.maxZoom,
+          errorTileUrl:    TRANSPARENT_TILE,
           attribution:     'Radar © <a href="https://www.rainviewer.com">RainViewer</a>',
         }).addTo(map);
+
+        // Belt-and-suspenders: if a tile errors for any reason (network,
+        // server), replace it with the transparent tile rather than leaving
+        // a broken image state visible on the map.
+        tileRef.current.on('tileerror', (e) => {
+          if (e.tile) e.tile.src = TRANSPARENT_TILE;
+        });
 
         // Refresh URL periodically
         refreshTimer.current = setTimeout(() => {
