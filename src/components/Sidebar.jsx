@@ -6,6 +6,7 @@ import {
 import { flightService, formatETA } from '../services/flightService';
 import { enrichFlight }              from '../services/flightEnrichmentService';
 import { notificationService }       from '../services/notificationService';
+import { computeFlightTimes }       from '../services/flightTimingService';
 import { GlassCard, StatChip, Divider } from '../ui/GlassCard';
 
 // ── Airline colour badge ──────────────────────────────────
@@ -99,28 +100,6 @@ function VertRateChip({ fpm }) {
       unit="fpm"
     />
   );
-}
-
-// ── ETA helpers ───────────────────────────────────────────
-function haversineNm(lat1, lng1, lat2, lng2) {
-  const R  = 3440.065;
-  const φ1 = (lat1 * Math.PI) / 180, φ2 = (lat2 * Math.PI) / 180;
-  const Δφ = ((lat2 - lat1) * Math.PI) / 180, Δλ = ((lng2 - lng1) * Math.PI) / 180;
-  const a  = Math.sin(Δφ / 2) ** 2 + Math.cos(φ1) * Math.cos(φ2) * Math.sin(Δλ / 2) ** 2;
-  return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
-}
-
-function calcFlightTimes(flight, enrichment) {
-  const origin = enrichment?.origin, dest = enrichment?.destination;
-  if (!origin?.lat || !dest?.lat || origin.lat === 0 || dest.lat === 0) return null;
-  if (!flight.speed || flight.speed < 50) return null;
-  const remainNm   = haversineNm(flight.lat, flight.lng, dest.lat, dest.lng);
-  const totalNm    = haversineNm(origin.lat, origin.lng, dest.lat, dest.lng);
-  if (totalNm < 1) return null;
-  const remainHours = remainNm / flight.speed;
-  const etaMs       = Date.now() + remainHours * 3_600_000;
-  const deptMs      = etaMs - (totalNm / flight.speed) * 3_600_000;
-  return { etaMs, deptMs, remainNm: Math.round(remainNm) };
 }
 
 function fmtLocal(ms) {
@@ -274,7 +253,7 @@ export function Sidebar({ flightId, isFollowing, onClose, onCenterMap, onToggleF
 
   const isLive        = !!flight.isLive;
   const distRemaining = Math.round(flight.routeDistance * (1 - flight.progress));
-  const flightTimes   = enrichment ? calcFlightTimes(flight, enrichment) : null;
+  const flightTimes   = enrichment ? computeFlightTimes(flight, enrichment) : null;
   const hasRoute      = enrichment?.origin && enrichment?.destination;
   const routeOrigin      = hasRoute ? enrichment.origin      : flight.origin;
   const routeDestination = hasRoute ? enrichment.destination : flight.destination;

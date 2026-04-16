@@ -99,6 +99,9 @@ export async function enrichFlight(callsign) {
       destination:     parseAirport(route.destination),
       airlineCallsign: route.airline?.callsign ?? null,   // e.g. "SPEEDBIRD"
       delayMinutes:    simulatedDelayMinutes(key),         // 0 = on time
+      // Best-effort: adsbdb sometimes returns a status field (varies by response).
+      // notificationService uses this as a "preferred API" landed signal when present.
+      status:          json?.response?.status ?? json?.response?.flightstatus ?? json?.response?.flight_status ?? null,
     };
 
     _cache.set(key, result);

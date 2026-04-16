@@ -100,6 +100,65 @@ html, body, #root {
 }
 .leaflet-control-attribution a { color: rgba(0,255,204,0.4) !important; }
 
+/* ── Tracking bar (fixed follow notification) ────────────── */
+.tracking-bar {
+  position: absolute;
+  top: calc(env(safe-area-inset-top, 0px) + 66px); /* below TopBar */
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 1700;
+
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 14px;
+  border-radius: 16px;
+
+  background: rgba(13, 18, 32, 0.82);
+  border: 1px solid rgba(0, 255, 204, 0.22);
+  box-shadow: 0 8px 36px rgba(0, 0, 0, 0.55), 0 0 0 1px rgba(0, 255, 204, 0.06);
+  backdrop-filter: blur(24px) saturate(160%);
+  -webkit-backdrop-filter: blur(24px) saturate(160%);
+
+  cursor: pointer;
+  pointer-events: auto;
+  max-width: min(520px, calc(100vw - 24px));
+
+  color: #fff;
+  font-family: 'Inter', system-ui, sans-serif;
+  border: 1px solid rgba(0, 255, 204, 0.22);
+}
+
+.tracking-bar-dot {
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  background: rgba(0, 255, 204, 0.9);
+  box-shadow: 0 0 18px rgba(0, 255, 204, 0.65);
+  flex-shrink: 0;
+  animation: follow-pulse 1.2s ease-in-out infinite;
+}
+
+.tracking-bar-label {
+  font-size: 12px;
+  font-weight: 700;
+  color: rgba(255, 255, 255, 0.88);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.tracking-bar-label strong {
+  color: #00ffcc;
+}
+
+/* Hide follow bar when the flight card is open on mobile. */
+@media (max-width: 640px) {
+  .flight-selected .tracking-bar {
+    display: none;
+  }
+}
+
 /* ── Leaflet popups ──────────────────────────────────────── */
 .leaflet-popup-content-wrapper,
 .leaflet-popup-tip {

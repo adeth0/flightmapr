@@ -50,6 +50,8 @@ export function MapView({
   routesEnabled,
   flyToFlightId,
   followFlightId,
+  followPaused,
+  onFollowPausedChange,
   flyToCenter,
   initialCenter,
   sidebarOpen,
@@ -57,6 +59,7 @@ export function MapView({
   const mapRef         = useRef(null);
   const geoApplied     = useRef(false);
   const sidebarOpenRef = useRef(sidebarOpen);
+  const resumeTimerRef = useRef(null);
 
   // Keep sidebarOpen ref in sync without re-running fly-to effects
   useEffect(() => { sidebarOpenRef.current = sidebarOpen; }, [sidebarOpen]);
@@ -111,7 +114,8 @@ export function MapView({
 
   // ── Follow mode: pan every 2 s while active ────────────
   useEffect(() => {
-    if (!followFlightId || !mapRef.current) return;
+    if (!followFlightId || followPaused) return;
+    if (!mapRef.current) return;
     let lastPan = 0;
 
     const unsub = flightService.subscribe((flights) => {
@@ -130,7 +134,37 @@ export function MapView({
     });
 
     return unsub;
-  }, [followFlightId]);
+  }, [followFlightId, followPaused]);
+
+  // ── Pause follow panning on user map interaction ───────
+  useEffect(() => {
+    const map = mapRef.current;
+    if (!map || !followFlightId) return;
+    if (typeof onFollowPausedChange !== 'function') return;
+
+    const FOLLOW_RESUME_AFTER_MS = 10_000;
+
+    const pauseFromUserGesture = (e) => {
+      // If this is a programmatic movement, Leaflet won't include an originalEvent.
+      // We only pause for genuine user gestures.
+      if (!e?.originalEvent) return;
+      onFollowPausedChange(true);
+      if (resumeTimerRef.current) clearTimeout(resumeTimerRef.current);
+      resumeTimerRef.current = setTimeout(() => {
+        onFollowPausedChange(false);
+      }, FOLLOW_RESUME_AFTER_MS);
+    };
+
+    map.on('dragstart', pauseFromUserGesture);
+    map.on('zoomstart', pauseFromUserGesture);
+
+    return () => {
+      map.off('dragstart', pauseFromUserGesture);
+      map.off('zoomstart', pauseFromUserGesture);
+      if (resumeTimerRef.current) clearTimeout(resumeTimerRef.current);
+      resumeTimerRef.current = null;
+    };
+  }, [followFlightId, onFollowPausedChange]);
 
   // If we have a cached/resolved geolocation, mount the map there at street
   // zoom so that BoundsSync sends a local bbox on its very first sync() call.

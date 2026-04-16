@@ -1,6 +1,7 @@
 import { useState, useCallback, useEffect, useRef } from 'react';
 import { MapView }           from './map/MapView';
 import { TopBar }            from './components/TopBar';
+import { TrackingBar }       from './components/TrackingBar';
 import { Sidebar }           from './components/Sidebar';
 import { StatusBar }         from './components/StatusBar';
 import { AlertsDashboard }   from './components/AlertsDashboard';
@@ -28,6 +29,9 @@ export default function App() {
   const [flyToFlightId,    setFlyToFlightId]    = useState(null);
   const [flyToCenter,      setFlyToCenter]      = useState(null);
   const [followFlightId,   setFollowFlightId]   = useState(null);
+  // Tracks whether follow-panning is temporarily paused due to user map interaction.
+  // This must be independent of the flight detail card / sidebar.
+  const [followPaused,     setFollowPaused]     = useState(false);
   const [flightCount,      setFlightCount]      = useState(flightService.flights.length);
   const [dataSource,       setDataSource]       = useState('loading');
   const [geoLocation,      setGeoLocation]      = useState(() => {
@@ -117,6 +121,7 @@ export default function App() {
       // clear followFlightId on desktop). Directly clear selectedFlightId.
       setSelectedFlightId(null);
     }
+    if (!nowFollowing) setFollowPaused(false);
   }, [followFlightId]);
   const handleToggleWeather  = useCallback(() => setWeatherEnabled((v) => !v),  []);
   const handleToggleDayNight = useCallback(() => setDayNightEnabled((v) => !v), []);
@@ -160,6 +165,8 @@ export default function App() {
         flyToFlightId={flyToFlightId}
         flyToCenter={flyToCenter}
         followFlightId={followFlightId}
+        followPaused={followPaused}
+        onFollowPausedChange={setFollowPaused}
         initialCenter={geoLocation}
         sidebarOpen={!!selectedFlightId}
       />
@@ -183,6 +190,14 @@ export default function App() {
         onLogoClick={handleLogoClick}
         totalFlights={flightCount}
         dataSource={dataSource}
+      />
+
+      {/* ── Tracking bar (centers + resumes follow) ───────── */}
+      <TrackingBar
+        followFlightId={followFlightId}
+        onSelect={handleFlightSelect}
+        onFlyTo={handleFlyTo}
+        onResumeFollow={() => setFollowPaused(false)}
       />
 
       {/* ── Flight detail sidebar ─────────────────────────── */}
