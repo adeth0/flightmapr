@@ -19,7 +19,25 @@ function isMobileViewport() {
   return typeof window !== 'undefined' && window.innerWidth < 640;
 }
 
+const FOLLOW_STORAGE_KEY = 'flightmapr_follow_state_v1';
+
+function readPersistedFollowState() {
+  if (typeof window === 'undefined') return { followFlightId: null, followPaused: false };
+  try {
+    const raw = localStorage.getItem(FOLLOW_STORAGE_KEY);
+    if (!raw) return { followFlightId: null, followPaused: false };
+    const parsed = JSON.parse(raw);
+    return {
+      followFlightId: typeof parsed?.followFlightId === 'string' ? parsed.followFlightId : null,
+      followPaused: Boolean(parsed?.followPaused),
+    };
+  } catch {
+    return { followFlightId: null, followPaused: false };
+  }
+}
+
 export default function App() {
+  const persistedFollow = readPersistedFollowState();
   const [selectedFlightId, setSelectedFlightId] = useState(null);
   const [weatherEnabled,   setWeatherEnabled]   = useState(false);
   const [dayNightEnabled,  setDayNightEnabled]  = useState(false); // colourful day map by default
@@ -28,10 +46,10 @@ export default function App() {
   const [routesEnabled,    setRoutesEnabled]    = useState(false);
   const [flyToFlightId,    setFlyToFlightId]    = useState(null);
   const [flyToCenter,      setFlyToCenter]      = useState(null);
-  const [followFlightId,   setFollowFlightId]   = useState(null);
+  const [followFlightId,   setFollowFlightId]   = useState(persistedFollow.followFlightId);
   // Tracks whether follow-panning is temporarily paused due to user map interaction.
   // This must be independent of the flight detail card / sidebar.
-  const [followPaused,     setFollowPaused]     = useState(false);
+  const [followPaused,     setFollowPaused]     = useState(persistedFollow.followPaused);
   const [flightCount,      setFlightCount]      = useState(flightService.flights.length);
   const [dataSource,       setDataSource]       = useState('loading');
   const [geoLocation,      setGeoLocation]      = useState(() => {
@@ -50,8 +68,21 @@ export default function App() {
   // ── Service lifecycle ────────────────────────────────────
   useEffect(() => {
     flightService.start();
+    notificationService.ensureStarted();
     return () => flightService.stop();
   }, []);
+
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+    try {
+      localStorage.setItem(FOLLOW_STORAGE_KEY, JSON.stringify({
+        followFlightId,
+        followPaused,
+      }));
+    } catch {
+      // Ignore storage failures; follow still works for this session.
+    }
+  }, [followFlightId, followPaused]);
 
   useEffect(() => {
     getUserLocation().then((loc) => {

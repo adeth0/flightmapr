@@ -34,6 +34,7 @@ const DELAY_EVAL_THROTTLE_MS    = 30_000;  // per tracked flight
 const DELAY_TOAST_COOLDOWN_MS   = 8 * 60 * 1_000;
 
 const ICON = '/vite.svg';
+const TRACKED_STORAGE_KEY = 'flightmapr_tracked_flights_v1';
 
 /**
  * Per-flight tracking state.
@@ -59,6 +60,33 @@ class NotificationService {
     this._audioCtx = null;
     this._gestureInstalled = false;
     this._initUserGesture();
+
+    this._restoreStarted = false;
+    this._restorePendingIds = new Set(this._readTrackedIds());
+  }
+
+  _readTrackedIds() {
+    if (typeof window === 'undefined') return [];
+    try {
+      const raw = localStorage.getItem(TRACKED_STORAGE_KEY);
+      if (!raw) return [];
+      const parsed = JSON.parse(raw);
+      return Array.isArray(parsed) ? parsed.filter(Boolean) : [];
+    } catch {
+      return [];
+    }
+  }
+
+  _persistTrackedIds() {
+    if (typeof window === 'undefined') return;
+    try {
+      localStorage.setItem(
+        TRACKED_STORAGE_KEY,
+        JSON.stringify([...this._flights.keys()]),
+      );
+    } catch {
+      // Ignore storage failures; tracking still works in-memory.
+    }
   }
 
   _initUserGesture() {
@@ -169,6 +197,11 @@ class NotificationService {
     return 'Notification' in window && Notification.permission === 'granted';
   }
 
+  ensureStarted() {
+    this._initSW();
+    this.restoreTrackedFlights();
+  }
+
   // ── Public query API ─────────────────────────────────────
   isTracking(id) { return this._flights.has(id); }
 
@@ -188,8 +221,9 @@ class NotificationService {
   }
 
   // ── Public: start tracking a flight ─────────────────────
-  async trackFlight(flight) {
+  async trackFlight(flight, options = {}) {
     if (this._flights.has(flight.id)) return;   // already tracked
+    const { silentStart = false } = options;
     this._markUserInteracted();
     await this._initSW();
 
@@ -225,22 +259,26 @@ class NotificationService {
     });
 
     this._flights.set(flight.id, state);
+    this._restorePendingIds.delete(flight.id);
+    this._persistTrackedIds();
     this._emit();
 
     // ── Immediate "Now Tracking" notification ──────────────
     // Fires as soon as the user clicks Track — no altitude events needed.
-    const dest   = enrichment?.destination;
-    const origin = enrichment?.origin;
-    const routeStr = (origin?.code && dest?.code)
-      ? ` (${origin.code} → ${dest.code})`
-      : '';
-    this._show(
-      '✈️ Now Tracking',
-      dest?.name
-        ? `Tracking ${flight.callsign}${routeStr} to ${dest.name}`
-        : `Tracking ${flight.callsign} — you'll be notified on departure, midway & landing`,
-      `tracking-start-${flight.id}`,
-    );
+    if (!silentStart) {
+      const dest   = enrichment?.destination;
+      const origin = enrichment?.origin;
+      const routeStr = (origin?.code && dest?.code)
+        ? ` (${origin.code} → ${dest.code})`
+        : '';
+      this._show(
+        '✈️ Now Tracking',
+        dest?.name
+          ? `Tracking ${flight.callsign}${routeStr} to ${dest.name}`
+          : `Tracking ${flight.callsign} — you'll be notified on departure, midway & landing`,
+        `tracking-start-${flight.id}`,
+      );
+    }
   }
 
   // ── Public: stop tracking by ID ──────────────────────────
@@ -253,7 +291,39 @@ class NotificationService {
     if (state.unsub)         state.unsub();
     if (state.midpointTimer) clearTimeout(state.midpointTimer);
     this._flights.delete(id);
+    this._restorePendingIds.delete(id);
+    this._persistTrackedIds();
     this._emit();
+  }
+
+  restoreTrackedFlights() {
+    if (this._restoreStarted) return;
+    this._restoreStarted = true;
+
+    const pendingIds = new Set(this._readTrackedIds());
+    this._restorePendingIds = new Set([...this._restorePendingIds, ...pendingIds]);
+    if (this._restorePendingIds.size === 0) return;
+
+    const tryRestore = (flights) => {
+      if (this._restorePendingIds.size === 0) return;
+
+      for (const id of [...this._restorePendingIds]) {
+        if (this._flights.has(id)) {
+          this._restorePendingIds.delete(id);
+          continue;
+        }
+
+        const flight = flights.find((f) => f.id === id);
+        if (!flight) continue;
+
+        this.trackFlight(flight, { silentStart: true }).catch(() => {});
+      }
+    };
+
+    tryRestore(flightService.flights);
+    flightService.subscribe((flights) => {
+      tryRestore(flights);
+    });
   }
 
   _emit() {
