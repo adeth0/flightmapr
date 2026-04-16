@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { Building2, Clock3, MapPin, Plane, X } from 'lucide-react';
+import { Bell, Building2, Clock3, MapPin, Plane, X } from 'lucide-react';
 import { GlassCard, Divider } from '../ui/GlassCard';
 import { airportService } from '../services/airportService';
 import { enrichFlight } from '../services/flightEnrichmentService';
@@ -37,6 +37,7 @@ function ProgressPill({ progress }) {
 export function AirportSidebar({ airportCode, onClose, onCenterMap, onSelectFlight }) {
   const [airport, setAirport] = useState(() => airportService.getAirport(airportCode));
   const [departures, setDepartures] = useState(() => airportService.getScheduledDepartures(airportCode));
+  const [trackedIds, setTrackedIds] = useState(() => new Set());
 
   useEffect(() => {
     setAirport(airportService.getAirport(airportCode));
@@ -53,24 +54,45 @@ export function AirportSidebar({ airportCode, onClose, onCenterMap, onSelectFlig
       }
     });
 
-    const unsubscribe = flightService.subscribe(() => {
+    const unsubscribeFlights = flightService.subscribe(() => {
       setDepartures(airportService.getScheduledDepartures(airportCode));
     });
+
+    const unsubscribeTracked = notificationService.subscribeToChanges((list) => {
+      setTrackedIds(new Set(list.map((item) => item.id)));
+    });
+
     return () => {
       cancelled = true;
-      unsubscribe();
+      unsubscribeFlights();
+      unsubscribeTracked();
     };
   }, [airportCode]);
 
   if (!airport) return null;
 
-  async function handleFlightPress(item) {
+  function handleFlightPress(item) {
     if (!item.flight) {
       onCenterMap(airport);
       return;
     }
-    await notificationService.trackFlight(item.flight).catch(() => {});
+
     onSelectFlight(item.flight);
+  }
+
+  async function handleTrack(item) {
+    const trackedId = item.flight?.id ?? item.id;
+    if (trackedIds.has(trackedId)) {
+      notificationService.stopTracking(trackedId);
+      return;
+    }
+
+    if (item.flight) {
+      await notificationService.trackFlight(item.flight).catch(() => {});
+      return;
+    }
+
+    await notificationService.trackScheduledFlight(item, airport).catch(() => {});
   }
 
   return (
@@ -116,44 +138,65 @@ export function AirportSidebar({ airportCode, onClose, onCenterMap, onSelectFlig
               <p className="text-sm text-white/55">No live scheduled departures found right now.</p>
               <p className="text-[11px] text-white/30 mt-1">This list updates from the current tracked ADS-B feed.</p>
             </div>
-          ) : departures.map((item) => (
-            <button
-              key={item.flight?.id ?? item.id ?? `${airportCode}-${item.destination?.code ?? 'unknown'}`}
-              onClick={() => handleFlightPress(item)}
-              className="airport-flight-row w-full text-left"
-            >
-              <div className="flex items-start justify-between gap-3">
-                <div className="min-w-0">
-                  <div className="flex items-center gap-2">
-                    <Plane size={13} className="text-[#00ffcc] flex-shrink-0" />
-                    <span className="text-sm font-semibold text-white truncate">{item.flight?.callsign ?? item.flightNumber}</span>
-                    {item.isFallback && (
-                      <span className="text-[9px] rounded px-1.5 py-0.5 bg-white/8 text-white/45 uppercase tracking-wide">
-                        Scheduled
+          ) : departures.map((item) => {
+            const trackedId = item.flight?.id ?? item.id;
+            const isTracked = trackedIds.has(trackedId);
+
+            return (
+              <div
+                key={trackedId ?? `${airportCode}-${item.destination?.code ?? 'unknown'}`}
+                className="airport-flight-row"
+              >
+                <div className="airport-flight-actions">
+                  <button
+                    type="button"
+                    onClick={() => handleFlightPress(item)}
+                    className="min-w-0 flex-1 text-left"
+                  >
+                    <div className="flex items-center gap-2">
+                      <Plane size={13} className="text-[#00ffcc] flex-shrink-0" />
+                      <span className="text-sm font-semibold text-white truncate">{item.flight?.callsign ?? item.flightNumber}</span>
+                      {item.isFallback && (
+                        <span className="text-[9px] rounded px-1.5 py-0.5 bg-white/8 text-white/45 uppercase tracking-wide">
+                          Scheduled
+                        </span>
+                      )}
+                    </div>
+                    <div className="text-xs text-white/45 mt-1 truncate">
+                      {item.destination?.name ?? item.destination?.city ?? 'Destination unavailable'}
+                    </div>
+                    <div className="flex flex-wrap items-center gap-3 mt-2 text-[11px] text-white/45">
+                      <span className="flex items-center gap-1">
+                        <Clock3 size={11} />
+                        {formatTime(item.scheduledDepartureMs)}
                       </span>
-                    )}
-                  </div>
-                  <div className="text-xs text-white/45 mt-1 truncate">
-                    {item.destination?.name ?? item.destination?.city ?? 'Destination unavailable'}
-                  </div>
-                  <div className="flex flex-wrap items-center gap-3 mt-2 text-[11px] text-white/45">
-                    <span className="flex items-center gap-1">
-                      <Clock3 size={11} />
-                      {formatTime(item.scheduledDepartureMs)}
-                    </span>
-                    <span className="flex items-center gap-1">
-                      <MapPin size={11} />
-                      {item.destination?.code ?? '----'}
-                    </span>
-                    <span className={`font-semibold ${item.delayMinutes ? 'text-amber-400' : 'text-[#00ffcc]'}`}>
-                      {formatDelay(item.delayMinutes)}
-                    </span>
+                      <span className="flex items-center gap-1">
+                        <MapPin size={11} />
+                        {item.destination?.code ?? '----'}
+                      </span>
+                      <span className={`font-semibold ${item.delayMinutes ? 'text-amber-400' : 'text-[#00ffcc]'}`}>
+                        {formatDelay(item.delayMinutes)}
+                      </span>
+                    </div>
+                  </button>
+
+                  <div className="flex flex-col items-end gap-2 flex-shrink-0">
+                    <ProgressPill progress={item.progress} />
+                    <button
+                      type="button"
+                      className={`airport-track-btn ${isTracked ? 'is-active' : ''}`}
+                      onClick={() => handleTrack(item)}
+                    >
+                      <span className="inline-flex items-center gap-1.5">
+                        <Bell size={11} />
+                        {isTracked ? 'Tracking' : 'Track'}
+                      </span>
+                    </button>
                   </div>
                 </div>
-                <ProgressPill progress={item.progress} />
               </div>
-            </button>
-          ))}
+            );
+          })}
         </div>
       </GlassCard>
     </aside>

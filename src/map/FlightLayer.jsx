@@ -1,100 +1,145 @@
 import { useEffect, useRef, useCallback } from 'react';
 import { useMap } from 'react-leaflet';
 import L from 'leaflet';
-import { flightService }        from '../services/flightService';
-import { notificationService }  from '../services/notificationService';
+import { flightService } from '../services/flightService';
+import { notificationService } from '../services/notificationService';
 
-// ── Aircraft SVG path ─────────────────────────────────────
-const PLANE_PATH =
-  'M12 2 C11 2 10 3 9.5 5 L9 9 ' +
-  'L2 13 L2 15.5 L9 13 ' +
-  'L9.5 19.5 L7 22.5 L9.5 21.5 ' +
-  'L12 22.5 L14.5 21.5 L17 22.5 L14.5 19.5 ' +
-  'L15 13 L22 15.5 L22 13 ' +
-  'L15 9 L14.5 5 C14 3 13 2 12 2Z';
+function classifyAircraft(flight) {
+  const text = `${flight?.aircraft ?? ''} ${flight?.category ?? ''}`.toLowerCase();
 
-// ── Icon factory ──────────────────────────────────────────
-/**
- * States (in priority order):
- *   selected  – white plane, cyan glow, 30 px
- *   previewed – yellow plane, bright glow, 28 px
- *   hovered   – yellow plane, soft glow, 24 px
- *   tracked   – yellow plane + amber ring, 24 px
- *   default   – yellow plane, dark-outline glow, 24 px
- *
- * Yellow (#FFD700) reads on both the colourful Voyager tiles and the dark
- * CartoDB tiles. A dark drop-shadow ensures contrast on pale map areas.
- *
- * Tracked aircraft get an overflow:visible amber ring (CSS animation) so
- * the ring doesn't shift the icon anchor point.
- */
-function createIcon(heading, selected = false, hovered = false, previewed = false, tracked = false) {
-  let color, glow, size;
-
-  if (selected) {
-    color = '#ffffff';
-    glow  = 'drop-shadow(0 0 10px #00ffcc) drop-shadow(0 0 4px #fff)';
-    size  = 30;
-  } else if (previewed) {
-    color = '#FFD700';
-    glow  = 'drop-shadow(0 0 8px rgba(255,215,0,0.95)) drop-shadow(0 0 2px rgba(0,0,0,0.9))';
-    size  = 28;
-  } else if (hovered) {
-    color = '#FFD700';
-    glow  = 'drop-shadow(0 0 6px rgba(255,215,0,0.85)) drop-shadow(0 0 2px rgba(0,0,0,0.7))';
-    size  = 24;
-  } else {
-    color = '#FFD700';
-    glow  = 'drop-shadow(0 0 2px rgba(0,0,0,0.85)) drop-shadow(0 0 4px rgba(255,215,0,0.55))';
-    size  = 24;
+  if (/(heli|helicopter|rotor|robinson|bell\s?\d|sikorsky|airbus h|ec\d{2,3}|aw\d{2,3}|uh-)/.test(text)) {
+    return 'helicopter';
   }
 
-  // Amber pulse ring for tracked aircraft (overflows icon bounds, doesn't affect anchor)
+  if (/(cessna|piper|beech|cirrus|bonanza|king air|turboprop|pilatus|pc-12|tbm|sr22|diamond|mooney|light|prop|learjet|citation|phenom)/.test(text)) {
+    return 'small';
+  }
+
+  return 'commercial';
+}
+
+function getIconState(selected, hovered, previewed) {
+  if (selected) {
+    return {
+      body: '#f8fafc',
+      accent: '#8bfff1',
+      outline: 'rgba(0, 255, 204, 0.95)',
+      glow: 'drop-shadow(0 0 12px rgba(0,255,204,0.9)) drop-shadow(0 0 4px rgba(255,255,255,0.95))',
+      size: 34,
+    };
+  }
+
+  if (previewed) {
+    return {
+      body: '#fef3c7',
+      accent: '#fde68a',
+      outline: 'rgba(251, 191, 36, 0.95)',
+      glow: 'drop-shadow(0 0 10px rgba(251,191,36,0.9)) drop-shadow(0 0 3px rgba(15,23,42,0.85))',
+      size: 30,
+    };
+  }
+
+  if (hovered) {
+    return {
+      body: '#fde68a',
+      accent: '#f59e0b',
+      outline: 'rgba(251, 191, 36, 0.85)',
+      glow: 'drop-shadow(0 0 8px rgba(251,191,36,0.75)) drop-shadow(0 0 3px rgba(15,23,42,0.8))',
+      size: 26,
+    };
+  }
+
+  return {
+    body: '#f8d64e',
+    accent: '#f59e0b',
+    outline: 'rgba(15, 23, 42, 0.92)',
+    glow: 'drop-shadow(0 0 4px rgba(15,23,42,0.9)) drop-shadow(0 0 6px rgba(251,191,36,0.38))',
+    size: 26,
+  };
+}
+
+function renderAircraftSvg(type, palette, size) {
+  const stroke = 1.2;
+
+  if (type === 'helicopter') {
+    return (
+      `<svg width="${size}" height="${size}" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg" style="filter:${palette.glow};overflow:visible;">` +
+      `<g fill="none" stroke-linecap="round" stroke-linejoin="round">` +
+      `<path d="M4 5.5 H20" stroke="${palette.outline}" stroke-width="${stroke + 1}" opacity="0.55"/>` +
+      `<path d="M4 5.5 H20" stroke="${palette.body}" stroke-width="${stroke}"/>` +
+      `<path d="M11.8 6.5 H13.1 L15.6 9.8 L13.9 13.4 H9.8 L8.2 10.6 Z" fill="${palette.body}" stroke="${palette.outline}" stroke-width="${stroke}"/>` +
+      `<path d="M13.9 9.7 H18.2" stroke="${palette.accent}" stroke-width="${stroke}"/>` +
+      `<path d="M9.7 13.4 L7.1 15.2" stroke="${palette.outline}" stroke-width="${stroke}"/>` +
+      `<path d="M8.2 10.6 L4.8 10.6" stroke="${palette.accent}" stroke-width="${stroke}"/>` +
+      `<path d="M10.6 14.4 L8.7 17.7" stroke="${palette.outline}" stroke-width="${stroke}"/>` +
+      `<path d="M13.4 14.4 L15.2 17.7" stroke="${palette.outline}" stroke-width="${stroke}"/>` +
+      `</g></svg>`
+    );
+  }
+
+  if (type === 'small') {
+    return (
+      `<svg width="${size}" height="${size}" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg" style="filter:${palette.glow};overflow:visible;">` +
+      `<g fill="none" stroke-linecap="round" stroke-linejoin="round">` +
+      `<path d="M12 2.2 L13.5 6.5 L19.6 8.8 L19.1 10.3 L14.4 9.8 L15.2 20.6 L13.2 21.8 L12 14.5 L10.8 21.8 L8.8 20.6 L9.6 9.8 L4.9 10.3 L4.4 8.8 L10.5 6.5 Z" fill="${palette.body}" stroke="${palette.outline}" stroke-width="${stroke}"/>` +
+      `<path d="M12 2.2 V0.8" stroke="${palette.accent}" stroke-width="${stroke}"/>` +
+      `<path d="M10.1 1.6 L13.9 1.6" stroke="${palette.accent}" stroke-width="${stroke}"/>` +
+      `</g></svg>`
+    );
+  }
+
+  return (
+    `<svg width="${size}" height="${size}" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg" style="filter:${palette.glow};overflow:visible;">` +
+    `<g fill="none" stroke-linecap="round" stroke-linejoin="round">` +
+    `<path d="M12 1.8 C11.2 1.8 10.4 2.6 10.1 4 L9.4 8.6 L3.1 12.1 L3.1 14.4 L9.2 12.9 L9.8 18.8 L7.8 21.1 L9.4 21.3 L12 19.6 L14.6 21.3 L16.2 21.1 L14.2 18.8 L14.8 12.9 L20.9 14.4 L20.9 12.1 L14.6 8.6 L13.9 4 C13.6 2.6 12.8 1.8 12 1.8 Z" fill="${palette.body}" stroke="${palette.outline}" stroke-width="${stroke}"/>` +
+    `<path d="M9.2 12.8 H14.8" stroke="${palette.accent}" stroke-width="${stroke}" opacity="0.95"/>` +
+    `</g></svg>`
+  );
+}
+
+function createIcon(flight, selected = false, hovered = false, previewed = false, tracked = false) {
+  const type = classifyAircraft(flight);
+  const palette = getIconState(selected, hovered, previewed);
+  const size = palette.size + (type === 'helicopter' ? 2 : 0);
+
   const ring = (tracked && !selected)
-    ? `<div style="position:absolute;inset:-10px;border-radius:50%;` +
-      `border:2px solid rgba(251,191,36,0.7);pointer-events:none;` +
-      `animation:tracked-ring 1.8s ease-in-out infinite;"></div>`
+    ? '<div class="aircraft-track-ring"></div>'
     : '';
 
   return L.divIcon({
     html:
-      `<div style="position:relative;width:${size}px;height:${size}px;overflow:visible;">` +
+      `<div class="aircraft-icon-shell aircraft-icon-${type}" style="width:${size}px;height:${size}px;">` +
       ring +
-      `<div data-plane-rot style="width:${size}px;height:${size}px;` +
-      `transform:rotate(${heading}deg);transition:transform 0.4s linear;">` +
-      `<svg width="${size}" height="${size}" viewBox="0 0 24 24"` +
-      ` fill="${color}" xmlns="http://www.w3.org/2000/svg"` +
-      ` style="filter:${glow};">` +
-      `<path d="${PLANE_PATH}"/></svg></div></div>`,
+      `<div data-plane-rot class="aircraft-icon-rotator" style="transform:rotate(${flight.heading}deg);">` +
+      renderAircraftSvg(type, palette, size) +
+      '</div></div>',
     className: 'aircraft-marker',
-    iconSize:    [size, size],
-    iconAnchor:  [size / 2, size / 2],
+    iconSize: [size, size],
+    iconAnchor: [size / 2, size / 2],
     popupAnchor: [0, -(size / 2 + 4)],
   });
 }
 
-// ── Mini preview popup (first tap) ───────────────────────
 function miniPopupContent(f) {
   const origin = f.origin?.code && f.origin.code !== '----' ? f.origin.code : '---';
-  const dest   = f.destination?.code && f.destination.code !== '----' ? f.destination.code : '---';
-  const altStr = f.altitude ? `${f.altitude.toLocaleString()} ft · ${f.speed} kts` : '';
+  const dest = f.destination?.code && f.destination.code !== '----' ? f.destination.code : '---';
+  const altStr = f.altitude ? `${f.altitude.toLocaleString()} ft � ${f.speed} kts` : '';
 
   return (
     `<div style="font-family:'Inter',system-ui,sans-serif;min-width:155px;padding:2px 0;">` +
     `<div style="font-size:14px;font-weight:700;color:#00ffcc;margin-bottom:5px;letter-spacing:-0.3px;">${f.callsign}</div>` +
     `<div style="font-size:12px;color:#fff;display:flex;align-items:center;gap:8px;font-weight:600;">` +
-    `<span>${origin}</span><span style="color:#00ffcc;font-size:13px;">→</span><span>${dest}</span>` +
+    `<span>${origin}</span><span style="color:#00ffcc;font-size:13px;">?</span><span>${dest}</span>` +
     `</div>` +
     (altStr ? `<div style="font-size:10px;color:rgba(255,255,255,0.45);margin-top:3px;">${altStr}</div>` : '') +
     `<button data-action="select" style="margin-top:8px;width:100%;padding:6px 0;` +
     `background:rgba(0,255,204,0.13);border:1px solid rgba(0,255,204,0.35);` +
     `border-radius:7px;color:#00ffcc;font-size:11px;font-weight:600;cursor:pointer;` +
     `font-family:'Inter',sans-serif;-webkit-tap-highlight-color:transparent;">` +
-    `View Full Details →</button></div>`
+    `View Full Details ?</button></div>`
   );
 }
 
-// ── Hover tooltip ─────────────────────────────────────────
 function tooltipContent(f) {
   return (
     `<div style="font-family:'Inter',sans-serif;font-size:12px;color:#fff;min-width:130px;">` +
@@ -104,51 +149,45 @@ function tooltipContent(f) {
   );
 }
 
-// ── FlightLayer ───────────────────────────────────────────
 export function FlightLayer({ selectedFlightId, onFlightSelect }) {
-  const map              = useMap();
-  const markersRef       = useRef(new Map());
-  const trailRef         = useRef(null);
-  const selectedIdRef    = useRef(selectedFlightId);
-  const onSelectRef      = useRef(onFlightSelect);
-  const pendingPreviewRef = useRef(null); // { id, popup }
-  const trackedIdsRef    = useRef(new Set()); // ids currently tracked for notifications
-  // Timestamp of last pane-level touch select (used to suppress duplicate click on Android)
+  const map = useMap();
+  const markersRef = useRef(new Map());
+  const trailRef = useRef(null);
+  const selectedIdRef = useRef(selectedFlightId);
+  const onSelectRef = useRef(onFlightSelect);
+  const pendingPreviewRef = useRef(null);
+  const trackedIdsRef = useRef(new Set());
   const lastPaneTouchRef = useRef(0);
 
   useEffect(() => { selectedIdRef.current = selectedFlightId; }, [selectedFlightId]);
-  useEffect(() => { onSelectRef.current   = onFlightSelect;   }, [onFlightSelect]);
+  useEffect(() => { onSelectRef.current = onFlightSelect; }, [onFlightSelect]);
 
-  // ── Track notification state → update amber rings ────
   useEffect(() => {
     return notificationService.subscribeToChanges((list) => {
       const newSet = new Set(list.map((t) => t.id));
       trackedIdsRef.current = newSet;
-      // Refresh icons for markers whose tracked status changed
       markersRef.current.forEach((entry, id) => {
         const wasTracked = entry.tracked ?? false;
         const isNowTracked = newSet.has(id);
         if (wasTracked !== isNowTracked) {
           entry.tracked = isNowTracked;
-          entry.rotEl   = null;
+          entry.rotEl = null;
           const isSel = selectedIdRef.current === id;
           entry.marker.setIcon(
-            createIcon(entry.flight.heading, isSel, false, entry.previewed ?? false, isNowTracked)
+            createIcon(entry.flight, isSel, false, entry.previewed ?? false, isNowTracked),
           );
         }
       });
     });
   }, []);
 
-  // Clear preview when the flight becomes fully selected
   useEffect(() => {
     if (selectedFlightId && pendingPreviewRef.current?.id === selectedFlightId) {
-      _safeRemovePopup(pendingPreviewRef.current.popup);
+      safeRemovePopup(pendingPreviewRef.current.popup);
       pendingPreviewRef.current = null;
     }
   }, [selectedFlightId]);
 
-  // Rebuild trail whenever the selected flight changes
   useEffect(() => {
     if (trailRef.current) { trailRef.current.remove(); trailRef.current = null; }
     if (!selectedFlightId) return;
@@ -156,12 +195,11 @@ export function FlightLayer({ selectedFlightId, onFlightSelect }) {
     if (!flight) return;
     trailRef.current = L.polyline(
       flight.trail.map((p) => [p.lat, p.lng]),
-      { color: 'rgba(0,255,204,0.6)', weight: 2.5, lineCap: 'round', interactive: false }
+      { color: 'rgba(0,255,204,0.6)', weight: 2.5, lineCap: 'round', interactive: false },
     ).addTo(map);
   }, [selectedFlightId, map]);
 
-  // ── Utilities ─────────────────────────────────────────────
-  function _safeRemovePopup(popup) {
+  function safeRemovePopup(popup) {
     try { if (popup) popup.remove(); } catch { /* ignore */ }
   }
 
@@ -169,9 +207,9 @@ export function FlightLayer({ selectedFlightId, onFlightSelect }) {
     const entry = markersRef.current.get(flightId);
     if (entry?.previewed) {
       entry.previewed = false;
-      entry.rotEl     = null;
+      entry.rotEl = null;
       const isTracked = trackedIdsRef.current.has(flightId);
-      entry.marker.setIcon(createIcon(entry.flight.heading, false, false, false, isTracked));
+      entry.marker.setIcon(createIcon(entry.flight, false, false, false, isTracked));
       entry.marker.setZIndexOffset(0);
     }
   }, []);
@@ -179,68 +217,65 @@ export function FlightLayer({ selectedFlightId, onFlightSelect }) {
   const dismissPreview = useCallback(() => {
     if (!pendingPreviewRef.current) return;
     const { id, popup } = pendingPreviewRef.current;
-    _safeRemovePopup(popup);
+    safeRemovePopup(popup);
     clearMarkerPreview(id);
     pendingPreviewRef.current = null;
   }, [clearMarkerPreview]);
 
   const openMiniPopup = useCallback((flight) => {
     if (pendingPreviewRef.current) {
-      _safeRemovePopup(pendingPreviewRef.current.popup);
+      safeRemovePopup(pendingPreviewRef.current.popup);
       clearMarkerPreview(pendingPreviewRef.current.id);
     }
 
     const popup = L.popup({
-      closeButton:  true,
-      autoClose:    false,
+      closeButton: true,
+      autoClose: false,
       closeOnClick: false,
-      className:    'flight-mini-popup',
-      offset:       [0, -20],
-      maxWidth:     220,
+      className: 'flight-mini-popup',
+      offset: [0, -20],
+      maxWidth: 220,
     })
       .setLatLng([flight.lat, flight.lng])
       .setContent(miniPopupContent(flight))
       .openOn(map);
 
-    // Wire the "View Full Details" button
     const setupBtn = () => {
       const el = popup.getElement?.()?.querySelector('[data-action="select"]');
       if (!el) return;
       const activate = (e) => {
         e.stopPropagation();
         e.preventDefault();
-        _safeRemovePopup(popup);
+        safeRemovePopup(popup);
         clearMarkerPreview(flight.id);
         pendingPreviewRef.current = null;
         onSelectRef.current(flight);
       };
-      el.addEventListener('click',    activate, { passive: false });
+      el.addEventListener('click', activate, { passive: false });
       el.addEventListener('touchend', activate, { passive: false });
     };
     setTimeout(setupBtn, 60);
 
-    // Elevate the marker visually
     const entry = markersRef.current.get(flight.id);
     if (entry) {
       entry.previewed = true;
-      entry.rotEl     = null;
+      entry.rotEl = null;
       const isTracked = trackedIdsRef.current.has(flight.id);
-      entry.marker.setIcon(createIcon(entry.flight.heading, false, false, true, isTracked));
+      entry.marker.setIcon(createIcon(entry.flight, false, false, true, isTracked));
       entry.marker.setZIndexOffset(500);
     }
 
     pendingPreviewRef.current = { id: flight.id, popup };
   }, [map, clearMarkerPreview]);
 
-  // ── Marker lifecycle ──────────────────────────────────────
   const addMarker = useCallback((flight) => {
     const markers = markersRef.current;
     if (markers.has(flight.id)) return;
 
     const isSelected = selectedIdRef.current === flight.id;
-    const isTracked  = trackedIdsRef.current.has(flight.id);
+    const isTracked = trackedIdsRef.current.has(flight.id);
     const marker = L.marker([flight.lat, flight.lng], {
-      icon:         createIcon(flight.heading, isSelected, false, false, isTracked),
+      icon: createIcon(flight, isSelected, false, false, isTracked),
       zIndexOffset: isSelected ? 1000 : 0,
     }).addTo(map);
 
@@ -248,53 +283,47 @@ export function FlightLayer({ selectedFlightId, onFlightSelect }) {
       permanent: false, direction: 'top', offset: [0, -4], opacity: 1, className: '',
     });
     marker.on('tooltipopen', () => {
-      const e = markers.get(flight.id);
-      if (e) marker.setTooltipContent(tooltipContent(e.flight));
+      const entry = markers.get(flight.id);
+      if (entry) marker.setTooltipContent(tooltipContent(entry.flight));
     });
 
-    // ── Click handler (desktop mouse) ────────────────────────────
-    // Touch taps are handled at the pane level (see main useEffect)
-    // so this only needs to fire for genuine mouse clicks on desktop.
-    // The lastPaneTouchRef guard suppresses the synthetic click that
-    // Android/Leaflet fires ~300 ms after a touch tap.
     marker.on('click', () => {
       if (Date.now() - lastPaneTouchRef.current < 600) return;
-      console.log('[FlightMapr] click select:', flight.callsign);
       onSelectRef.current(flight);
     });
 
     marker.on('mouseover', () => {
-      const e = markers.get(flight.id);
-      if (e && selectedIdRef.current !== flight.id && !e.previewed) {
-        e.rotEl = null;
-        const isTracked = trackedIdsRef.current.has(flight.id);
-        marker.setIcon(createIcon(e.flight.heading, false, true, false, isTracked));
+      const entry = markers.get(flight.id);
+      if (entry && selectedIdRef.current !== flight.id && !entry.previewed) {
+        entry.rotEl = null;
+        const isNowTracked = trackedIdsRef.current.has(flight.id);
+        marker.setIcon(createIcon(entry.flight, false, true, false, isNowTracked));
       }
     });
     marker.on('mouseout', () => {
-      const e = markers.get(flight.id);
-      if (e && selectedIdRef.current !== flight.id && !e.previewed) {
-        e.rotEl = null;
-        const isTracked = trackedIdsRef.current.has(flight.id);
-        marker.setIcon(createIcon(e.flight.heading, false, false, false, isTracked));
+      const entry = markers.get(flight.id);
+      if (entry && selectedIdRef.current !== flight.id && !entry.previewed) {
+        entry.rotEl = null;
+        const isNowTracked = trackedIdsRef.current.has(flight.id);
+        marker.setIcon(createIcon(entry.flight, false, false, false, isNowTracked));
       }
     });
 
     markers.set(flight.id, {
       marker,
       flight,
-      rotEl:    null,
-      lastSel:  isSelected,
+      rotEl: null,
+      lastSel: isSelected,
       previewed: false,
-      tracked:  isTracked,
+      tracked: isTracked,
     });
-  }, [map, openMiniPopup, dismissPreview]);
+  }, [map]);
 
   const removeMarker = useCallback((id) => {
     const entry = markersRef.current.get(id);
     if (entry) { entry.marker.remove(); markersRef.current.delete(id); }
     if (pendingPreviewRef.current?.id === id) {
-      _safeRemovePopup(pendingPreviewRef.current.popup);
+      safeRemovePopup(pendingPreviewRef.current.popup);
       pendingPreviewRef.current = null;
     }
   }, []);
@@ -303,37 +332,29 @@ export function FlightLayer({ selectedFlightId, onFlightSelect }) {
     const zoom = map.getZoom();
     let idx = 0;
     markersRef.current.forEach((entry, id) => {
-      idx++;
+      idx += 1;
       if (id === selectedIdRef.current) { entry.marker.setOpacity(1); return; }
       let visible = true;
-      if      (zoom < 3) visible = idx % 4 === 0;
+      if (zoom < 3) visible = idx % 4 === 0;
       else if (zoom < 5) visible = idx % 2 === 0;
       entry.marker.setOpacity(visible ? 1 : 0);
     });
   }, [map]);
 
-  // ── Main subscription ─────────────────────────────────────
   useEffect(() => {
     map.on('zoomend', updateDensity);
 
-    // ── Pane-level touch delegation (iOS Safari fix) ───────────
-    // Leaflet does not route 'touchend' DOM events to marker layers
-    // on iOS, so marker.on('touchend', ...) never fires there.
-    // Map.Tap converts tap → synthetic 'click', but its timing is
-    // unreliable for our two-step preview UX.  Listening directly
-    // on the markerPane element gives us guaranteed, low-latency
-    // tap detection on every platform before Leaflet sees anything.
     const markerPane = map.getPanes()?.markerPane;
-    let _ts = 0, _tx = 0, _ty = 0;
+    let startTs = 0;
+    let startX = 0;
+    let startY = 0;
 
     const onPaneTouchStart = (e) => {
       if (!e.target.closest?.('.aircraft-marker')) return;
       if (e.touches.length !== 1) return;
-      _ts = Date.now();
-      _tx = e.touches[0].clientX;
-      _ty = e.touches[0].clientY;
-      // Stop here so Map.Tap never starts its gesture, preventing a
-      // duplicate synthetic click 300 ms later.
+      startTs = Date.now();
+      startX = e.touches[0].clientX;
+      startY = e.touches[0].clientY;
       e.stopPropagation();
     };
 
@@ -342,31 +363,27 @@ export function FlightLayer({ selectedFlightId, onFlightSelect }) {
       if (!t) return;
       const markerEl = e.target.closest?.('.aircraft-marker');
       if (!markerEl) return;
-      const dt = Date.now() - _ts;
-      const dx = Math.abs(t.clientX - _tx);
-      const dy = Math.abs(t.clientY - _ty);
-      // Must be a quick, near-stationary tap (not a pan or long-press)
+      const dt = Date.now() - startTs;
+      const dx = Math.abs(t.clientX - startX);
+      const dy = Math.abs(t.clientY - startY);
       if (dt > 500 || dx > 20 || dy > 20) return;
       e.stopPropagation();
-      e.preventDefault(); // suppress any subsequent synthetic click
-      // Find the flight whose marker element was tapped
+      e.preventDefault();
       let tappedFlight = null;
       markersRef.current.forEach((entry) => {
         if (entry.marker.getElement() === markerEl) tappedFlight = entry.flight;
       });
       if (tappedFlight) {
         lastPaneTouchRef.current = Date.now();
-        console.log('[FlightMapr] pane tap:', tappedFlight.callsign);
         onSelectRef.current(tappedFlight);
       }
     };
 
     if (markerPane) {
       markerPane.addEventListener('touchstart', onPaneTouchStart, { passive: false });
-      markerPane.addEventListener('touchend',   onPaneTouchEnd,   { passive: false });
+      markerPane.addEventListener('touchend', onPaneTouchEnd, { passive: false });
     }
 
-    // ── Map background click → dismiss preview ─────────────────
     map.on('click', (e) => {
       if (e.originalEvent?.target?.closest?.('.aircraft-marker')) return;
       dismissPreview();
@@ -374,9 +391,7 @@ export function FlightLayer({ selectedFlightId, onFlightSelect }) {
 
     const unsub = flightService.subscribe((flights) => {
       const markers = markersRef.current;
-      const selId   = selectedIdRef.current;
-
-      // Remove stale markers
+      const selId = selectedIdRef.current;
       const incomingIds = new Set(flights.map((f) => f.id));
       markers.forEach((_, id) => { if (!incomingIds.has(id)) removeMarker(id); });
 
@@ -391,31 +406,27 @@ export function FlightLayer({ selectedFlightId, onFlightSelect }) {
 
         const isSel = selId === flight.id;
 
-        // Fast path: rotate in-place via DOM
         if (!entry.rotEl) {
           const el = entry.marker.getElement();
           if (el) entry.rotEl = el.querySelector('[data-plane-rot]');
         }
         if (entry.rotEl) entry.rotEl.style.transform = `rotate(${flight.heading}deg)`;
 
-        // Slow path: full icon rebuild on selection change
         if (isSel !== entry.lastSel) {
-          entry.lastSel   = isSel;
-          entry.rotEl     = null;
+          entry.lastSel = isSel;
+          entry.rotEl = null;
           entry.previewed = false;
           const isTracked = trackedIdsRef.current.has(flight.id);
-          entry.marker.setIcon(createIcon(flight.heading, isSel, false, false, isTracked));
+          entry.marker.setIcon(createIcon(flight, isSel, false, false, isTracked));
           entry.marker.setZIndexOffset(isSel ? 1000 : 0);
         }
 
-        // Keep selected flight trail live
         if (isSel && trailRef.current) {
           trailRef.current.setLatLngs(flight.trail.map((p) => [p.lat, p.lng]));
         }
 
-        // Drag preview popup with the aircraft
         if (pendingPreviewRef.current?.id === flight.id) {
-          try { pendingPreviewRef.current.popup.setLatLng([flight.lat, flight.lng]); } catch { /**/ }
+          try { pendingPreviewRef.current.popup.setLatLng([flight.lat, flight.lng]); } catch { /* ignore */ }
         }
       });
     });
@@ -426,12 +437,12 @@ export function FlightLayer({ selectedFlightId, onFlightSelect }) {
       map.off('click');
       if (markerPane) {
         markerPane.removeEventListener('touchstart', onPaneTouchStart);
-        markerPane.removeEventListener('touchend',   onPaneTouchEnd);
+        markerPane.removeEventListener('touchend', onPaneTouchEnd);
       }
       markersRef.current.forEach(({ marker }) => marker.remove());
       markersRef.current.clear();
       if (trailRef.current) { trailRef.current.remove(); trailRef.current = null; }
-      _safeRemovePopup(pendingPreviewRef.current?.popup);
+      safeRemovePopup(pendingPreviewRef.current?.popup);
       pendingPreviewRef.current = null;
     };
   }, [map, addMarker, removeMarker, updateDensity, dismissPreview]);
