@@ -8,6 +8,7 @@ import { StatusBar }         from './components/StatusBar';
 import { AlertsDashboard }   from './components/AlertsDashboard';
 import { Onboarding, hasOnboarded } from './components/Onboarding';
 import { InstallBanner }     from './components/InstallBanner';
+import { FeedbackFab }       from './components/FeedbackFab';
 import { flightService }     from './services/flightService';
 import { getUserLocation, getCachedLocation } from './services/geoService';
 import { openSkyService }    from './services/openSkyService';
@@ -73,6 +74,90 @@ export default function App() {
     flightService.start();
     notificationService.ensureStarted();
     return () => flightService.stop();
+  }, []);
+
+  // ── Catch-up pings on visibility / focus ────────────────
+  // When the app returns to the foreground (tab reveal, PWA resume),
+  // ask the service worker to run a tracked-flight check. On mobile
+  // this is the primary way we catch up on any events that fired
+  // while the page was suspended. No-op when SW is absent.
+  useEffect(() => {
+    if (typeof document === 'undefined') return;
+
+    const ping = () => notificationService.triggerBackgroundCheck();
+
+    // Kick off one check on mount so we catch anything that happened
+    // while the service worker was sleeping before the page loaded.
+    ping();
+
+    const onVisibility = () => {
+      if (!document.hidden) ping();
+    };
+    const onFocus = () => ping();
+
+    document.addEventListener('visibilitychange', onVisibility);
+    window.addEventListener('focus', onFocus);
+    window.addEventListener('pageshow', onFocus);
+
+    return () => {
+      document.removeEventListener('visibilitychange', onVisibility);
+      window.removeEventListener('focus', onFocus);
+      window.removeEventListener('pageshow', onFocus);
+    };
+  }, []);
+
+  // ── Listen for service-worker notificationclick messages ─
+  // The SW posts {type:'OPEN_TRACKED_FLIGHT', trackedId} when the
+  // user taps a notification and we already have a window open.
+  // We also honour ?tracked=<id> in the URL on cold starts.
+  useEffect(() => {
+    if (typeof navigator === 'undefined' || !('serviceWorker' in navigator)) return;
+
+    const focusTracked = (trackedId) => {
+      if (!trackedId) return;
+      const flight =
+        flightService.getFlight(trackedId)
+        ?? flightService.flights.find(
+          (f) => (f.callsign ?? '').toUpperCase() === String(trackedId).toUpperCase(),
+        );
+      if (!flight) return;
+      setSelectedAirportCode(null);
+      setSelectedFlightId(flight.id);
+      setFollowFlightId(flight.id);
+      setFollowPaused(false);
+      setFlyToFlightId(null);
+      requestAnimationFrame(() => setFlyToFlightId(flight.id));
+    };
+
+    const handleMessage = (event) => {
+      const data = event.data;
+      if (!data || data.type !== 'OPEN_TRACKED_FLIGHT') return;
+      focusTracked(data.trackedId);
+    };
+    navigator.serviceWorker.addEventListener('message', handleMessage);
+
+    // Cold-start path: /?tracked=<id>
+    try {
+      const url = new URL(window.location.href);
+      const trackedId = url.searchParams.get('tracked');
+      if (trackedId) {
+        // Wait for the flight feed to populate before focusing.
+        const unsub = flightService.subscribe(() => {
+          focusTracked(trackedId);
+        });
+        // Try once immediately too.
+        focusTracked(trackedId);
+        // Strip the param so a refresh doesn't re-trigger focus.
+        url.searchParams.delete('tracked');
+        window.history.replaceState({}, '', url.toString());
+        // Release subscription after 30s to avoid leaks.
+        setTimeout(() => unsub?.(), 30_000);
+      }
+    } catch {
+      // URL parsing failures are non-fatal.
+    }
+
+    return () => navigator.serviceWorker.removeEventListener('message', handleMessage);
   }, []);
 
   useEffect(() => {
@@ -188,6 +273,35 @@ export default function App() {
   const handleToggleRoutes   = useCallback(() => setRoutesEnabled((v) => !v),   []);
   const handleToggleAlerts   = useCallback(() => setAlertsOpen((v) => !v),      []);
 
+  // Alert row clicked: fly to the aircraft and enable follow mode.
+  // Reuses the existing follow/fly-to plumbing so we don't duplicate
+  // any persistence or pan-offset logic.
+  //
+  //  • Desktop: also open the sidebar card (there's room alongside
+  //    the alerts panel and following aircraft benefits from the
+  //    live telemetry view).
+  //  • Mobile:  keep the map clean — no bottom-sheet sidebar over
+  //    the aircraft we just focused. Close the alerts panel so the
+  //    user can see the map; the tracking bar will show the
+  //    currently-followed callsign.
+  const handleAlertFocus = useCallback((flight) => {
+    if (!flight?.id) return;
+    const mobile = isMobileViewport();
+
+    setSelectedAirportCode(null);
+    if (mobile) {
+      // Don't open the sheet — user wants map-first focus.
+      setSelectedFlightId(null);
+    } else {
+      setSelectedFlightId(flight.id);
+    }
+    setFollowFlightId(flight.id);
+    setFollowPaused(false);
+    setFlyToFlightId(null);
+    requestAnimationFrame(() => setFlyToFlightId(flight.id));
+    if (mobile) setAlertsOpen(false);
+  }, []);
+
   // ── Logo tap: reset map to user location ─────────────
   // Reuses the same geo + prefetch logic as initial app load.
   // getCachedLocation gives an instant response; getUserLocation
@@ -288,7 +402,10 @@ export default function App() {
 
       {/* ── Alerts dashboard ─────────────────────────────── */}
       {alertsOpen && (
-        <AlertsDashboard onClose={handleToggleAlerts} />
+        <AlertsDashboard
+          onClose={handleToggleAlerts}
+          onFocusFlight={handleAlertFocus}
+        />
       )}
 
       {/* ── Status bar ───────────────────────────────────── */}
@@ -340,34 +457,10 @@ export default function App() {
         </div>
       )}
 
-      {/* ── Mobile-only floating donate button ───────────── */}
-      {/* position:fixed so it CANNOT be clipped by the App root's
-          overflow:hidden — critical for iOS PWA standalone mode
-          where absolute children fall outside the clipping rect.  */}
-      <div className="sm:hidden" style={{ position: 'fixed', bottom: 'calc(env(safe-area-inset-bottom, 0px) + 40px)', right: 14, zIndex: 1100, pointerEvents: 'auto' }}>
-        <a
-          href="https://donate.stripe.com/8x27sMaIf3Cm5O0gFEc7u00"
-          target="_blank"
-          rel="noopener noreferrer"
-          style={{
-            display: 'flex',
-            alignItems: 'center',
-            gap: 6,
-            padding: '10px 14px',
-            borderRadius: 14,
-            background: 'linear-gradient(135deg, #00ffcc 0%, #10b981 100%)',
-            color: '#000',
-            fontSize: 12,
-            fontWeight: 700,
-            textDecoration: 'none',
-            boxShadow: '0 0 20px rgba(0,255,204,0.4), 0 4px 16px rgba(0,0,0,0.35)',
-            whiteSpace: 'nowrap',
-          }}
-        >
-          <span style={{ fontSize: 14 }}>✈️</span>
-          <span>Support</span>
-        </a>
-      </div>
+      {/* ── Floating Feedback + Donate FAB ───────────────── */}
+      {/* Circular trigger; tap to reveal the Feedback + Donate
+          actions. See FeedbackFab.jsx for platform notes. */}
+      <FeedbackFab />
     </div>
   );
 }

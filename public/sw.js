@@ -6,7 +6,17 @@ const POLL_THROTTLE_MS = 5 * 60 * 1_000;
 
 self.addEventListener('install', () => self.skipWaiting());
 self.addEventListener('activate', (event) => {
-  event.waitUntil(self.clients.claim());
+  // Claim open clients so the new SW controls them immediately, and run a
+  // catch-up tracked-flight poll so events that fired while we were
+  // asleep surface as soon as the browser wakes the worker.
+  event.waitUntil((async () => {
+    await self.clients.claim();
+    try {
+      await pollTrackedFlights();
+    } catch {
+      // Never let a poll failure block activation.
+    }
+  })());
 });
 
 function openDb() {
@@ -247,15 +257,30 @@ self.addEventListener('notificationclick', (event) => {
   const trackedId = event.notification.data?.trackedId;
   const targetUrl = trackedId ? `/?tracked=${encodeURIComponent(trackedId)}` : '/';
 
-  event.waitUntil(
-    self.clients.matchAll({ type: 'window', includeUncontrolled: true }).then((clients) => {
-      const existing = clients.find((client) => client.url.startsWith(self.location.origin));
-      if (existing) {
-        existing.focus();
-        existing.postMessage({ type: 'OPEN_TRACKED_FLIGHT', trackedId });
-        return existing;
+  event.waitUntil((async () => {
+    const clients = await self.clients.matchAll({
+      type: 'window',
+      includeUncontrolled: true,
+    });
+
+    // Prefer focusing an already-open tab — that preserves current
+    // map state and live WebSocket connections.
+    for (const client of clients) {
+      if (!client.url.startsWith(self.location.origin)) continue;
+      try {
+        await client.focus();
+      } catch {
+        // focus() can throw on some platforms if the tab was reclaimed.
       }
-      return self.clients.openWindow(targetUrl);
-    }),
-  );
+      try {
+        client.postMessage({ type: 'OPEN_TRACKED_FLIGHT', trackedId });
+      } catch {
+        // Ignore — the url fallback below still carries the id.
+      }
+      return client;
+    }
+
+    // Cold start: open a fresh window carrying the trackedId in the URL.
+    return self.clients.openWindow(targetUrl);
+  })());
 });

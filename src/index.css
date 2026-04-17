@@ -962,3 +962,185 @@ a:active {
 }
 .in-app-toast-close:hover  { background: rgba(255,255,255,0.15); color: #fff; }
 .in-app-toast-close:active { transform: scale(0.9); }
+
+/* ════════════════════════════════════════════════════════════
+   FEEDBACK / SUPPORT FLOATING ACTION BUTTON (FAB)
+   Compact circular trigger with a smooth reveal of Feedback +
+   Donate options. Position fixed so it survives the App root's
+   overflow:hidden — required for iOS PWA standalone.
+   ════════════════════════════════════════════════════════════ */
+.feedback-fab-root {
+  position: fixed;
+  /* Sits above the mobile InstallBanner (bottom: safe + 58px) and
+     above the StatusBar (~36px tall). On tablet/desktop safe-area
+     collapses to 0 so the button lands a clean 84px from the edge. */
+  bottom: calc(env(safe-area-inset-bottom, 0px) + 112px);
+  right: calc(env(safe-area-inset-right, 0px) + 14px);
+  z-index: 1100;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 10px;
+}
+
+/* Desktop / wide viewport: drop the FAB lower because the topbar
+   already shows a full 'Donate' pill, so the FAB is mostly for
+   feedback quick-access. */
+@media (min-width: 640px) {
+  .feedback-fab-root {
+    bottom: calc(env(safe-area-inset-bottom, 0px) + 58px);
+    right: calc(env(safe-area-inset-right, 0px) + 18px);
+  }
+}
+
+.feedback-fab-trigger {
+  width: 48px;
+  height: 48px;
+  border-radius: 50%;
+  border: 1px solid rgba(0, 255, 204, 0.35);
+  background: linear-gradient(135deg, #00ffcc 0%, #10b981 100%);
+  color: #0b0f17;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  box-shadow:
+    0 0 20px rgba(0, 255, 204, 0.4),
+    0 6px 18px rgba(0, 0, 0, 0.35),
+    0 0 0 1px rgba(0, 255, 204, 0.08) inset;
+  transition:
+    transform 0.22s var(--ease-spring),
+    box-shadow 0.18s var(--ease-smooth),
+    background 0.18s var(--ease-smooth);
+  -webkit-tap-highlight-color: transparent;
+  touch-action: manipulation;
+}
+.feedback-fab-trigger:hover {
+  box-shadow:
+    0 0 28px rgba(0, 255, 204, 0.55),
+    0 8px 22px rgba(0, 0, 0, 0.45);
+}
+.feedback-fab-trigger:active { transform: scale(0.92); }
+
+/* When open — morph trigger into a neutral dark "close" button */
+.feedback-fab-root.is-open .feedback-fab-trigger {
+  background: rgba(17, 24, 39, 0.92);
+  color: #fff;
+  border-color: rgba(255, 255, 255, 0.18);
+  box-shadow:
+    0 6px 18px rgba(0, 0, 0, 0.45),
+    0 0 0 1px rgba(255, 255, 255, 0.04) inset;
+}
+
+.feedback-fab-trigger-icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  line-height: 0;
+  transition: transform 0.2s var(--ease-spring);
+}
+.feedback-fab-root.is-open .feedback-fab-trigger-icon { transform: rotate(90deg); }
+
+/* ── Reveal menu ────────────────────────────────────────── */
+.feedback-fab-menu {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 8px;
+  opacity: 0;
+  transform: translateY(8px) scale(0.96);
+  transform-origin: 100% 100%;
+  pointer-events: none;
+  transition:
+    opacity 0.18s var(--ease-smooth),
+    transform 0.24s var(--ease-spring);
+}
+.feedback-fab-root.is-open .feedback-fab-menu {
+  opacity: 1;
+  transform: translateY(0) scale(1);
+  pointer-events: auto;
+}
+
+.feedback-fab-item {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  padding: 9px 12px 9px 14px;
+  border-radius: 999px;
+  border: 1px solid rgba(0, 255, 204, 0.22);
+  background: rgba(13, 18, 32, 0.95);
+  backdrop-filter: blur(18px) saturate(160%);
+  -webkit-backdrop-filter: blur(18px) saturate(160%);
+  color: #fff;
+  font-size: 12px;
+  font-weight: 600;
+  white-space: nowrap;
+  cursor: pointer;
+  box-shadow:
+    0 8px 22px rgba(0, 0, 0, 0.45),
+    0 0 0 1px rgba(0, 255, 204, 0.05) inset;
+  transition:
+    background 0.18s var(--ease-smooth),
+    border-color 0.18s var(--ease-smooth),
+    transform 0.08s var(--ease-in-out);
+  -webkit-tap-highlight-color: transparent;
+  touch-action: manipulation;
+  min-height: 40px;
+}
+.feedback-fab-item:hover {
+  background: rgba(22, 29, 46, 0.98);
+  border-color: rgba(0, 255, 204, 0.38);
+}
+.feedback-fab-item:active { transform: scale(0.96); }
+
+.feedback-fab-item-label { line-height: 1; }
+
+.feedback-fab-item-icon {
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  background: rgba(0, 255, 204, 0.12);
+  color: #00ffcc;
+  border: 1px solid rgba(0, 255, 204, 0.25);
+}
+
+.feedback-fab-item-donate .feedback-fab-item-icon {
+  background: linear-gradient(135deg, #00ffcc 0%, #10b981 100%);
+  color: #0b0f17;
+  border-color: transparent;
+  box-shadow: 0 0 10px rgba(0, 255, 204, 0.45);
+}
+
+/* Staggered reveal so the items don't pop all at once */
+.feedback-fab-root.is-open .feedback-fab-item-donate    { animation: fab-item-in 0.28s var(--ease-spring) 0.02s both; }
+.feedback-fab-root.is-open .feedback-fab-item-feedback  { animation: fab-item-in 0.28s var(--ease-spring) 0.08s both; }
+
+@keyframes fab-item-in {
+  from { opacity: 0; transform: translateY(6px) scale(0.96); }
+  to   { opacity: 1; transform: translateY(0)   scale(1); }
+}
+
+/* Alert row — interactive (click to focus on map) */
+.alert-row-btn {
+  width: 100%;
+  text-align: left;
+  border: none;
+  background: none;
+  padding: 0;
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+}
+.alert-row-btn:active .alert-row-body { transform: scale(0.985); }
+.alert-row-body {
+  transition: background 0.15s var(--ease-in-out),
+              border-color 0.15s var(--ease-in-out),
+              transform 0.08s var(--ease-in-out);
+}
+.alert-row-btn:hover .alert-row-body {
+  background: rgba(22, 29, 46, 0.92);
+  border-color: rgba(0, 255, 204, 0.18);
+}

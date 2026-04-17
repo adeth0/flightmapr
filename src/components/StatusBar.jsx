@@ -53,9 +53,10 @@ export function StatusBar({ flightCount, dataSource }) {
           href="https://donate.stripe.com/8x27sMaIf3Cm5O0gFEc7u00"
           target="_blank"
           rel="noopener noreferrer"
+          aria-label="Donate to FlightMapr"
           className="text-[10px] font-semibold text-[#00ffcc]/60 hover:text-[#00ffcc] transition-colors whitespace-nowrap"
         >
-          Support FlightMapr ✈️
+          Donate ✈️
         </a>
         <span className="text-white/15 hidden sm:inline text-[10px]">·</span>
         <span className="text-[10px] text-white/25 hidden sm:inline">

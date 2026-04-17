@@ -471,11 +471,12 @@ export function EnhancedTopBar({
             href="https://donate.stripe.com/8x27sMaIf3Cm5O0gFEc7u00"
             target="_blank"
             rel="noopener noreferrer"
+            aria-label="Donate to FlightMapr"
             className="hidden sm:flex items-center gap-1.5 px-3 py-2.5 rounded-2xl text-xs font-bold text-black whitespace-nowrap transition-all shadow-[0_0_16px_rgba(0,255,204,0.35)]"
             style={{ background: 'linear-gradient(135deg, #00ffcc 0%, #10b981 100%)', pointerEvents: 'auto' }}
           >
             <span className="text-sm leading-none">✈️</span>
-            <span>Support FlightMapr</span>
+            <span>Donate</span>
           </a>
 
           <div className="glass rounded-2xl flex items-center gap-1.5 px-2.5 py-2.5">

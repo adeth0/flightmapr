@@ -201,15 +201,45 @@ class NotificationService {
   }
 
   async _initSW() {
-    if (this._swReg || typeof navigator === 'undefined' || !('serviceWorker' in navigator)) return;
+    if (typeof navigator === 'undefined' || !('serviceWorker' in navigator)) return;
+    if (this._swReg) return;
 
     try {
-      this._swReg = await navigator.serviceWorker.register('/sw.js', { scope: '/' });
+      // Register once. If a SW is already registered for this scope,
+      // getRegistration() returns it so we never double-register.
+      const existing = await navigator.serviceWorker.getRegistration('/');
+      this._swReg = existing ?? await navigator.serviceWorker.register('/sw.js', { scope: '/' });
+
+      // Wait for a controller to be active so postMessage succeeds.
       await navigator.serviceWorker.ready.catch(() => null);
+
+      // Tell the SW to refresh its tracked list + run a catch-up poll.
       await this._registerBackgroundTasks();
       this._syncTrackedFlightsToSW();
+      this._postToSW({ type: 'RUN_TRACKING_CHECK' });
     } catch (err) {
-      console.warn('[Notifications] SW registration failed:', err?.message);
+      // Never break the UI on SW failures — notifications degrade to
+      // in-app toasts which still work on iOS Safari and anywhere else.
+      // eslint-disable-next-line no-console
+      console.warn('[Notifications] SW registration failed:', err?.message || err);
+    }
+  }
+
+  /**
+   * Ask the service worker to run a tracked-flight check right now.
+   * Called on page visibility / focus so we catch up on any events
+   * that fired while the tab was suspended. No-op if the SW is not
+   * yet active (next SYNC_TRACKED_FLIGHTS will cover the gap).
+   */
+  async triggerBackgroundCheck() {
+    try {
+      await this._initSW();
+      // Always resync the tracked list first so SW has fresh state
+      // (e.g. new flights tracked in this session).
+      this._syncTrackedFlightsToSW();
+      this._postToSW({ type: 'RUN_TRACKING_CHECK' });
+    } catch {
+      // Never throw — this is a best-effort optimisation.
     }
   }
 
@@ -709,12 +739,30 @@ class NotificationService {
     this._showSystem(title, body, tag);
   }
 
+  // Derive a trackedId from a notification tag like `departure-abc123`
+  // or `scheduled-soon-scheduled:UAL123:1712345678000`. Tags are produced
+  // by _show()/_showToastBanner() with the flight id embedded somewhere
+  // inside. We match by substring against known tracked ids so the
+  // complex `delay-<id>-<key>` and scheduled-flight id formats all work.
+  // Returns null when no match is found — the SW click handler then
+  // just opens `/` without a focus target.
+  _trackedIdFromTag(tag) {
+    if (!tag || typeof tag !== 'string') return null;
+    for (const id of this._flights.keys()) {
+      if (tag.indexOf(id) !== -1) return id;
+    }
+    return null;
+  }
+
   async _showSystem(title, body, tag) {
     if (!this.isGranted()) return;
 
+    const trackedId = this._trackedIdFromTag(tag);
+    const data = trackedId ? { trackedId } : {};
+
     if ('serviceWorker' in navigator) {
       try {
-        const reg = await navigator.serviceWorker.ready;
+        const reg = (this._swReg ?? await navigator.serviceWorker.ready);
         await reg.showNotification(title, {
           body,
           icon: ICON,
@@ -722,6 +770,7 @@ class NotificationService {
           tag,
           renotify: true,
           requireInteraction: false,
+          data,
         });
         return;
       } catch {
@@ -730,18 +779,22 @@ class NotificationService {
     }
 
     try {
+      // Final fallback — only works when app is foreground-visible.
       // eslint-disable-next-line no-new
-      new Notification(title, { body, icon: ICON, tag });
+      new Notification(title, { body, icon: ICON, tag, data });
     } catch {
       // Ignore system notification failures.
     }
   }
 
   async _show(title, body, tag) {
+    const trackedId = this._trackedIdFromTag(tag);
+    const data = trackedId ? { trackedId } : {};
+
     if (this.isGranted()) {
       if ('serviceWorker' in navigator) {
         try {
-          const reg = await navigator.serviceWorker.ready;
+          const reg = (this._swReg ?? await navigator.serviceWorker.ready);
           await reg.showNotification(title, {
             body,
             icon: ICON,
@@ -749,6 +802,7 @@ class NotificationService {
             tag,
             renotify: true,
             requireInteraction: false,
+            data,
           });
           return;
         } catch {
@@ -758,7 +812,7 @@ class NotificationService {
 
       try {
         // eslint-disable-next-line no-new
-        new Notification(title, { body, icon: ICON, tag });
+        new Notification(title, { body, icon: ICON, tag, data });
         return;
       } catch {
         // Fall through to in-app.
