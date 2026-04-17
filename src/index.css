@@ -1144,3 +1144,19 @@ a:active {
   background: rgba(22, 29, 46, 0.92);
   border-color: rgba(0, 255, 204, 0.18);
 }
+/* While the parent resolves the tracked aircraft (local → callsign →
+   global airplanes.live lookup), the row shows a subtle emerald
+   pulsing dot and a slight dim so the user knows we're working on it. */
+.alert-row-btn.is-resolving .alert-row-body {
+  background: rgba(0, 255, 204, 0.06);
+  border-color: rgba(0, 255, 204, 0.22);
+  opacity: 0.85;
+}
+.alert-row-loading-dot {
+  box-shadow: 0 0 6px rgba(16, 185, 129, 0.6);
+  animation: alert-row-pulse 0.9s infinite ease-in-out;
+}
+@keyframes alert-row-pulse {
+  0%, 100% { opacity: 0.35; transform: scale(0.82); }
+  50%      { opacity: 1;    transform: scale(1.1);  }
+}

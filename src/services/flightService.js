@@ -152,6 +152,50 @@ class FlightService {
 
   getFlight(id) { return this.flights.find((f) => f.id === id) ?? null; }
 
+  /**
+   * Insert or merge a single aircraft into the live feed. Used when a
+   * tracked flight is focused from the alerts panel but its ICAO hex is
+   * outside the current viewport — we fetch its state globally via
+   * openSkyService.fetchByHex / fetchByCallsign and hand it here so the
+   * existing flyTo + follow logic in MapView works unchanged.
+   *
+   * Notes:
+   *  • Preserves any trail / enrichment already attached to the flight.
+   *  • Emits to listeners so follow mode pans on the next subscribe tick.
+   *  • Idempotent — calling with the same id twice just refreshes fields.
+   */
+  upsertFlight(incoming) {
+    if (!incoming?.id) return null;
+    // Protect upserted flights from being dropped by the next OpenSky
+    // merge before the viewport has had a chance to shift to cover the
+    // aircraft's position (flyTo animates for ~1.2 s, BoundsSync fires
+    // on moveend, then a 15 s poll cycle runs). A 45 s grace is plenty.
+    const preservedUntil = Date.now() + 45_000;
+    const existing = this.flights.find((f) => f.id === incoming.id);
+    if (existing) {
+      if (Number.isFinite(incoming.lat)) existing.lat = incoming.lat;
+      if (Number.isFinite(incoming.lng)) existing.lng = incoming.lng;
+      if (Number.isFinite(incoming.heading)) existing.heading = incoming.heading;
+      if (Number.isFinite(incoming.speed))   existing.speed   = incoming.speed;
+      if (Number.isFinite(incoming.altitude)) existing.altitude = incoming.altitude;
+      if (incoming.vertRate != null) existing.vertRate = incoming.vertRate;
+      if (incoming.squawk  != null)  existing.squawk   = incoming.squawk;
+      existing._preservedUntil = preservedUntil;
+      this._listeners.forEach((fn) => fn(this.flights));
+      return existing;
+    }
+    const seeded = {
+      ...incoming,
+      trail: Array.isArray(incoming.trail) && incoming.trail.length > 0
+        ? incoming.trail
+        : [{ lat: incoming.lat, lng: incoming.lng }],
+      _preservedUntil: preservedUntil,
+    };
+    this.flights.push(seeded);
+    this._listeners.forEach((fn) => fn(this.flights));
+    return seeded;
+  }
+
   search(query) {
     if (!query?.trim()) return [];
     const q = query.trim().toLowerCase();
@@ -213,9 +257,17 @@ class FlightService {
     const updatedIds  = new Set();
 
     // Update existing flights in-place
+    const now = Date.now();
     this.flights = this.flights.map((f) => {
       const fresh = incomingMap.get(f.id);
-      if (!fresh) return null;   // aircraft left the feed — remove
+      if (!fresh) {
+        // Normally we drop aircraft that fell out of the viewport feed,
+        // but preserve flights just upserted via upsertFlight() so that
+        // a freshly-focused tracked aircraft isn't yanked from under
+        // follow mode before the viewport has had time to shift.
+        if (f._preservedUntil && f._preservedUntil > now) return f;
+        return null;
+      }
       updatedIds.add(f.id);
       return {
         ...f,
@@ -226,6 +278,7 @@ class FlightService {
         altitude:     fresh.altitude,
         squawk:       fresh.squawk,
         vertRate:     fresh.vertRate,
+        _preservedUntil: undefined,
       };
     }).filter(Boolean);
 

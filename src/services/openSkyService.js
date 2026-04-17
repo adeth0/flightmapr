@@ -8,12 +8,14 @@
 //  Docs    : https://airplanes.live/api-access/
 // ─────────────────────────────────────────────────────────
 
-const BASE_URL      = 'https://api.airplanes.live/v2/point';
+const API_ROOT      = 'https://api.airplanes.live/v2';
+const BASE_URL      = `${API_ROOT}/point`;
 const POLL_MS       = 15_000;
 const MAX_AIRCRAFT  = 250;
 const MIN_ALT_FT    = 1_000;   // filter ground vehicles / taxiing aircraft
 const MAX_RADIUS_NM = 500;     // cap so we never request the whole globe
 const MAX_BACKOFF   = 120_000;
+const LOOKUP_TIMEOUT_MS = 8_000;
 
 // ── localStorage caching ──────────────────────────────────
 // Persist the last successful ADS-B response so returning
@@ -146,6 +148,44 @@ function parseState(ac) {
   };
 }
 
+// Lenient variant of parseState for targeted hex / callsign lookups.
+// We intentionally keep low-altitude / on-ground aircraft here — a user
+// who tracked a flight pre-departure still expects the alerts row to
+// locate it on the map even if the aircraft is taxiing or parked.
+function parseStateLenient(ac) {
+  if (!ac || ac.lat == null || ac.lon == null) return null;
+
+  const altFt = typeof ac.alt_baro === 'number' ? ac.alt_baro
+              : typeof ac.alt_geom === 'number' ? ac.alt_geom : 0;
+
+  const cs      = ((ac.flight ?? ac.hex ?? '').trim().replace(/\s+/g, '')) || ac.hex;
+  const airline = lookupAirline(cs) ?? 'Unknown';
+
+  return {
+    id:           ac.hex,
+    callsign:     cs,
+    flightNumber: cs,
+    airline,
+    aircraft:     ac.desc ?? ac.t ?? 'Unknown',
+    registration: ac.r  ?? null,
+    squawk:       ac.squawk ?? null,
+    vertRate:     ac.baro_rate ?? null,
+    category:     ac.category ?? null,
+    lat:          ac.lat,
+    lng:          ac.lon,
+    altitude:     Math.round(altFt ?? 0),
+    speed:        ac.gs != null ? Math.round(ac.gs) : 0,
+    heading:      ac.track ?? ac.true_heading ?? 0,
+    isLive:       true,
+    origin:      { code: '----', name: 'Live Aircraft', city: '', country: '', lat: 0, lng: 0 },
+    destination: { code: '----', name: 'En Route',      city: '', country: '', lat: 0, lng: 0 },
+    progress:    0.5,
+    routeDistance: 1000,
+    routePoints: [],
+    trail:       [],
+  };
+}
+
 // ── OpenSkyService ────────────────────────────────────────
 // (name kept for compatibility — now backed by airplanes.live)
 class OpenSkyService {
@@ -220,6 +260,60 @@ class OpenSkyService {
     this._lastFetch = now;
     this._inflight  = this._doFetch().finally(() => { this._inflight = null; });
     return this._inflight;
+  }
+
+  /**
+   * Targeted global lookup by ICAO 24-bit hex. Used by the alerts
+   * panel so a tracked flight can be focused on the map even when
+   * the aircraft is outside the current viewport / feed radius.
+   * Never throws — returns null on any failure so callers can
+   * silently fall back to callsign search.
+   */
+  async fetchByHex(hex) {
+    const key = String(hex ?? '').trim().toLowerCase();
+    if (!key) return null;
+
+    try {
+      const ctrl = new AbortController();
+      const timer = setTimeout(() => ctrl.abort(), LOOKUP_TIMEOUT_MS);
+      const res = await fetch(`${API_ROOT}/hex/${encodeURIComponent(key)}`, {
+        signal: ctrl.signal,
+        headers: { Accept: 'application/json' },
+      });
+      clearTimeout(timer);
+      if (!res.ok) return null;
+      const json = await res.json();
+      const raw = Array.isArray(json?.ac) ? json.ac[0] : null;
+      return raw ? parseStateLenient(raw) : null;
+    } catch {
+      return null;
+    }
+  }
+
+  /**
+   * Targeted global lookup by callsign. Same purpose as fetchByHex
+   * but for scheduled alerts (where we only know the flight number)
+   * or as a fallback when a live hex lookup comes back empty.
+   */
+  async fetchByCallsign(callsign) {
+    const key = String(callsign ?? '').trim().toUpperCase().replace(/\s+/g, '');
+    if (!key) return null;
+
+    try {
+      const ctrl = new AbortController();
+      const timer = setTimeout(() => ctrl.abort(), LOOKUP_TIMEOUT_MS);
+      const res = await fetch(`${API_ROOT}/callsign/${encodeURIComponent(key)}`, {
+        signal: ctrl.signal,
+        headers: { Accept: 'application/json' },
+      });
+      clearTimeout(timer);
+      if (!res.ok) return null;
+      const json = await res.json();
+      const raw = Array.isArray(json?.ac) ? json.ac[0] : null;
+      return raw ? parseStateLenient(raw) : null;
+    } catch {
+      return null;
+    }
   }
 
   async _doFetch() {

@@ -14,6 +14,12 @@ import { getUserLocation, getCachedLocation } from './services/geoService';
 import { openSkyService }    from './services/openSkyService';
 import { notificationService } from './services/notificationService';
 
+// Normalise any callsign / flight number to the canonical ADS-B form
+// (uppercase, no whitespace). Used for local search + global lookup.
+function normalizeCs(value) {
+  return String(value ?? '').trim().toUpperCase().replace(/\s+/g, '');
+}
+
 // ── Mobile viewport check ─────────────────────────────────
 // Matches the Tailwind `sm:` breakpoint (640 px) used everywhere.
 // Called at event time so it always reflects the current viewport.
@@ -273,19 +279,66 @@ export default function App() {
   const handleToggleRoutes   = useCallback(() => setRoutesEnabled((v) => !v),   []);
   const handleToggleAlerts   = useCallback(() => setAlertsOpen((v) => !v),      []);
 
-  // Alert row clicked: fly to the aircraft and enable follow mode.
-  // Reuses the existing follow/fly-to plumbing so we don't duplicate
-  // any persistence or pan-offset logic.
+  // Alert row clicked: locate the tracked aircraft and focus + follow it.
   //
-  //  • Desktop: also open the sidebar card (there's room alongside
-  //    the alerts panel and following aircraft benefits from the
-  //    live telemetry view).
-  //  • Mobile:  keep the map clean — no bottom-sheet sidebar over
-  //    the aircraft we just focused. Close the alerts panel so the
-  //    user can see the map; the tracking bar will show the
-  //    currently-followed callsign.
-  const handleAlertFocus = useCallback((flight) => {
+  // The tracked item may or may not be in the current viewport feed. We
+  // resolve it through a three-stage fallback so clicks ALWAYS land on a
+  // real aircraft, not a dead row:
+  //
+  //   1. Direct id lookup in flightService.flights (viewport hit).
+  //   2. Callsign match in flightService.flights (covers callsign drift /
+  //      scheduled items that just went live under a different hex).
+  //   3. Global fetch from airplanes.live:
+  //        • live-kind tracked item  → fetchByHex(item.id)
+  //        • scheduled / fallback    → fetchByCallsign(callsign)
+  //      The result is upserted into flightService so the existing
+  //      flyTo + follow effects in MapView find it unchanged.
+  //
+  // Sidebar behaviour:
+  //  • Desktop: also open the flight card (there's room alongside the
+  //    alerts panel and follow benefits from the live telemetry view).
+  //  • Mobile:  keep the map clean — no bottom-sheet sidebar over the
+  //    aircraft we just focused. Close the alerts panel so the user
+  //    sees the map; the tracking bar shows the followed callsign.
+  //
+  // Returns a promise so AlertsDashboard can show a "Locating…" state
+  // on the tapped row until focus + follow is committed.
+  const handleAlertFocus = useCallback(async (item) => {
+    if (!item?.id) return;
+
+    // Stage 1 — already in the local feed (viewport hit).
+    let flight = flightService.getFlight(item.id);
+
+    // Stage 2 — local callsign search fallback.
+    if (!flight) {
+      const cs = normalizeCs(item.callsign ?? item.flightNumber);
+      if (cs) {
+        const candidates = flightService.search(cs) ?? [];
+        // Prefer an exact callsign match; fall back to the first hit.
+        flight = candidates.find((f) => normalizeCs(f.callsign) === cs) ?? candidates[0] ?? null;
+      }
+    }
+
+    // Stage 3 — global ADS-B lookup. Merges into flightService so the
+    // existing flyTo / follow plumbing picks it up without rewrite.
+    if (!flight) {
+      let remote = null;
+      const isLiveKindId = item.kind !== 'scheduled';
+      if (isLiveKindId) {
+        remote = await openSkyService.fetchByHex(item.id);
+      }
+      if (!remote) {
+        const cs = normalizeCs(item.callsign ?? item.flightNumber);
+        if (cs) remote = await openSkyService.fetchByCallsign(cs);
+      }
+      if (remote) flight = flightService.upsertFlight(remote);
+    }
+
+    // No resolvable position — silently bail. The alerts row's loading
+    // indicator will clear and the panel stays open so the user can
+    // try again or tap ×.
     if (!flight?.id) return;
+
     const mobile = isMobileViewport();
 
     setSelectedAirportCode(null);
@@ -297,6 +350,8 @@ export default function App() {
     }
     setFollowFlightId(flight.id);
     setFollowPaused(false);
+    // Reset + re-trigger so the MapView flyTo effect fires even if we
+    // were already "following" this id (edge: user tapped twice).
     setFlyToFlightId(null);
     requestAnimationFrame(() => setFlyToFlightId(flight.id));
     if (mobile) setAlertsOpen(false);

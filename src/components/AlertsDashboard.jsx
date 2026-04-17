@@ -1,40 +1,40 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { X, Bell, BellOff } from 'lucide-react';
 import { notificationService } from '../services/notificationService';
 import { flightService } from '../services/flightService';
 
 export function AlertsDashboard({ onClose, onFocusFlight }) {
   const [tracked, setTracked] = useState([]);
+  // Per-row "locating…" state. We key by tracked id so only the row
+  // the user actually tapped shows a spinner while a global lookup
+  // is in-flight via openSkyService.
+  const [resolvingId, setResolvingId] = useState(null);
 
   useEffect(() => notificationService.subscribeToChanges(setTracked), []);
 
   // Keep re-render in sync with live flight updates so a scheduled
-  // flight that just went live will be handed a real flight object
-  // on the next click.
+  // flight that just went live will be reflected on the next render
+  // (and is immediately targetable by the click handler below).
   useEffect(() => {
     const unsub = flightService.subscribe(() => {
-      // Pull a fresh tracked list — values may have live data attached.
       setTracked((prev) => prev.slice());
     });
     return unsub;
   }, []);
 
-  function handleRowClick(item) {
-    // Only live (airborne) flights can be focused on the map.
-    // Scheduled items that haven't departed yet don't have a
-    // position, so we just show a gentle visual "nope" and keep
-    // the alerts panel open.
-    if (item.kind === 'scheduled') {
-      const maybe = flightService.getFlight(item.id)
-        ?? flightService.search(item.callsign ?? item.flightNumber ?? '')[0];
-      if (!maybe) return;
-      onFocusFlight?.(maybe);
-      return;
+  async function handleRowClick(item) {
+    if (!item?.id || resolvingId === item.id) return;
+    setResolvingId(item.id);
+    try {
+      // The parent (App.jsx / handleAlertFocus) is responsible for:
+      //   1. finding the aircraft in flightService,
+      //   2. falling back to a global airplanes.live fetch,
+      //   3. upserting + flyTo + follow.
+      // We `await` so the spinner stays visible until the work is done.
+      await Promise.resolve(onFocusFlight?.(item));
+    } finally {
+      setResolvingId((prev) => (prev === item.id ? null : prev));
     }
-
-    const flight = flightService.getFlight(item.id);
-    if (!flight) return;
-    onFocusFlight?.(flight);
   }
 
   return (
@@ -77,6 +77,7 @@ export function AlertsDashboard({ onClose, onFocusFlight }) {
               <AlertRow
                 key={item.id}
                 item={item}
+                resolving={resolvingId === item.id}
                 onRemove={() => notificationService.stopTracking(item.id)}
                 onClick={() => handleRowClick(item)}
               />
@@ -91,7 +92,7 @@ export function AlertsDashboard({ onClose, onFocusFlight }) {
   );
 }
 
-function AlertRow({ item, onRemove, onClick }) {
+function AlertRow({ item, resolving, onRemove, onClick }) {
   const origin = item.enrichment?.origin;
   const dest = item.enrichment?.destination;
   const hasRoute = origin?.code && origin.code !== '----' && dest?.code && dest.code !== '----';
@@ -101,64 +102,90 @@ function AlertRow({ item, onRemove, onClick }) {
       : 'Scheduled tracking'
     : 'Live tracking';
 
-  // An alert is "focusable" if we can resolve a live aircraft for it.
-  // Live-tracked items: matched by their ICAO hex id directly.
-  // Scheduled items: matched by callsign once the flight is airborne.
-  const canFocus = (() => {
-    if (flightService.getFlight(item.id)) return true;
-    const cs = (item.callsign ?? item.flightNumber ?? '').toString().toUpperCase().replace(/\s+/g, '');
-    if (!cs) return false;
-    return (flightService.search(cs) ?? []).length > 0;
-  })();
+  // We intentionally avoid any "canFocus" pre-gate here. Previously
+  // rows only fired click when the aircraft was already in the local
+  // viewport feed, which made the alerts panel feel broken for the
+  // common case of "flight I'm tracking is elsewhere in the world".
+  // The parent now resolves the aircraft (locally → callsign search →
+  // global airplanes.live hex/callsign lookup → upsert) on every tap.
 
-  const handleClick = (e) => {
-    // If the click originated from the remove (×) button, don't trigger focus.
-    if (e.defaultPrevented) return;
-    if (canFocus) onClick?.();
+  // Guard against a re-fire caused by the × (remove) button bubbling
+  // a synthesized click up to the row after stopPropagation on some
+  // older iOS builds.
+  const suppressUntil = useRef(0);
+
+  const fireClick = (e) => {
+    if (resolving) return;
+    if (e?.defaultPrevented) return;
+    const now = Date.now();
+    if (now < suppressUntil.current) return;
+    suppressUntil.current = now + 350;
+    onClick?.();
+  };
+
+  const handleKeyDown = (e) => {
+    if (resolving) return;
+    if (e.key === 'Enter' || e.key === ' ') {
+      e.preventDefault();
+      onClick?.();
+    }
   };
 
   const handleRemove = (e) => {
+    // Prevent the row click from firing when the user taps ×.
     e.preventDefault();
     e.stopPropagation();
+    suppressUntil.current = Date.now() + 400;
     onRemove?.();
   };
 
   return (
     <div
-      className={`alert-row-btn ${canFocus ? '' : 'alert-row-disabled'}`}
-      role={canFocus ? 'button' : undefined}
-      tabIndex={canFocus ? 0 : -1}
-      onClick={handleClick}
-      onKeyDown={(e) => {
-        if (!canFocus) return;
-        if (e.key === 'Enter' || e.key === ' ') {
-          e.preventDefault();
-          onClick?.();
-        }
+      className={`alert-row-btn${resolving ? ' is-resolving' : ''}`}
+      role="button"
+      tabIndex={0}
+      aria-busy={resolving ? 'true' : undefined}
+      // onClick covers desktop mouse, Android tap, iOS Safari tap, and
+      // keyboard-activated click. `touch-action: manipulation` (below)
+      // removes the 300ms iOS double-tap delay so taps feel instant.
+      onClick={fireClick}
+      onKeyDown={handleKeyDown}
+      title={resolving ? 'Locating aircraft…' : 'Focus on map'}
+      style={{
+        cursor: resolving ? 'progress' : 'pointer',
+        touchAction: 'manipulation',
+        WebkitTapHighlightColor: 'transparent',
       }}
-      title={canFocus ? 'Focus on map' : 'Awaiting live data'}
-      style={{ cursor: canFocus ? 'pointer' : 'default' }}
     >
       <div className="alert-row-body flex items-center gap-3 glass-lighter rounded-xl px-3 py-2.5">
         <div className="flex-1 min-w-0">
           <div className="flex items-center gap-1.5 mb-0.5">
             <span className="text-xs font-bold text-amber-400 truncate">{item.flightNumber ?? item.callsign}</span>
-            <span className="w-1.5 h-1.5 rounded-full bg-amber-400/70 blink-dot flex-shrink-0" />
+            <span
+              className={`w-1.5 h-1.5 rounded-full flex-shrink-0 ${
+                resolving ? 'bg-emerald-400 alert-row-loading-dot' : 'bg-amber-400/70 blink-dot'
+              }`}
+            />
           </div>
           <div className="text-[10px] text-white/35 truncate">
-            {hasRoute
-              ? `${origin.code} → ${dest.code}`
-              : item.airline && item.airline !== 'Unknown'
-                ? item.airline
-                : statusLine}
+            {resolving
+              ? 'Locating aircraft…'
+              : hasRoute
+                ? `${origin.code} → ${dest.code}`
+                : item.airline && item.airline !== 'Unknown'
+                  ? item.airline
+                  : statusLine}
           </div>
         </div>
 
         <button
+          type="button"
           onClick={handleRemove}
+          onPointerDown={(e) => e.stopPropagation()}
           title="Stop tracking"
           aria-label={`Stop tracking ${item.flightNumber ?? item.callsign}`}
           className="w-6 h-6 rounded-lg bg-white/5 hover:bg-red-500/20 text-white/25 hover:text-red-400 flex items-center justify-center transition-colors flex-shrink-0"
+          style={{ touchAction: 'manipulation' }}
         >
           <X size={10} />
         </button>
