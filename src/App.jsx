@@ -4,6 +4,7 @@ import { EnhancedTopBar }    from './components/EnhancedTopBar';
 import { TrackingBar }       from './components/TrackingBar';
 import { Sidebar }           from './components/Sidebar';
 import { AirportSidebar }    from './components/AirportSidebar';
+import { InsightsPanel }     from './components/InsightsPanel';
 import { StatusBar }         from './components/StatusBar';
 import { AlertsDashboard }   from './components/AlertsDashboard';
 import { Onboarding, hasOnboarded } from './components/Onboarding';
@@ -53,6 +54,8 @@ export default function App() {
   const [airportsEnabled,  setAirportsEnabled]  = useState(true);
   const [heatmapEnabled,   setHeatmapEnabled]   = useState(false);
   const [routesEnabled,    setRoutesEnabled]    = useState(false);
+  const [delayHeatmapEnabled, setDelayHeatmapEnabled] = useState(false);
+  const [insightsOpen,     setInsightsOpen]     = useState(false);
   const [flyToFlightId,    setFlyToFlightId]    = useState(null);
   const [searchFocusFlightId, setSearchFocusFlightId] = useState(null);
   const [flyToCenter,      setFlyToCenter]      = useState(null);
@@ -277,7 +280,9 @@ export default function App() {
   const handleToggleAirports = useCallback(() => setAirportsEnabled((v) => !v), []);
   const handleToggleHeatmap  = useCallback(() => setHeatmapEnabled((v) => !v),  []);
   const handleToggleRoutes   = useCallback(() => setRoutesEnabled((v) => !v),   []);
+  const handleToggleDelayHeatmap = useCallback(() => setDelayHeatmapEnabled((v) => !v), []);
   const handleToggleAlerts   = useCallback(() => setAlertsOpen((v) => !v),      []);
+  const handleToggleInsights = useCallback(() => setInsightsOpen((v) => !v),    []);
 
   // Alert row clicked: locate the tracked aircraft and focus + follow it.
   //
@@ -389,6 +394,7 @@ export default function App() {
         airportsEnabled={airportsEnabled}
         heatmapEnabled={heatmapEnabled}
         routesEnabled={routesEnabled}
+        delayHeatmapEnabled={delayHeatmapEnabled}
         flyToFlightId={flyToFlightId}
         searchFocusFlightId={searchFocusFlightId}
         flyToCenter={flyToCenter}
@@ -406,13 +412,17 @@ export default function App() {
         airportsEnabled={airportsEnabled}
         heatmapEnabled={heatmapEnabled}
         routesEnabled={routesEnabled}
+        delayHeatmapEnabled={delayHeatmapEnabled}
         onToggleWeather={handleToggleWeather}
         onToggleDayNight={handleToggleDayNight}
         onToggleAirports={handleToggleAirports}
         onToggleHeatmap={handleToggleHeatmap}
         onToggleRoutes={handleToggleRoutes}
+        onToggleDelayHeatmap={handleToggleDelayHeatmap}
         alertsCount={alertsCount}
         onToggleAlerts={handleToggleAlerts}
+        insightsOpen={insightsOpen}
+        onToggleInsights={handleToggleInsights}
         onFlightSelect={handleFlightSelect}
         onSearchFlightSelect={handleSearchFlight}
         onAirportSelect={handleAirportSelect}
@@ -451,6 +461,25 @@ export default function App() {
           onSelectFlight={(flight) => {
             handleFlightSelect(flight);
             handleFlyTo(flight.id);
+          }}
+        />
+      )}
+
+      {/* ── Flight Insights panel ────────────────────────── */}
+      {insightsOpen && (
+        <InsightsPanel
+          userLocation={geoLocation}
+          onClose={handleToggleInsights}
+          onSelectFlight={(flight) => {
+            if (!flight) return;
+            handleFlightSelect(flight);
+            handleFlyTo(flight.id);
+            if (isMobileViewport()) setInsightsOpen(false);
+          }}
+          onSelectAirport={(airport) => {
+            if (!airport) return;
+            handleAirportSelect(airport);
+            if (isMobileViewport()) setInsightsOpen(false);
           }}
         />
       )}

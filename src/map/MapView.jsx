@@ -6,6 +6,7 @@ import { DayNightLayer }        from './DayNightLayer';
 import { AirportLayer }         from './AirportLayer';
 import { ActivityHeatmapLayer } from './ActivityHeatmapLayer';
 import { BusyRoutesLayer }      from './BusyRoutesLayer';
+import { DelayHeatmapLayer }    from './DelayHeatmapLayer';
 import { TILE_LAYERS, MAP_DEFAULTS, FLY_TO_ZOOM } from '../services/mapService';
 import { LOCATION_ZOOM }  from '../services/geoService';
 import { flightService }  from '../services/flightService';
@@ -48,6 +49,7 @@ export function MapView({
   airportsEnabled,
   heatmapEnabled,
   routesEnabled,
+  delayHeatmapEnabled,
   flyToFlightId,
   searchFocusFlightId,
   followFlightId,
@@ -241,6 +243,9 @@ export function MapView({
 
       {/* Airport activity heatmap — soft glow circles, below markers */}
       <ActivityHeatmapLayer enabled={heatmapEnabled} />
+
+      {/* Delay heatmap — green/amber/red tints per airport */}
+      <DelayHeatmapLayer enabled={delayHeatmapEnabled} />
 
       {/* Airport intelligence markers */}
       <AirportLayer enabled={airportsEnabled} />

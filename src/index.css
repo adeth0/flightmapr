@@ -1210,3 +1210,235 @@ a:active {
   0%, 100% { opacity: 0.35; transform: scale(0.82); }
   50%      { opacity: 1;    transform: scale(1.1);  }
 }
+
+/* ─────────────────────────────────────────────────────────
+   Airline logo (used in AirportSidebar + InsightsPanel)
+   Renders a fixed square box with the CDN logo or a tinted
+   two-letter fallback badge.
+   ───────────────────────────────────────────────────────── */
+.airline-logo,
+.airline-logo-fallback {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  overflow: hidden;
+  background: rgba(255, 255, 255, 0.04);
+  border: 1px solid rgba(255, 255, 255, 0.06);
+}
+.airline-logo img {
+  display: block;
+  max-width: 100%;
+  max-height: 100%;
+  object-fit: contain;
+}
+.airline-logo-fallback {
+  font-weight: 800;
+  letter-spacing: 0.02em;
+  text-transform: uppercase;
+  font-feature-settings: 'ss01', 'cv01';
+}
+
+/* ─────────────────────────────────────────────────────────
+   Flight Insights panel
+   Desktop: floating card, right side.
+   Mobile:  bottom sheet with drag-to-snap (half / full).
+   ───────────────────────────────────────────────────────── */
+.insights-panel {
+  pointer-events: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  color: rgba(255, 255, 255, 0.85);
+}
+
+.insights-panel-scroll {
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  -webkit-overflow-scrolling: touch;
+  scrollbar-width: thin;
+}
+
+.insights-section {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.insights-section-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0 4px;
+}
+
+.insights-section-title {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  color: rgba(255, 255, 255, 0.55);
+}
+
+.insights-section-count {
+  font-size: 10px;
+  font-weight: 600;
+  color: rgba(255, 255, 255, 0.35);
+  letter-spacing: 0.08em;
+}
+
+.insights-row {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  padding: 10px 12px;
+  border-radius: 14px;
+  background: rgba(22, 29, 46, 0.62);
+  border: 1px solid rgba(0, 255, 204, 0.06);
+  transition: background 0.18s var(--ease-in-out),
+              border-color 0.18s var(--ease-in-out),
+              transform 0.08s var(--ease-in-out);
+  text-align: left;
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.insights-row:hover {
+  background: rgba(22, 29, 46, 0.88);
+  border-color: rgba(0, 255, 204, 0.18);
+}
+
+.insights-row:active {
+  transform: scale(0.985);
+}
+
+.insights-row-icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  flex-shrink: 0;
+  border-radius: 10px;
+  background: rgba(0, 255, 204, 0.08);
+  border: 1px solid rgba(0, 255, 204, 0.15);
+  color: #00ffcc;
+}
+
+.insights-row-wrap {
+  min-width: 0;
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+}
+
+.insights-row-title {
+  font-size: 13px;
+  font-weight: 600;
+  color: #fff;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.insights-row-sub {
+  font-size: 11px;
+  color: rgba(255, 255, 255, 0.45);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.insights-row-meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 2px;
+  font-size: 10.5px;
+  color: rgba(255, 255, 255, 0.45);
+}
+
+.insights-row-meta .chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  padding: 2px 6px;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.05);
+  border: 1px solid rgba(255, 255, 255, 0.06);
+  font-weight: 600;
+  letter-spacing: 0.02em;
+}
+
+.insights-row-meta .chip.is-delay {
+  color: #fbbf24;
+  background: rgba(245, 158, 11, 0.12);
+  border-color: rgba(245, 158, 11, 0.3);
+}
+
+.insights-row-meta .chip.is-ok {
+  color: #00ffcc;
+  background: rgba(0, 255, 204, 0.1);
+  border-color: rgba(0, 255, 204, 0.22);
+}
+
+.insights-track-btn {
+  flex-shrink: 0;
+  min-width: 72px;
+  padding: 8px 10px;
+  border-radius: 11px;
+  border: 1px solid rgba(0, 255, 204, 0.2);
+  background: rgba(0, 255, 204, 0.08);
+  color: #9ef7ea;
+  font-size: 10.5px;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+  cursor: pointer;
+  transition: background 0.18s var(--ease-in-out),
+              border-color 0.18s var(--ease-in-out),
+              transform 0.08s var(--ease-in-out);
+}
+
+.insights-track-btn:hover {
+  background: rgba(0, 255, 204, 0.16);
+  border-color: rgba(0, 255, 204, 0.32);
+}
+
+.insights-track-btn:active { transform: scale(0.97); }
+
+.insights-track-btn.is-active {
+  background: rgba(245, 158, 11, 0.14);
+  border-color: rgba(245, 158, 11, 0.4);
+  color: #fbbf24;
+}
+
+.insights-empty {
+  padding: 14px;
+  border-radius: 12px;
+  text-align: center;
+  background: rgba(255, 255, 255, 0.03);
+  border: 1px dashed rgba(255, 255, 255, 0.08);
+  font-size: 12px;
+  color: rgba(255, 255, 255, 0.45);
+}
+
+/* Mobile bottom sheet sizing for the insights panel.
+   Mirrors AirportSidebar / Sidebar so all three sheets
+   feel identical on iOS / Android. */
+@media (max-width: 640px) {
+  .insights-panel {
+    position: fixed;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    border-top-left-radius: 22px;
+    border-top-right-radius: 22px;
+    padding: 0 12px 16px;
+    transition: max-height 0.38s cubic-bezier(0.25, 0.46, 0.45, 0.94);
+    will-change: transform, max-height;
+  }
+}
+

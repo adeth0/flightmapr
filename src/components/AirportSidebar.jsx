@@ -5,6 +5,7 @@ import { airportService } from '../services/airportService';
 import { enrichFlight } from '../services/flightEnrichmentService';
 import { notificationService } from '../services/notificationService';
 import { flightService } from '../services/flightService';
+import { AirlineLogo } from './AirlineLogo.jsx';
 
 // ── Snap point heights (mobile bottom sheet) ──────────────
 // Matches Sidebar.jsx so the two sheets feel identical to the user.
@@ -46,28 +47,31 @@ function ArrivalRow({ flight, onSelectFlight }) {
         <button
           type="button"
           onClick={() => onSelectFlight(flight)}
-          className="min-w-0 flex-1 text-left"
+          className="min-w-0 flex-1 text-left flex items-start gap-2.5"
         >
-          <div className="flex items-center gap-2">
-            <Plane size={13} className="text-[#10b981] flex-shrink-0 -rotate-90" />
-            <span className="text-sm font-semibold text-white truncate">{flight.callsign}</span>
-            {flight.isLive && (
-              <span className="text-[9px] rounded px-1.5 py-0.5 bg-red-400/15 text-red-400 uppercase tracking-wide font-semibold">
-                Live
+          <AirlineLogo callsign={flight.callsign} airline={flight.airline} size={32} />
+          <div className="min-w-0 flex-1">
+            <div className="flex items-center gap-2">
+              <Plane size={12} className="text-[#10b981] flex-shrink-0 -rotate-90" />
+              <span className="text-sm font-semibold text-white truncate">{flight.callsign}</span>
+              {flight.isLive && (
+                <span className="text-[9px] rounded px-1.5 py-0.5 bg-red-400/15 text-red-400 uppercase tracking-wide font-semibold">
+                  Live
+                </span>
+              )}
+            </div>
+            <div className="text-xs text-white/45 mt-1 truncate">
+              From {flight.origin?.city ?? flight.origin?.code ?? '—'}
+            </div>
+            <div className="flex flex-wrap items-center gap-3 mt-2 text-[11px] text-white/45">
+              <span className="flex items-center gap-1">
+                <MapPin size={11} />
+                {flight.origin?.code ?? '----'}
               </span>
-            )}
-          </div>
-          <div className="text-xs text-white/45 mt-1 truncate">
-            From {flight.origin?.city ?? flight.origin?.code ?? '—'}
-          </div>
-          <div className="flex flex-wrap items-center gap-3 mt-2 text-[11px] text-white/45">
-            <span className="flex items-center gap-1">
-              <MapPin size={11} />
-              {flight.origin?.code ?? '----'}
-            </span>
-            <span className="text-white/30 uppercase tracking-wide font-semibold">
-              {flight.airline?.split(' ')[0] ?? 'Unknown'}
-            </span>
+              <span className="text-white/30 uppercase tracking-wide font-semibold">
+                {flight.airline?.split(' ')[0] ?? 'Unknown'}
+              </span>
+            </div>
           </div>
         </button>
       </div>
@@ -327,36 +331,43 @@ export function AirportSidebar({ airportCode, onClose, onCenterMap, onSelectFlig
                     <button
                       type="button"
                       onClick={() => handleFlightPress(item)}
-                      className="min-w-0 flex-1 text-left"
+                      className="min-w-0 flex-1 text-left flex items-start gap-2.5"
                     >
-                      <div className="flex items-center gap-2">
-                        <Plane size={13} className="text-[#00ffcc] flex-shrink-0" />
-                        <span className="text-sm font-semibold text-white truncate">{item.flight?.callsign ?? item.flightNumber}</span>
-                        {item.isFallback ? (
-                          <span className="text-[9px] rounded px-1.5 py-0.5 bg-white/8 text-white/45 uppercase tracking-wide">
-                            Scheduled
+                      <AirlineLogo
+                        callsign={item.flight?.callsign ?? item.flightNumber}
+                        airline={item.flight?.airline}
+                        size={32}
+                      />
+                      <div className="min-w-0 flex-1">
+                        <div className="flex items-center gap-2">
+                          <Plane size={12} className="text-[#00ffcc] flex-shrink-0" />
+                          <span className="text-sm font-semibold text-white truncate">{item.flight?.callsign ?? item.flightNumber}</span>
+                          {item.isFallback ? (
+                            <span className="text-[9px] rounded px-1.5 py-0.5 bg-white/8 text-white/45 uppercase tracking-wide">
+                              Scheduled
+                            </span>
+                          ) : (
+                            <span className="text-[9px] rounded px-1.5 py-0.5 bg-red-400/15 text-red-400 uppercase tracking-wide font-semibold">
+                              Live
+                            </span>
+                          )}
+                        </div>
+                        <div className="text-xs text-white/45 mt-1 truncate">
+                          {item.destination?.name ?? item.destination?.city ?? 'Destination unavailable'}
+                        </div>
+                        <div className="flex flex-wrap items-center gap-3 mt-2 text-[11px] text-white/45">
+                          <span className="flex items-center gap-1">
+                            <Clock3 size={11} />
+                            {formatTime(item.scheduledDepartureMs)}
                           </span>
-                        ) : (
-                          <span className="text-[9px] rounded px-1.5 py-0.5 bg-red-400/15 text-red-400 uppercase tracking-wide font-semibold">
-                            Live
+                          <span className="flex items-center gap-1">
+                            <MapPin size={11} />
+                            {item.destination?.code ?? '----'}
                           </span>
-                        )}
-                      </div>
-                      <div className="text-xs text-white/45 mt-1 truncate">
-                        {item.destination?.name ?? item.destination?.city ?? 'Destination unavailable'}
-                      </div>
-                      <div className="flex flex-wrap items-center gap-3 mt-2 text-[11px] text-white/45">
-                        <span className="flex items-center gap-1">
-                          <Clock3 size={11} />
-                          {formatTime(item.scheduledDepartureMs)}
-                        </span>
-                        <span className="flex items-center gap-1">
-                          <MapPin size={11} />
-                          {item.destination?.code ?? '----'}
-                        </span>
-                        <span className={`font-semibold ${item.delayMinutes ? 'text-amber-400' : 'text-[#00ffcc]'}`}>
-                          {formatDelay(item.delayMinutes)}
-                        </span>
+                          <span className={`font-semibold ${item.delayMinutes ? 'text-amber-400' : 'text-[#00ffcc]'}`}>
+                            {formatDelay(item.delayMinutes)}
+                          </span>
+                        </div>
                       </div>
                     </button>
 

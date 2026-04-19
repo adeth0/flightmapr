@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
 import {
   Search, Cloud, CloudOff, Sun, Building2, X, Flame, GitBranch, Bell, Layers,
+  Sparkles, AlertTriangle,
 } from 'lucide-react';
 import { flightService } from '../services/flightService';
 import { airportService } from '../services/airportService';
@@ -97,10 +98,13 @@ function LayerRow({ icon, label, enabled, onToggle }) {
 
 export function EnhancedTopBar({
   weatherEnabled, dayNightEnabled, airportsEnabled, heatmapEnabled, routesEnabled,
+  delayHeatmapEnabled,
   onToggleWeather, onToggleDayNight, onToggleAirports, onToggleHeatmap, onToggleRoutes,
+  onToggleDelayHeatmap,
   onFlightSelect, onSearchFlightSelect, onAirportSelect, onFlyTo,
   totalFlights, dataSource,
   alertsCount, onToggleAlerts,
+  insightsOpen, onToggleInsights,
   onLogoClick,
 }) {
   const [query, setQuery] = useState('');
@@ -213,7 +217,7 @@ export function EnhancedTopBar({
 
   const showDrop = focused && results.length > 0;
   const isLive = dataSource === 'live';
-  const activeLayerCount = [weatherEnabled, dayNightEnabled, airportsEnabled, heatmapEnabled, routesEnabled]
+  const activeLayerCount = [weatherEnabled, dayNightEnabled, airportsEnabled, heatmapEnabled, routesEnabled, delayHeatmapEnabled]
     .filter(Boolean).length;
 
   return (
@@ -411,6 +415,21 @@ export function EnhancedTopBar({
               <GitBranch size={15} />
               <span className="hidden lg:inline text-xs">Routes</span>
             </button>
+
+            {onToggleDelayHeatmap && (
+              <button
+                onClick={onToggleDelayHeatmap}
+                title={delayHeatmapEnabled ? 'Hide delay heatmap' : 'Show delay heatmap'}
+                className={`glass rounded-2xl flex items-center gap-2 px-3.5 py-2.5 text-sm font-medium transition-all ${
+                  delayHeatmapEnabled
+                    ? 'border-red-400/40 text-red-400 bg-red-400/10'
+                    : 'text-white/35 hover:text-white/60'
+                }`}
+              >
+                <AlertTriangle size={15} />
+                <span className="hidden lg:inline text-xs">Delays</span>
+              </button>
+            )}
           </div>
 
           <div ref={layersRef} className="relative sm:hidden">
@@ -444,9 +463,28 @@ export function EnhancedTopBar({
                 <LayerRow icon={<Cloud size={15} />} label="Weather" enabled={weatherEnabled} onToggle={onToggleWeather} />
                 <LayerRow icon={<Flame size={15} />} label="Heatmap" enabled={heatmapEnabled} onToggle={onToggleHeatmap} />
                 <LayerRow icon={<GitBranch size={15} />} label="Busy Routes" enabled={routesEnabled} onToggle={onToggleRoutes} />
+                {onToggleDelayHeatmap && (
+                  <LayerRow icon={<AlertTriangle size={15} />} label="Delay Heatmap" enabled={!!delayHeatmapEnabled} onToggle={onToggleDelayHeatmap} />
+                )}
               </div>
             )}
           </div>
+
+          {onToggleInsights && (
+            <button
+              onClick={onToggleInsights}
+              title="Flight Insights"
+              aria-pressed={!!insightsOpen}
+              className={`glass rounded-2xl relative flex items-center gap-1.5 px-2.5 py-2.5 text-sm font-medium transition-all ${
+                insightsOpen
+                  ? 'border-[#00ffcc]/40 text-[#00ffcc] bg-[#00ffcc]/10'
+                  : 'text-white/45 hover:text-[#00ffcc]'
+              }`}
+            >
+              <Sparkles size={15} />
+              <span className="hidden md:inline text-xs">Insights</span>
+            </button>
+          )}
 
           {'Notification' in window && (
             <button
