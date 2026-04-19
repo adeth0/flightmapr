@@ -1,7 +1,21 @@
 // ─────────────────────────────────────────────────────────
 //  AirportLayer — renders airport diamond markers on map.
-//  Visible at zoom >= 4, IATA labels at zoom >= 6.
-//  Click → popup with live arrival/departure stats.
+//
+//  Viewport-aware: only markers that fall inside the current
+//  map bounds (plus a small buffer) are ever added to the DOM.
+//  This keeps the layer smooth even with a much larger global
+//  airport dataset. A "tier" filter additionally skips regional
+//  airports when the map is zoomed out — global hubs first,
+//  regional names appear as the user zooms in.
+//
+//  Zoom rules:
+//   • zoom <  3            → layer hidden
+//   • zoom 3–4             → tier 1 hubs only, no label
+//   • zoom 5               → tier 1 + 2, no label
+//   • zoom 6–7             → tier 1 + 2 + 3, IATA label
+//   • zoom 8+              → everything, IATA label
+//
+//  Click → popup with live arrival/departure stats (unchanged).
 // ─────────────────────────────────────────────────────────
 
 import { useEffect, useRef } from 'react';
@@ -10,8 +24,25 @@ import L from 'leaflet';
 import { AIRPORTS } from '../services/flightService.js';
 import { airportService } from '../services/airportService.js';
 
-const SHOW_ZOOM  = 4;   // first appear
-const LABEL_ZOOM = 6;   // add IATA text label
+const MIN_ZOOM         = 3;    // hide entirely below this
+const LABEL_ZOOM       = 6;    // show IATA text label at/above this zoom
+const HUB_ONLY_ZOOM    = 4;    // at/below this zoom, show tier-1 only
+const TIER2_ZOOM       = 5;    // at/below this zoom, show tier-1 + tier-2
+// Safety cap — prevents accidental regressions if dataset grows big.
+const MAX_MARKERS      = 500;
+
+// Buffer around the viewport (in degrees) so markers on the edge pop in
+// slightly before they enter the visible area, avoiding visible flicker
+// during pan. Small enough not to hurt performance.
+const VIEWPORT_BUFFER  = 4;
+
+// ── Tier filter ──────────────────────────────────────────
+function tierVisibleAtZoom(tier, zoom) {
+  if (zoom < MIN_ZOOM) return false;
+  if (zoom <= HUB_ONLY_ZOOM) return tier === 1;
+  if (zoom <= TIER2_ZOOM)    return tier === 1 || tier === 2;
+  return true;
+}
 
 // ── Icon builders ─────────────────────────────────────────
 function buildIcon(code, showLabel) {
@@ -51,9 +82,16 @@ function buildPopup(airport) {
   const arrRows = arr.slice(0, 5).map((f) => flightRow(f, '↓')).join('');
   const noFlights = dep.length + arr.length === 0;
 
+  const icaoBadge = airport.icao && airport.icao !== '----'
+    ? `<span style="color:rgba(255,255,255,0.35);font-size:9px;font-weight:600;letter-spacing:0.08em;margin-left:6px;">ICAO ${airport.icao}</span>`
+    : '';
+
   return `
     <div style="font-family:'Inter',sans-serif;color:#fff;min-width:185px;max-width:230px;">
-      <div style="font-weight:800;color:#00ffcc;font-size:13px;letter-spacing:-0.3px;">${airport.code}</div>
+      <div style="display:flex;align-items:baseline;">
+        <div style="font-weight:800;color:#00ffcc;font-size:13px;letter-spacing:-0.3px;">${airport.code}</div>
+        ${icaoBadge}
+      </div>
       <div style="color:rgba(255,255,255,0.75);font-size:11px;margin-bottom:2px;">${airport.name}</div>
       <div style="color:rgba(255,255,255,0.38);font-size:10px;margin-bottom:8px;">${airport.city}, ${airport.country}</div>
 
@@ -84,71 +122,142 @@ function buildPopup(airport) {
 
 // ── AirportLayer component ────────────────────────────────
 export function AirportLayer({ enabled }) {
-  const map     = useMap();
-  const stateRef = useRef({ markers: [], onZoom: null });
+  const map = useMap();
+  // Track markers by IATA code so we can update / remove selectively on
+  // moveend without rebuilding the entire layer (smoother pans).
+  const stateRef = useRef({
+    markersByCode: new Map(),
+    handleMove: null,
+    handleZoom: null,
+    rafId: null,
+  });
 
   useEffect(() => {
-    const { markers } = stateRef.current;
+    const state = stateRef.current;
 
-    // Teardown helper
     function teardown() {
-      markers.forEach((m) => m.remove());
-      markers.length = 0;
-      if (stateRef.current.onZoom) {
-        map.off('zoomend', stateRef.current.onZoom);
-        stateRef.current.onZoom = null;
-      }
+      state.markersByCode.forEach((m) => m.remove());
+      state.markersByCode.clear();
+      if (state.handleMove) map.off('moveend', state.handleMove);
+      if (state.handleZoom) map.off('zoomend', state.handleZoom);
+      if (state.rafId) cancelAnimationFrame(state.rafId);
+      state.handleMove = null;
+      state.handleZoom = null;
+      state.rafId = null;
     }
 
     teardown();
     if (!enabled) return;
 
     const airports = Object.values(AIRPORTS);
-    const zoom     = map.getZoom();
 
-    airports.forEach((airport) => {
-      const marker = L.marker([airport.lat, airport.lng], {
-        icon:        buildIcon(airport.code, zoom >= LABEL_ZOOM),
-        zIndexOffset: -500,
-        interactive: true,
-        keyboard:    false,
-        opacity:     zoom >= SHOW_ZOOM ? 1 : 0,
-      }).addTo(map);
+    // Fast viewport + tier filter. Accepts the current zoom + bounds and
+    // returns the subset of airports that should be visible right now.
+    function computeVisible(zoom, bounds) {
+      if (zoom < MIN_ZOOM) return [];
 
-      // Hover tooltip
-      marker.bindTooltip(
-        `<div style="font-family:'Inter',sans-serif;font-size:11px;color:#fff;min-width:120px;">
-          <div style="font-weight:700;color:#00ffcc;font-size:12px;">${airport.code}</div>
-          <div style="color:rgba(255,255,255,0.65);">${airport.city}</div>
-          <div style="color:rgba(255,255,255,0.35);font-size:10px;">${airport.name}</div>
-        </div>`,
-        { direction: 'top', offset: [0, -6], opacity: 1 }
-      );
+      const south = bounds.getSouth() - VIEWPORT_BUFFER;
+      const north = bounds.getNorth() + VIEWPORT_BUFFER;
+      const west  = bounds.getWest()  - VIEWPORT_BUFFER;
+      const east  = bounds.getEast()  + VIEWPORT_BUFFER;
+      // Handle antimeridian-crossing viewports by skipping the lng check
+      // when the buffered window spans more than a full world width.
+      const crossesDateline = east - west > 360;
 
-      // Click → popup with live stats (re-computed on click so data is fresh)
-      marker.on('click', () => {
-        L.popup({ maxWidth: 250, className: '' })
-          .setLatLng([airport.lat, airport.lng])
-          .setContent(buildPopup(airport))
-          .openOn(map);
-      });
+      const out = [];
+      for (const airport of airports) {
+        const tier = airport.tier ?? 3;
+        if (!tierVisibleAtZoom(tier, zoom)) continue;
+        if (airport.lat < south || airport.lat > north) continue;
+        if (!crossesDateline) {
+          if (airport.lng < west || airport.lng > east) continue;
+        }
+        out.push(airport);
+        if (out.length >= MAX_MARKERS) break;
+      }
+      return out;
+    }
 
-      markers.push(marker);
-    });
+    // Reconcile the live markers with the desired visible set. Reused by
+    // both moveend and zoomend handlers.
+    function render() {
+      const zoom    = map.getZoom();
+      const bounds  = map.getBounds();
+      const visible = computeVisible(zoom, bounds);
+      const showLbl = zoom >= LABEL_ZOOM;
 
-    // Re-style on zoom change
-    function onZoom() {
-      const z        = map.getZoom();
-      const visible  = z >= SHOW_ZOOM;
-      const showLbl  = z >= LABEL_ZOOM;
-      markers.forEach((m, i) => {
-        m.setOpacity(visible ? 1 : 0);
-        if (visible) m.setIcon(buildIcon(airports[i].code, showLbl));
+      const wanted = new Set(visible.map((a) => a.code));
+
+      // Remove markers that fell out of the visible set
+      for (const [code, marker] of state.markersByCode) {
+        if (!wanted.has(code)) {
+          marker.remove();
+          state.markersByCode.delete(code);
+        }
+      }
+
+      // Add / update markers that are in the visible set
+      for (const airport of visible) {
+        const existing = state.markersByCode.get(airport.code);
+        if (existing) {
+          // Only swap the icon if the label-visibility state changed.
+          const hasLabel = existing.options?._labelShown === true;
+          if (hasLabel !== showLbl) {
+            existing.setIcon(buildIcon(airport.code, showLbl));
+            existing.options._labelShown = showLbl;
+          }
+          continue;
+        }
+
+        const marker = L.marker([airport.lat, airport.lng], {
+          icon:         buildIcon(airport.code, showLbl),
+          zIndexOffset: -500,
+          interactive:  true,
+          keyboard:     false,
+        });
+        marker.options._labelShown = showLbl;
+
+        marker.bindTooltip(
+          `<div style="font-family:'Inter',sans-serif;font-size:11px;color:#fff;min-width:120px;">
+            <div style="font-weight:700;color:#00ffcc;font-size:12px;">${airport.code}</div>
+            <div style="color:rgba(255,255,255,0.65);">${airport.city}</div>
+            <div style="color:rgba(255,255,255,0.35);font-size:10px;">${airport.name}</div>
+            ${airport.icao && airport.icao !== '----'
+              ? `<div style="color:rgba(255,255,255,0.25);font-size:9px;margin-top:2px;">ICAO ${airport.icao}</div>`
+              : ''}
+          </div>`,
+          { direction: 'top', offset: [0, -6], opacity: 1 }
+        );
+
+        marker.on('click', () => {
+          L.popup({ maxWidth: 250, className: '' })
+            .setLatLng([airport.lat, airport.lng])
+            .setContent(buildPopup(airport))
+            .openOn(map);
+        });
+
+        marker.addTo(map);
+        state.markersByCode.set(airport.code, marker);
+      }
+    }
+
+    // Debounce via rAF — moveend fires rapidly during momentum pans on
+    // iOS and we only need one reconcile per animation frame.
+    function scheduleRender() {
+      if (state.rafId) return;
+      state.rafId = requestAnimationFrame(() => {
+        state.rafId = null;
+        render();
       });
     }
 
-    map.on('zoomend', onZoom);
-    stateRef.current.onZoom = onZoom;
+    state.handleMove = scheduleRender;
+    state.handleZoom = scheduleRender;
+    map.on('moveend', state.handleMove);
+    map.on('zoomend', state.handleZoom);
+
+    // Initial paint
+    render();
 
     return teardown;
   }, [enabled, map]);
