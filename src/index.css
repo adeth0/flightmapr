@@ -1442,3 +1442,510 @@ a:active {
   }
 }
 
+/* ─────────────────────────────────────────────────────────
+   LandingIntro — premium first-paint overlay
+   Layered backdrop + content card that fades out on dismiss.
+   Pure CSS keyframes; no animation library dependency.
+   ───────────────────────────────────────────────────────── */
+.landing-intro {
+  position: fixed;
+  inset: 0;
+  z-index: 2000;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: max(24px, env(safe-area-inset-top)) 18px
+           max(24px, env(safe-area-inset-bottom)) 18px;
+  overflow: hidden;
+  pointer-events: auto;
+  animation: landing-intro-enter 420ms cubic-bezier(0.16, 1, 0.3, 1) both;
+  transition: opacity 0.42s ease-in, transform 0.42s cubic-bezier(0.4, 0, 0.2, 1);
+  -webkit-tap-highlight-color: transparent;
+}
+
+.landing-intro.is-closing {
+  opacity: 0;
+  transform: scale(1.02);
+  pointer-events: none;
+}
+
+@keyframes landing-intro-enter {
+  from { opacity: 0; }
+  to   { opacity: 1; }
+}
+
+/* Frosted backdrop — large blur + dim. Animates blur and dim
+   down slightly over the intro so the user senses the map
+   "locking in" underneath. */
+.landing-intro-backdrop {
+  position: absolute;
+  inset: 0;
+  background:
+    radial-gradient(ellipse at 50% 40%, rgba(0, 255, 204, 0.08) 0%, rgba(11, 15, 23, 0.86) 55%),
+    linear-gradient(180deg, rgba(11, 15, 23, 0.72) 0%, rgba(5, 8, 14, 0.9) 100%);
+  -webkit-backdrop-filter: blur(18px) saturate(1.1);
+  backdrop-filter: blur(18px) saturate(1.1);
+  animation: landing-backdrop 1.8s cubic-bezier(0.22, 1, 0.36, 1) both;
+  will-change: backdrop-filter, opacity;
+}
+
+@keyframes landing-backdrop {
+  0%   { backdrop-filter: blur(28px) saturate(1.25); -webkit-backdrop-filter: blur(28px) saturate(1.25); opacity: 0.96; }
+  60%  { backdrop-filter: blur(20px) saturate(1.15); -webkit-backdrop-filter: blur(20px) saturate(1.15); opacity: 1; }
+  100% { backdrop-filter: blur(14px) saturate(1.05); -webkit-backdrop-filter: blur(14px) saturate(1.05); opacity: 1; }
+}
+
+/* Emerald beam — subtle top-down glow that "locks in" over
+   the map. Sweeps once over ~1.6s then settles as ambient. */
+.landing-intro-beam {
+  position: absolute;
+  inset: 0;
+  background:
+    radial-gradient(circle at 50% 110%, rgba(0, 255, 204, 0.22) 0%, rgba(0, 255, 204, 0) 45%),
+    radial-gradient(circle at 50% 0%,   rgba(0, 255, 204, 0.14) 0%, rgba(0, 255, 204, 0) 38%);
+  opacity: 0;
+  animation: landing-beam 1.8s cubic-bezier(0.22, 1, 0.36, 1) 80ms both;
+  pointer-events: none;
+}
+
+@keyframes landing-beam {
+  0%   { opacity: 0;    transform: scale(1.04); }
+  45%  { opacity: 0.9;  transform: scale(1);    }
+  100% { opacity: 0.55; transform: scale(1);    }
+}
+
+.landing-intro-content {
+  position: relative;
+  z-index: 2;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 18px;
+  width: min(440px, 100%);
+  text-align: center;
+  color: #fff;
+}
+
+/* Logo row — chip + wordmark + tiny pulsing LIVE dot */
+.landing-intro-logo {
+  display: inline-flex;
+  align-items: center;
+  gap: 9px;
+  padding: 7px 14px;
+  border-radius: 999px;
+  background: rgba(0, 255, 204, 0.08);
+  border: 1px solid rgba(0, 255, 204, 0.22);
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
+  opacity: 0;
+  transform: translateY(-6px);
+  animation: landing-fade-up 620ms cubic-bezier(0.22, 1, 0.36, 1) 120ms forwards;
+}
+
+.landing-intro-logo-icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 22px;
+  height: 22px;
+  border-radius: 8px;
+  background: rgba(0, 255, 204, 0.12);
+  color: #00ffcc;
+}
+
+.landing-intro-logo-text {
+  font-size: 13px;
+  font-weight: 700;
+  letter-spacing: 0.05em;
+  color: #fff;
+}
+
+.landing-intro-logo-dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: #10b981;
+  box-shadow: 0 0 8px rgba(16, 185, 129, 0.7);
+  animation: landing-live-pulse 1.3s ease-in-out infinite;
+}
+
+.landing-intro-logo-live {
+  font-size: 9px;
+  font-weight: 700;
+  letter-spacing: 0.2em;
+  color: #10b981;
+  text-transform: uppercase;
+}
+
+@keyframes landing-live-pulse {
+  0%, 100% { transform: scale(1);   opacity: 1;    }
+  50%      { transform: scale(1.3); opacity: 0.55; }
+}
+
+/* Headline — wraps on phones, scales on wider screens */
+.landing-intro-title {
+  font-size: clamp(26px, 6vw, 38px);
+  font-weight: 800;
+  letter-spacing: -0.02em;
+  line-height: 1.12;
+  margin: 0;
+  color: #fff;
+  text-wrap: balance;
+  opacity: 0;
+  transform: translateY(10px);
+  animation: landing-fade-up 720ms cubic-bezier(0.22, 1, 0.36, 1) 220ms forwards;
+}
+
+.landing-intro-title-accent {
+  background: linear-gradient(120deg, #00ffcc 0%, #10b981 60%, #34d399 100%);
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+}
+
+.landing-intro-title-break { color: rgba(255, 255, 255, 0.92); }
+
+.landing-intro-sub {
+  font-size: 14px;
+  line-height: 1.5;
+  color: rgba(255, 255, 255, 0.62);
+  max-width: 36ch;
+  margin: 0;
+  opacity: 0;
+  transform: translateY(8px);
+  animation: landing-fade-up 720ms cubic-bezier(0.22, 1, 0.36, 1) 360ms forwards;
+}
+
+/* Primary CTA — glassy emerald pill */
+.landing-intro-cta {
+  display: inline-flex;
+  align-items: center;
+  gap: 9px;
+  padding: 12px 22px;
+  border-radius: 14px;
+  font-size: 14px;
+  font-weight: 700;
+  letter-spacing: 0.01em;
+  color: #0b0f17;
+  background: linear-gradient(135deg, #00ffcc 0%, #10b981 100%);
+  border: 1px solid rgba(0, 255, 204, 0.55);
+  box-shadow:
+    0 8px 30px rgba(0, 255, 204, 0.35),
+    0 0 0 1px rgba(0, 255, 204, 0.2) inset;
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+  opacity: 0;
+  transform: translateY(10px) scale(0.97);
+  animation: landing-cta-in 720ms cubic-bezier(0.22, 1, 0.36, 1) 520ms forwards;
+  transition: transform 0.18s ease, box-shadow 0.2s ease, filter 0.2s ease;
+  min-height: 44px;
+}
+.landing-intro-cta:hover {
+  transform: translateY(-1px);
+  filter: brightness(1.08);
+  box-shadow:
+    0 12px 36px rgba(0, 255, 204, 0.45),
+    0 0 0 1px rgba(0, 255, 204, 0.35) inset;
+}
+.landing-intro-cta:active { transform: translateY(0) scale(0.985); }
+.landing-intro-cta:focus-visible {
+  outline: 2px solid rgba(0, 255, 204, 0.8);
+  outline-offset: 3px;
+}
+
+@keyframes landing-cta-in {
+  to { opacity: 1; transform: translateY(0) scale(1); }
+}
+
+/* Three stacked glass preview cards — staggered fade-in */
+.landing-intro-previews {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  width: 100%;
+  margin-top: 6px;
+}
+
+.landing-preview-card {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 12px 14px;
+  border-radius: 14px;
+  background: rgba(22, 29, 46, 0.55);
+  border: 1px solid rgba(255, 255, 255, 0.06);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  color: rgba(255, 255, 255, 0.85);
+  text-align: left;
+  cursor: pointer;
+  opacity: 0;
+  transform: translateY(10px);
+  animation: landing-fade-up 620ms cubic-bezier(0.22, 1, 0.36, 1) forwards;
+  transition: background 0.2s ease, border-color 0.2s ease, transform 0.1s ease;
+  -webkit-tap-highlight-color: transparent;
+  min-height: 50px;
+}
+
+.landing-preview-card:nth-child(1) { animation-delay: 700ms; }
+.landing-preview-card:nth-child(2) { animation-delay: 840ms; }
+.landing-preview-card:nth-child(3) { animation-delay: 980ms; }
+
+.landing-preview-card:hover {
+  background: rgba(22, 29, 46, 0.78);
+  border-color: rgba(0, 255, 204, 0.22);
+}
+.landing-preview-card:active { transform: scale(0.985); }
+
+.landing-preview-icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 30px;
+  height: 30px;
+  border-radius: 10px;
+  background: rgba(0, 255, 204, 0.1);
+  border: 1px solid rgba(0, 255, 204, 0.22);
+  color: #00ffcc;
+  flex-shrink: 0;
+}
+
+.landing-preview-text {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+  flex: 1;
+}
+
+.landing-preview-title {
+  font-size: 13px;
+  font-weight: 600;
+  color: #fff;
+}
+
+.landing-preview-hint {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 11px;
+  color: rgba(255, 255, 255, 0.45);
+}
+
+.landing-preview-hint-icon { color: rgba(255, 255, 255, 0.4); }
+
+.landing-intro-footer {
+  font-size: 11px;
+  color: rgba(255, 255, 255, 0.38);
+  max-width: 34ch;
+  margin: 2px 0 0;
+  opacity: 0;
+  animation: landing-fade-up 900ms cubic-bezier(0.22, 1, 0.36, 1) 1100ms forwards;
+  line-height: 1.45;
+}
+
+@keyframes landing-fade-up {
+  to { opacity: 1; transform: translateY(0); }
+}
+
+/* Respect reduced-motion users — skip keyframes, keep readability */
+@media (prefers-reduced-motion: reduce) {
+  .landing-intro,
+  .landing-intro-backdrop,
+  .landing-intro-beam,
+  .landing-intro-logo,
+  .landing-intro-title,
+  .landing-intro-sub,
+  .landing-intro-cta,
+  .landing-preview-card,
+  .landing-intro-footer {
+    animation: none !important;
+    opacity: 1 !important;
+    transform: none !important;
+  }
+}
+
+/* ─────────────────────────────────────────────────────────
+   DonatePill — small, always-visible glass "Donate" button
+   ───────────────────────────────────────────────────────── */
+.donate-pill {
+  position: fixed;
+  right: calc(16px + env(safe-area-inset-right, 0px));
+  bottom: calc(80px + env(safe-area-inset-bottom, 0px));
+  z-index: 1000;
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  padding: 8px 13px;
+  border-radius: 999px;
+  background: rgba(22, 29, 46, 0.72);
+  border: 1px solid rgba(0, 255, 204, 0.26);
+  color: rgba(255, 255, 255, 0.9);
+  font-size: 12px;
+  font-weight: 600;
+  letter-spacing: 0.01em;
+  backdrop-filter: blur(14px);
+  -webkit-backdrop-filter: blur(14px);
+  box-shadow:
+    0 4px 18px rgba(0, 0, 0, 0.35),
+    0 0 0 1px rgba(255, 255, 255, 0.04) inset;
+  transition: background 0.2s ease, border-color 0.2s ease,
+              transform 0.12s ease, box-shadow 0.2s ease;
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+  min-height: 36px;
+  animation: donate-pill-in 520ms cubic-bezier(0.22, 1, 0.36, 1) 300ms both;
+}
+
+.donate-pill:hover {
+  background: rgba(22, 29, 46, 0.92);
+  border-color: rgba(0, 255, 204, 0.45);
+  transform: translateY(-1px);
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.4), 0 0 0 1px rgba(0, 255, 204, 0.15) inset;
+}
+.donate-pill:active { transform: translateY(0) scale(0.97); }
+.donate-pill:focus-visible { outline: 2px solid rgba(0, 255, 204, 0.6); outline-offset: 3px; }
+
+.donate-pill-icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 18px;
+  height: 18px;
+  color: #ff7a8a;
+  filter: drop-shadow(0 0 6px rgba(255, 122, 138, 0.35));
+}
+
+.donate-pill-label {
+  font-weight: 700;
+  letter-spacing: 0.03em;
+}
+
+@keyframes donate-pill-in {
+  from { opacity: 0; transform: translateY(8px); }
+  to   { opacity: 1; transform: translateY(0);   }
+}
+
+/* On narrow phones, drop the label to save horizontal space */
+@media (max-width: 360px) {
+  .donate-pill-label { display: none; }
+  .donate-pill { padding: 8px 10px; }
+}
+
+/* ─────────────────────────────────────────────────────────
+   DonateToast — subtle, session-dismissible prompt
+   ───────────────────────────────────────────────────────── */
+.donate-toast {
+  position: fixed;
+  left: 50%;
+  bottom: calc(22px + env(safe-area-inset-bottom, 0px));
+  transform: translateX(-50%);
+  z-index: 1100;
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 12px 10px 14px;
+  border-radius: 16px;
+  background: rgba(17, 24, 39, 0.9);
+  border: 1px solid rgba(0, 255, 204, 0.22);
+  backdrop-filter: blur(14px);
+  -webkit-backdrop-filter: blur(14px);
+  color: #fff;
+  box-shadow:
+    0 14px 42px rgba(0, 0, 0, 0.5),
+    0 0 0 1px rgba(255, 255, 255, 0.04) inset;
+  animation: donate-toast-in 420ms cubic-bezier(0.22, 1, 0.36, 1) both;
+  max-width: calc(100vw - 32px);
+  pointer-events: auto;
+}
+
+.donate-toast.is-closing {
+  animation: donate-toast-out 260ms cubic-bezier(0.4, 0, 0.2, 1) forwards;
+}
+
+.donate-toast-icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 26px;
+  height: 26px;
+  border-radius: 9px;
+  background: rgba(255, 122, 138, 0.12);
+  color: #ff7a8a;
+  flex-shrink: 0;
+}
+
+.donate-toast-text {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+
+.donate-toast-title {
+  font-size: 12.5px;
+  font-weight: 700;
+  color: #fff;
+  line-height: 1.1;
+}
+
+.donate-toast-body {
+  font-size: 11px;
+  color: rgba(255, 255, 255, 0.55);
+  line-height: 1.3;
+  margin-top: 1px;
+}
+
+.donate-toast-cta {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 7px 12px;
+  border-radius: 10px;
+  font-size: 11.5px;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+  color: #0b0f17;
+  background: linear-gradient(135deg, #00ffcc 0%, #10b981 100%);
+  border: 1px solid rgba(0, 255, 204, 0.5);
+  cursor: pointer;
+  transition: transform 0.12s ease, filter 0.2s ease;
+  min-height: 32px;
+}
+.donate-toast-cta:hover  { filter: brightness(1.08); transform: translateY(-1px); }
+.donate-toast-cta:active { transform: translateY(0) scale(0.97); }
+
+.donate-toast-close {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 26px;
+  height: 26px;
+  border-radius: 8px;
+  background: rgba(255, 255, 255, 0.05);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  color: rgba(255, 255, 255, 0.55);
+  cursor: pointer;
+  transition: background 0.18s ease, color 0.18s ease;
+  flex-shrink: 0;
+}
+.donate-toast-close:hover {
+  background: rgba(255, 255, 255, 0.1);
+  color: rgba(255, 255, 255, 0.9);
+}
+
+@keyframes donate-toast-in {
+  from { opacity: 0; transform: translate(-50%, 12px); }
+  to   { opacity: 1; transform: translate(-50%, 0);    }
+}
+
+@keyframes donate-toast-out {
+  to { opacity: 0; transform: translate(-50%, 8px); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .donate-pill,
+  .donate-toast {
+    animation: none !important;
+  }
+}
+

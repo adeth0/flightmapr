@@ -10,6 +10,9 @@ import { AlertsDashboard }   from './components/AlertsDashboard';
 import { Onboarding, hasOnboarded } from './components/Onboarding';
 import { InstallBanner }     from './components/InstallBanner';
 import { FeedbackFab }       from './components/FeedbackFab';
+import { LandingIntro }      from './components/LandingIntro';
+import { DonatePill }        from './components/DonatePill';
+import { DonateToast }       from './components/DonateToast';
 import { flightService }     from './services/flightService';
 import { getUserLocation, getCachedLocation } from './services/geoService';
 import { openSkyService }    from './services/openSkyService';
@@ -74,6 +77,11 @@ export default function App() {
   const [alertsCount,      setAlertsCount]      = useState(0);
   // Onboarding: show once per install (localStorage flag)
   const [showOnboarding,   setShowOnboarding]   = useState(() => !hasOnboarded());
+  // Landing intro: once-per-session glass overlay over the spinning-up map.
+  // Starts true and is flipped to `false` when the user taps "Open Live Map"
+  // (LandingIntro itself short-circuits on mount if the session flag is set,
+  // so the overlay stays gated to first visit).
+  const [introComplete,    setIntroComplete]    = useState(false);
   // In-app notification toast (fallback for iOS Safari / no push permission)
   const [toast,            setToast]            = useState(null);
   const toastTimer                              = useRef(null);
@@ -545,6 +553,23 @@ export default function App() {
       {/* Circular trigger; tap to reveal the Feedback + Donate
           actions. See FeedbackFab.jsx for platform notes. */}
       <FeedbackFab />
+
+      {/* ── Always-visible glass Donate pill ─────────────── */}
+      {/* Small, non-intrusive "Support FlightMapr" pill that
+          sits just above the Feedback FAB. Kept hidden while
+          the landing intro is showing to preserve first-paint. */}
+      {introComplete && <DonatePill />}
+
+      {/* ── Subtle donation toast (session-dismissible) ──── */}
+      <DonateToast enabled={introComplete} />
+
+      {/* ── Landing intro (once per session) ─────────────── */}
+      {/* Mounts LAST so its z-index sits above every panel.
+          LandingIntro short-circuits on mount if already seen. */}
+      <LandingIntro
+        onComplete={() => setIntroComplete(true)}
+        onOpenInsights={() => setInsightsOpen(true)}
+      />
     </div>
   );
 }
