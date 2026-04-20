@@ -52,7 +52,7 @@ function ArrivalRow({ flight, onSelectFlight }) {
           <AirlineLogo callsign={flight.callsign} airline={flight.airline} size={32} />
           <div className="min-w-0 flex-1">
             <div className="flex items-center gap-2">
-              <Plane size={12} className="text-[#10b981] flex-shrink-0 -rotate-90" />
+              <Plane size={12} className="text-[#BFC1C2] flex-shrink-0 -rotate-90" />
               <span className="text-sm font-semibold text-white truncate">{flight.callsign}</span>
               {flight.isLive && (
                 <span className="text-[9px] rounded px-1.5 py-0.5 bg-red-400/15 text-red-400 uppercase tracking-wide font-semibold">
@@ -239,13 +239,13 @@ export function AirportSidebar({ airportCode, onClose, onCenterMap, onSelectFlig
         <div className="flex items-start justify-between gap-3">
           <div className="min-w-0">
             <div className="flex items-center gap-2 mb-1">
-              <span className="w-9 h-9 rounded-xl bg-[#00ffcc]/12 border border-[#00ffcc]/20 flex items-center justify-center">
-                <Building2 size={16} className="text-[#00ffcc]" />
+              <span className="w-9 h-9 rounded-xl bg-[#E8E8E8]/12 border border-[#E8E8E8]/20 flex items-center justify-center">
+                <Building2 size={16} className="text-[#E8E8E8]" />
               </span>
               <div className="min-w-0">
                 <div className="text-lg font-bold tracking-tight text-white truncate">{airport.name}</div>
                 <div className="flex items-center gap-2 flex-wrap">
-                  <span className="text-xs text-[#00ffcc] font-semibold tracking-[0.18em] uppercase">{airport.code}</span>
+                  <span className="text-xs text-[#E8E8E8] font-semibold tracking-[0.18em] uppercase">{airport.code}</span>
                   {airport.icao && airport.icao !== '----' && (
                     <span className="text-[10px] text-white/35 font-semibold tracking-[0.18em] uppercase">ICAO {airport.icao}</span>
                   )}
@@ -287,7 +287,7 @@ export function AirportSidebar({ airportCode, onClose, onCenterMap, onSelectFlig
             </button>
           </div>
 
-          <button onClick={() => onCenterMap(airport)} className="text-[10px] text-[#00ffcc] font-semibold uppercase tracking-[0.15em] hover:underline">
+          <button onClick={() => onCenterMap(airport)} className="text-[10px] text-[#E8E8E8] font-semibold uppercase tracking-[0.15em] hover:underline">
             Center
           </button>
         </div>
@@ -340,7 +340,7 @@ export function AirportSidebar({ airportCode, onClose, onCenterMap, onSelectFlig
                       />
                       <div className="min-w-0 flex-1">
                         <div className="flex items-center gap-2">
-                          <Plane size={12} className="text-[#00ffcc] flex-shrink-0" />
+                          <Plane size={12} className="text-[#E8E8E8] flex-shrink-0" />
                           <span className="text-sm font-semibold text-white truncate">{item.flight?.callsign ?? item.flightNumber}</span>
                           {item.isFallback ? (
                             <span className="text-[9px] rounded px-1.5 py-0.5 bg-white/8 text-white/45 uppercase tracking-wide">
@@ -364,7 +364,7 @@ export function AirportSidebar({ airportCode, onClose, onCenterMap, onSelectFlig
                             <MapPin size={11} />
                             {item.destination?.code ?? '----'}
                           </span>
-                          <span className={`font-semibold ${item.delayMinutes ? 'text-amber-400' : 'text-[#00ffcc]'}`}>
+                          <span className={`font-semibold ${item.delayMinutes ? 'text-amber-400' : 'text-[#E8E8E8]'}`}>
                             {formatDelay(item.delayMinutes)}
                           </span>
                         </div>

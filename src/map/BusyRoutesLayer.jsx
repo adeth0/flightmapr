@@ -100,7 +100,7 @@ export function BusyRoutesLayer({ enabled }) {
 
         const pts  = buildArc(origin.lat, origin.lng, destination.lat, destination.lng);
         const line = L.polyline(pts, {
-          color:       '#00ffcc',
+          color:       '#E8E8E8',
           weight,
           opacity,
           interactive: false,

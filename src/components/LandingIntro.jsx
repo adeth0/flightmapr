@@ -122,7 +122,7 @@ export function LandingIntro({ onComplete, onOpenInsights }) {
           <span className="landing-intro-logo-icon">
             <Plane size={16} strokeWidth={2.4} />
           </span>
-          <span className="landing-intro-logo-text">FlightMapr</span>
+          <span className="landing-intro-logo-text metallic-wordmark">FlightMapr</span>
           <span className="landing-intro-logo-dot" aria-hidden="true" />
           <span className="landing-intro-logo-live">Live</span>
         </div>

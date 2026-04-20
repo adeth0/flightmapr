@@ -47,13 +47,13 @@ function tierVisibleAtZoom(tier, zoom) {
 // ── Icon builders ─────────────────────────────────────────
 function buildIcon(code, showLabel) {
   const diamond =
-    `<div style="width:7px;height:7px;background:rgba(0,255,204,0.65);` +
-    `border:1.5px solid #00ffcc;border-radius:1px;transform:rotate(45deg);` +
-    `box-shadow:0 0 6px rgba(0,255,204,0.4);"></div>`;
+    `<div style="width:7px;height:7px;background:rgba(255, 255, 255,0.65);` +
+    `border:1.5px solid #E8E8E8;border-radius:1px;transform:rotate(45deg);` +
+    `box-shadow:0 0 6px rgba(255, 255, 255,0.4);"></div>`;
   const label = showLabel
     ? `<div style="position:absolute;top:10px;left:50%;transform:translateX(-50%);` +
       `white-space:nowrap;font-family:'Inter',sans-serif;font-size:8px;font-weight:700;` +
-      `color:#00ffcc;text-shadow:0 0 6px #000,0 0 3px #000,0 0 2px rgba(0,0,0,0.9);">${code}</div>`
+      `color:#E8E8E8;text-shadow:0 0 6px #000,0 0 3px #000,0 0 2px rgba(0,0,0,0.9);">${code}</div>`
     : '';
   return L.divIcon({
     html: `<div style="position:relative;">${diamond}${label}</div>`,
@@ -70,7 +70,7 @@ function buildPopup(airport) {
 
   const flightRow = (f, dir) =>
     `<div style="display:flex;align-items:center;gap:6px;padding:2px 0;font-size:10px;">
-      <span style="color:${dir === '↑' ? '#00ffcc' : '#10b981'};font-size:9px;">${dir}</span>
+      <span style="color:${dir === '↑' ? '#E8E8E8' : '#BFC1C2'};font-size:9px;">${dir}</span>
       <span style="font-weight:600;color:#fff;">${f.callsign}</span>
       <span style="color:rgba(255,255,255,0.35);">
         ${dir === '↑' ? '→ ' + f.destination.code : '← ' + f.origin.code}
@@ -89,7 +89,7 @@ function buildPopup(airport) {
   return `
     <div style="font-family:'Inter',sans-serif;color:#fff;min-width:185px;max-width:230px;">
       <div style="display:flex;align-items:baseline;">
-        <div style="font-weight:800;color:#00ffcc;font-size:13px;letter-spacing:-0.3px;">${airport.code}</div>
+        <div style="font-weight:800;color:#E8E8E8;font-size:13px;letter-spacing:-0.3px;">${airport.code}</div>
         ${icaoBadge}
       </div>
       <div style="color:rgba(255,255,255,0.75);font-size:11px;margin-bottom:2px;">${airport.name}</div>
@@ -99,12 +99,12 @@ function buildPopup(airport) {
                   border-top:1px solid rgba(255,255,255,0.07);
                   border-bottom:1px solid rgba(255,255,255,0.07);">
         <div style="font-size:10px;">
-          <span style="color:#00ffcc;">↑</span>
+          <span style="color:#E8E8E8;">↑</span>
           <strong style="color:#fff;">${dep.length}</strong>
           <span style="color:rgba(255,255,255,0.35);"> dep</span>
         </div>
         <div style="font-size:10px;">
-          <span style="color:#10b981;">↓</span>
+          <span style="color:#BFC1C2;">↓</span>
           <strong style="color:#fff;">${arr.length}</strong>
           <span style="color:rgba(255,255,255,0.35);"> arr</span>
         </div>
@@ -219,7 +219,7 @@ export function AirportLayer({ enabled }) {
 
         marker.bindTooltip(
           `<div style="font-family:'Inter',sans-serif;font-size:11px;color:#fff;min-width:120px;">
-            <div style="font-weight:700;color:#00ffcc;font-size:12px;">${airport.code}</div>
+            <div style="font-weight:700;color:#E8E8E8;font-size:12px;">${airport.code}</div>
             <div style="color:rgba(255,255,255,0.65);">${airport.city}</div>
             <div style="color:rgba(255,255,255,0.35);font-size:10px;">${airport.name}</div>
             ${airport.icao && airport.icao !== '----'

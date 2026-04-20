@@ -10,8 +10,8 @@ import logoSrc from '../assets/flightmapr-logo.png';
 function LiveDot() {
   return (
     <span className="relative inline-flex items-center">
-      <span className="w-2 h-2 rounded-full bg-[#00ffcc] blink-dot" />
-      <span className="absolute inset-0 w-2 h-2 rounded-full bg-[#00ffcc] ping-ring" />
+      <span className="w-2 h-2 rounded-full bg-[#E8E8E8] blink-dot" />
+      <span className="absolute inset-0 w-2 h-2 rounded-full bg-[#E8E8E8] ping-ring" />
     </span>
   );
 }
@@ -22,8 +22,8 @@ function FlightSearchResult({ flight, onSelect }) {
       onClick={() => onSelect(flight)}
       className="w-full flex items-center gap-3 px-4 py-3 hover:bg-white/5 active:bg-white/8 transition-colors text-left"
     >
-      <div className="w-9 h-9 rounded-xl bg-[#00ffcc]/10 flex items-center justify-center flex-shrink-0">
-        <span className="text-sm font-bold text-[#00ffcc]">✈</span>
+      <div className="w-9 h-9 rounded-xl bg-[#E8E8E8]/10 flex items-center justify-center flex-shrink-0">
+        <span className="text-sm font-bold text-[#E8E8E8]">✈</span>
       </div>
       <div className="flex-1 min-w-0">
         <div className="flex items-baseline gap-2">
@@ -32,7 +32,7 @@ function FlightSearchResult({ flight, onSelect }) {
         </div>
         <div className="text-xs text-white/50 mt-0.5 flex items-center gap-1">
           <span className="font-semibold text-white/70">{flight.origin.code}</span>
-          <span className="text-[#00ffcc]">→</span>
+          <span className="text-[#E8E8E8]">→</span>
           <span className="font-semibold text-white/70">{flight.destination.code}</span>
           <span className="text-white/25 mx-0.5">·</span>
           <span className="truncate">{flight.origin.city}</span>
@@ -49,7 +49,7 @@ function AirportSearchResult({ airport, onSelect }) {
       className="w-full flex items-center gap-3 px-4 py-3 hover:bg-white/5 active:bg-white/8 transition-colors text-left"
     >
       <div className="w-9 h-9 rounded-xl bg-white/8 flex items-center justify-center flex-shrink-0">
-        <Building2 size={15} className="text-[#00ffcc]" />
+        <Building2 size={15} className="text-[#E8E8E8]" />
       </div>
       <div className="flex-1 min-w-0">
         <div className="flex items-baseline gap-2">
@@ -74,16 +74,16 @@ function LayerRow({ icon, label, enabled, onToggle }) {
     <button
       onClick={onToggle}
       className={`w-full flex items-center gap-3 px-4 py-3 transition-colors ${
-        enabled ? 'bg-[#00ffcc]/8' : 'hover:bg-white/4'
+        enabled ? 'bg-[#E8E8E8]/8' : 'hover:bg-white/4'
       }`}
     >
-      <span className={enabled ? 'text-[#00ffcc]' : 'text-white/45'}>{icon}</span>
-      <span className={`text-sm font-medium flex-1 text-left ${enabled ? 'text-[#00ffcc]' : 'text-white/60'}`}>
+      <span className={enabled ? 'text-[#E8E8E8]' : 'text-white/45'}>{icon}</span>
+      <span className={`text-sm font-medium flex-1 text-left ${enabled ? 'text-[#E8E8E8]' : 'text-white/60'}`}>
         {label}
       </span>
       <span
         className={`w-8 h-4 rounded-full transition-colors relative flex-shrink-0 ${
-          enabled ? 'bg-[#00ffcc]' : 'bg-white/15'
+          enabled ? 'bg-[#E8E8E8]' : 'bg-white/15'
         }`}
       >
         <span
@@ -279,7 +279,7 @@ export function EnhancedTopBar({
       >
         <button
           onClick={handleLogoTap}
-          className="glass rounded-2xl flex items-center gap-2 px-3 py-2.5 flex-shrink-0 transition-all active:scale-95 hover:bg-[#00ffcc]/5"
+          className="glass rounded-2xl flex items-center gap-2 px-3 py-2.5 flex-shrink-0 transition-all active:scale-95 hover:bg-[#E8E8E8]/5"
           style={{ pointerEvents: 'auto', cursor: 'pointer' }}
           aria-label="Reset map to my location"
           title="Reset map to my location"
@@ -291,14 +291,14 @@ export function EnhancedTopBar({
             className="w-7 h-7 object-contain flex-shrink-0"
             style={{
               filter: logoPulse
-                ? 'drop-shadow(0 0 8px rgba(0,255,204,0.9))'
-                : 'drop-shadow(0 0 4px rgba(0,255,204,0.45))',
+                ? 'drop-shadow(0 0 8px rgba(255, 255, 255,0.9))'
+                : 'drop-shadow(0 0 4px rgba(255, 255, 255,0.45))',
               transition: 'filter 0.3s ease',
             }}
           />
           <div className="hidden sm:block">
             <div className="text-sm font-bold tracking-tight leading-none text-white">
-              Flight<span className="text-[#00ffcc]">Mapr</span>
+              Flight<span className="text-[#E8E8E8]">Mapr</span>
             </div>
             <div className="text-[9px] text-white/35 tracking-widest uppercase leading-none mt-0.5">
               {isLive ? 'Live ADS-B' : 'Simulation'}
@@ -365,7 +365,7 @@ export function EnhancedTopBar({
               onClick={onToggleAirports}
               title={airportsEnabled ? 'Hide airports' : 'Show airports'}
               className={`glass rounded-2xl flex items-center gap-2 px-3.5 py-2.5 text-sm font-medium transition-all ${
-                airportsEnabled ? 'border-[#00ffcc]/30 text-[#00ffcc] bg-[#00ffcc]/8' : 'text-white/35 hover:text-white/60'
+                airportsEnabled ? 'border-[#E8E8E8]/30 text-[#E8E8E8] bg-[#E8E8E8]/8' : 'text-white/35 hover:text-white/60'
               }`}
             >
               <Building2 size={15} />
@@ -387,7 +387,7 @@ export function EnhancedTopBar({
               onClick={onToggleWeather}
               title={weatherEnabled ? 'Hide weather' : 'Show weather'}
               className={`glass rounded-2xl flex items-center gap-2 px-3.5 py-2.5 text-sm font-medium transition-all ${
-                weatherEnabled ? 'border-[#00ffcc]/40 text-[#00ffcc] bg-[#00ffcc]/10' : 'text-white/50 hover:text-white/80'
+                weatherEnabled ? 'border-[#E8E8E8]/40 text-[#E8E8E8] bg-[#E8E8E8]/10' : 'text-white/50 hover:text-white/80'
               }`}
             >
               {weatherEnabled ? <Cloud size={15} /> : <CloudOff size={15} />}
@@ -409,7 +409,7 @@ export function EnhancedTopBar({
               onClick={onToggleRoutes}
               title={routesEnabled ? 'Hide routes' : 'Show routes'}
               className={`glass rounded-2xl flex items-center gap-2 px-3.5 py-2.5 text-sm font-medium transition-all ${
-                routesEnabled ? 'border-[#00ffcc]/40 text-[#00ffcc] bg-[#00ffcc]/10' : 'text-white/35 hover:text-white/60'
+                routesEnabled ? 'border-[#E8E8E8]/40 text-[#E8E8E8] bg-[#E8E8E8]/10' : 'text-white/35 hover:text-white/60'
               }`}
             >
               <GitBranch size={15} />
@@ -437,14 +437,14 @@ export function EnhancedTopBar({
               onClick={() => setLayersOpen((v) => !v)}
               className={`glass rounded-2xl flex items-center gap-1.5 px-2.5 py-2.5 text-sm font-medium transition-all ${
                 layersOpen
-                  ? 'border-[#00ffcc]/35 text-[#00ffcc] bg-[#00ffcc]/8'
+                  ? 'border-[#E8E8E8]/35 text-[#E8E8E8] bg-[#E8E8E8]/8'
                   : 'text-white/45 hover:text-white/70'
               }`}
               aria-label="Map layers"
             >
               <Layers size={16} />
               {activeLayerCount > 0 && (
-                <span className="w-4 h-4 rounded-full bg-[#00ffcc] text-black text-[9px] font-bold flex items-center justify-center leading-none">
+                <span className="w-4 h-4 rounded-full bg-[#E8E8E8] text-black text-[9px] font-bold flex items-center justify-center leading-none">
                   {activeLayerCount}
                 </span>
               )}
@@ -477,8 +477,8 @@ export function EnhancedTopBar({
               aria-pressed={!!insightsOpen}
               className={`glass rounded-2xl relative flex items-center gap-1.5 px-2.5 py-2.5 text-sm font-medium transition-all ${
                 insightsOpen
-                  ? 'border-[#00ffcc]/40 text-[#00ffcc] bg-[#00ffcc]/10'
-                  : 'text-white/45 hover:text-[#00ffcc]'
+                  ? 'border-[#E8E8E8]/40 text-[#E8E8E8] bg-[#E8E8E8]/10'
+                  : 'text-white/45 hover:text-[#E8E8E8]'
               }`}
             >
               <Sparkles size={15} />
@@ -510,8 +510,8 @@ export function EnhancedTopBar({
             target="_blank"
             rel="noopener noreferrer"
             aria-label="Donate to FlightMapr"
-            className="hidden sm:flex items-center gap-1.5 px-3 py-2.5 rounded-2xl text-xs font-bold text-black whitespace-nowrap transition-all shadow-[0_0_16px_rgba(0,255,204,0.35)]"
-            style={{ background: 'linear-gradient(135deg, #00ffcc 0%, #10b981 100%)', pointerEvents: 'auto' }}
+            className="hidden sm:flex items-center gap-1.5 px-3 py-2.5 rounded-2xl text-xs font-bold text-black whitespace-nowrap transition-all shadow-[0_0_16px_rgba(255, 255, 255,0.35)]"
+            style={{ background: 'linear-gradient(135deg, #E8E8E8 0%, #BFC1C2 100%)', pointerEvents: 'auto' }}
           >
             <span className="text-sm leading-none">✈️</span>
             <span>Donate</span>

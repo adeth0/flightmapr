@@ -63,7 +63,7 @@ function AirportRow({ airport, subtitle, metric, metricLabel, onClick }) {
   return (
     <button type="button" onClick={onClick} className="insights-row group">
       <div className="insights-row-icon">
-        <Building2 size={14} className="text-[#00ffcc]" />
+        <Building2 size={14} className="text-[#E8E8E8]" />
       </div>
       <div className="min-w-0 flex-1 text-left">
         <div className="flex items-baseline gap-2">
@@ -73,7 +73,7 @@ function AirportRow({ airport, subtitle, metric, metricLabel, onClick }) {
         <div className="text-[11px] text-white/35 truncate">{subtitle}</div>
       </div>
       <div className="flex flex-col items-end flex-shrink-0">
-        <span className="text-sm font-semibold text-[#00ffcc]">{metric}</span>
+        <span className="text-sm font-semibold text-[#E8E8E8]">{metric}</span>
         <span className="text-[9px] uppercase tracking-widest text-white/30">{metricLabel}</span>
       </div>
     </button>
@@ -239,8 +239,8 @@ export function InsightsPanel({ userLocation, onClose, onSelectFlight, onSelectA
         <div className="flex items-start justify-between gap-3">
           <div className="min-w-0">
             <div className="flex items-center gap-2 mb-1">
-              <span className="w-9 h-9 rounded-xl bg-[#00ffcc]/12 border border-[#00ffcc]/20 flex items-center justify-center">
-                <Sparkles size={16} className="text-[#00ffcc]" />
+              <span className="w-9 h-9 rounded-xl bg-[#E8E8E8]/12 border border-[#E8E8E8]/20 flex items-center justify-center">
+                <Sparkles size={16} className="text-[#E8E8E8]" />
               </span>
               <div className="min-w-0">
                 <div className="text-lg font-bold tracking-tight text-white">Flight Insights</div>
@@ -320,7 +320,7 @@ export function InsightsPanel({ userLocation, onClose, onSelectFlight, onSelectA
               subtitle={`${row.origin?.code ?? '----'} → ${row.destination?.code ?? '----'} · ${row.destination?.city ?? ''}`}
               trailing={
                 <div className="flex flex-col items-end flex-shrink-0 ml-2">
-                  <span className="text-xs font-semibold text-[#00ffcc]">{fmtTime(row.etaMs)}</span>
+                  <span className="text-xs font-semibold text-[#E8E8E8]">{fmtTime(row.etaMs)}</span>
                   <span className="text-[9px] uppercase tracking-widest text-white/30">{fmtMinutesFromNow(row.etaMs)}</span>
                 </div>
               }
@@ -348,7 +348,7 @@ export function InsightsPanel({ userLocation, onClose, onSelectFlight, onSelectA
                 : `On approach · ${(row.altitude ?? 0).toLocaleString()} ft`}
               trailing={
                 <div className="flex flex-col items-end flex-shrink-0 ml-2">
-                  <span className="text-xs font-semibold text-[#10b981]">{row.speed ?? '—'} kts</span>
+                  <span className="text-xs font-semibold text-[#BFC1C2]">{row.speed ?? '—'} kts</span>
                   <span className="text-[9px] uppercase tracking-widest text-white/30">
                     {row.vertRate != null ? `${Math.round(row.vertRate)} fpm` : 'descending'}
                   </span>
@@ -400,7 +400,7 @@ function InsightsSection({ title, hint, icon: Icon, count, empty, children }) {
     <GlassCard className="p-3 insights-section">
       <div className="flex items-center justify-between px-1 pb-2">
         <div className="flex items-center gap-2">
-          <Icon size={13} className="text-[#00ffcc]/70" />
+          <Icon size={13} className="text-[#E8E8E8]/70" />
           <span className="text-[10px] uppercase tracking-widest text-white/55 font-semibold">{title}</span>
           {hint && <span className="text-[9px] text-white/30 uppercase tracking-widest">· {hint}</span>}
         </div>

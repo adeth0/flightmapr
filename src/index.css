@@ -3,14 +3,53 @@
 @tailwind utilities;
 
 /* ════════════════════════════════════════════════════════════
-   DESIGN TOKENS
+   DESIGN TOKENS — Vogue Silver Metallic System
+   ════════════════════════════════════════════════════════════
+   Replaces the previous emerald accent system with a premium
+   brushed-silver palette. Surfaces are deep charcoal with soft
+   white glows; accents use a metallic gradient that catches
+   light on hover to suggest polished chrome rather than paint.
    ════════════════════════════════════════════════════════════ */
 :root {
-  --emerald:       #00ffcc;
-  --emerald-dim:   #10b981;
-  --bg:            #0b0f17;
-  --card:          #111827;
-  --border:        rgba(0, 255, 204, 0.12);
+  /* Silver ramp — from brightest highlight to deepest shade */
+  --silver-50:     #ffffff;
+  --silver-100:    #F4F5F7;
+  --silver-200:    #E8E8E8;
+  --silver-300:    #D6D8DA;
+  --silver-400:    #C0C1C3;
+  --silver-500:    #A9ABAE;
+  --silver-600:    #8C8C8C;
+  --silver-700:    #6F7175;
+  --silver-800:    #4A4C50;
+
+  /* Primary silver token (single brightest swatch) */
+  --silver:        #E8E8E8;
+
+  /* Back-compat aliases so any unmigrated var(--emerald*) call
+     still resolves to a sensible silver tone rather than green. */
+  --emerald:       #E8E8E8;
+  --emerald-dim:   #BFC1C2;
+
+  /* Surfaces */
+  --bg:            #0f1113;  /* deep charcoal per brief     */
+  --card:          #15181c;  /* one shade up from page bg    */
+  --border:        rgba(255, 255, 255, 0.12);
+  --border-strong: rgba(255, 255, 255, 0.20);
+
+  /* Soft white glow used across hover / focus states */
+  --soft-glow:     rgba(255, 255, 255, 0.6);
+
+  /* Signature brushed-metal gradients */
+  --metallic:      linear-gradient(135deg, #C0C0C0 0%, #E8E8E8 50%, #BFC1C2 100%);
+  --metallic-soft: linear-gradient(135deg, rgba(232,232,232,0.18) 0%, rgba(255,255,255,0.35) 50%, rgba(191,193,194,0.18) 100%);
+  --metallic-sweep:linear-gradient(110deg,
+                     rgba(140,140,140,0) 0%,
+                     rgba(140,140,140,1) 15%,
+                     rgba(232,232,232,1) 40%,
+                     rgba(255,255,255,1) 50%,
+                     rgba(232,232,232,1) 60%,
+                     rgba(140,140,140,1) 85%,
+                     rgba(140,140,140,0) 100%);
 
   /* Animation easing — natural, iOS-grade curves */
   --ease-spring:   cubic-bezier(0.34, 1.56, 0.64, 1);
@@ -64,15 +103,15 @@ html, body, #root {
 }
 
 .leaflet-control-zoom {
-  border: 1px solid rgba(0,255,204,0.15) !important;
+  border: 1px solid rgba(255, 255, 255,0.15) !important;
   border-radius: 10px !important;
   overflow: hidden;
   box-shadow: 0 4px 24px rgba(0,0,0,0.4) !important;
 }
 .leaflet-control-zoom a {
   background: rgba(17,24,39,0.88) !important;
-  color: #00ffcc !important;
-  border-bottom: 1px solid rgba(0,255,204,0.1) !important;
+  color: #E8E8E8 !important;
+  border-bottom: 1px solid rgba(255, 255, 255,0.1) !important;
   width: 36px !important; height: 36px !important; line-height: 36px !important;
   font-size: 18px !important;
   backdrop-filter: blur(12px); -webkit-backdrop-filter: blur(12px);
@@ -80,7 +119,7 @@ html, body, #root {
   display: flex !important; align-items: center !important; justify-content: center !important;
 }
 .leaflet-control-zoom a:hover {
-  background: rgba(0,255,204,0.15) !important;
+  background: rgba(255, 255, 255,0.15) !important;
   color: #fff !important;
 }
 
@@ -98,7 +137,7 @@ html, body, #root {
   border-radius: 6px 0 0 0 !important;
   backdrop-filter: blur(8px);
 }
-.leaflet-control-attribution a { color: rgba(0,255,204,0.4) !important; }
+.leaflet-control-attribution a { color: rgba(255, 255, 255,0.4) !important; }
 
 /* ── Tracking bar (fixed follow notification) ────────────── */
 .tracking-bar {
@@ -115,8 +154,8 @@ html, body, #root {
   border-radius: 16px;
 
   background: rgba(13, 18, 32, 0.82);
-  border: 1px solid rgba(0, 255, 204, 0.22);
-  box-shadow: 0 8px 36px rgba(0, 0, 0, 0.55), 0 0 0 1px rgba(0, 255, 204, 0.06);
+  border: 1px solid rgba(255, 255, 255, 0.22);
+  box-shadow: 0 8px 36px rgba(0, 0, 0, 0.55), 0 0 0 1px rgba(255, 255, 255, 0.06);
   backdrop-filter: blur(24px) saturate(160%);
   -webkit-backdrop-filter: blur(24px) saturate(160%);
 
@@ -126,15 +165,15 @@ html, body, #root {
 
   color: #fff;
   font-family: 'Inter', system-ui, sans-serif;
-  border: 1px solid rgba(0, 255, 204, 0.22);
+  border: 1px solid rgba(255, 255, 255, 0.22);
 }
 
 .tracking-bar-dot {
   width: 10px;
   height: 10px;
   border-radius: 50%;
-  background: rgba(0, 255, 204, 0.9);
-  box-shadow: 0 0 18px rgba(0, 255, 204, 0.65);
+  background: rgba(255, 255, 255, 0.9);
+  box-shadow: 0 0 18px rgba(255, 255, 255, 0.65);
   flex-shrink: 0;
   animation: follow-pulse 1.2s ease-in-out infinite;
 }
@@ -149,7 +188,7 @@ html, body, #root {
 }
 
 .tracking-bar-label strong {
-  color: #00ffcc;
+  color: #E8E8E8;
 }
 
 /* Hide follow bar when the flight card is open on mobile. */
@@ -164,7 +203,7 @@ html, body, #root {
 .leaflet-popup-tip {
   background: rgba(17,24,39,0.92) !important;
   backdrop-filter: blur(16px) !important;
-  border: 1px solid rgba(0,255,204,0.15) !important;
+  border: 1px solid rgba(255, 255, 255,0.15) !important;
   color: #fff !important;
   box-shadow: 0 8px 32px rgba(0,0,0,0.5) !important;
   border-radius: 10px !important;
@@ -177,9 +216,9 @@ html, body, #root {
   background: rgba(13, 17, 30, 0.97) !important;
   backdrop-filter: blur(24px) saturate(160%) !important;
   -webkit-backdrop-filter: blur(24px) saturate(160%) !important;
-  border: 1px solid rgba(0,255,204,0.22) !important;
+  border: 1px solid rgba(255, 255, 255,0.22) !important;
   border-radius: 16px !important;
-  box-shadow: 0 12px 40px rgba(0,0,0,0.65), 0 0 0 1px rgba(0,255,204,0.07) !important;
+  box-shadow: 0 12px 40px rgba(0,0,0,0.65), 0 0 0 1px rgba(255, 255, 255,0.07) !important;
   padding: 0 !important;
   animation: popup-appear 0.18s var(--ease-spring);
 }
@@ -239,8 +278,8 @@ html, body, #root {
 
 /* ── Follow mode pulse ───────────────────────────────────── */
 @keyframes follow-pulse {
-  0%, 100% { filter: drop-shadow(0 0 6px #00ffcc80); }
-  50%       { filter: drop-shadow(0 0 16px #00ffcc) drop-shadow(0 0 4px #fff); }
+  0%, 100% { filter: drop-shadow(0 0 6px #E8E8E880); }
+  50%       { filter: drop-shadow(0 0 16px #E8E8E8) drop-shadow(0 0 4px #fff); }
 }
 .aircraft-following svg { animation: follow-pulse 1.2s ease-in-out infinite; }
 
@@ -251,7 +290,7 @@ html, body, #root {
   background: rgba(17, 24, 39, 0.78);
   backdrop-filter: blur(18px) saturate(160%);
   -webkit-backdrop-filter: blur(18px) saturate(160%);
-  border: 1px solid rgba(0, 255, 204, 0.12);
+  border: 1px solid rgba(255, 255, 255, 0.12);
   /* GPU-composite so paint is cheap on scroll */
   will-change: transform;
   transform: translateZ(0);
@@ -261,7 +300,7 @@ html, body, #root {
   background: rgba(22, 29, 46, 0.7);
   backdrop-filter: blur(14px);
   -webkit-backdrop-filter: blur(14px);
-  border: 1px solid rgba(0, 255, 204, 0.08);
+  border: 1px solid rgba(255, 255, 255, 0.08);
   will-change: transform;
   transform: translateZ(0);
   -webkit-transform: translateZ(0);
@@ -272,7 +311,7 @@ html, body, #root {
    ════════════════════════════════════════════════════════════ */
 ::-webkit-scrollbar { width: 3px; }
 ::-webkit-scrollbar-track { background: transparent; }
-::-webkit-scrollbar-thumb { background: rgba(0,255,204,0.3); border-radius: 2px; }
+::-webkit-scrollbar-thumb { background: rgba(255, 255, 255,0.3); border-radius: 2px; }
 
 /* ════════════════════════════════════════════════════════════
    BUTTON MICRO-INTERACTIONS
@@ -313,20 +352,20 @@ a:active {
 .sidebar-btn:active { transform: scale(0.97); }
 
 .sidebar-btn-outline {
-  color: #00ffcc;
-  border: 1px solid rgba(0,255,204,0.25);
+  color: #E8E8E8;
+  border: 1px solid rgba(255, 255, 255,0.25);
   background: transparent;
 }
-.sidebar-btn-outline:hover { background: rgba(0,255,204,0.08); border-color: rgba(0,255,204,0.5); }
+.sidebar-btn-outline:hover { background: rgba(255, 255, 255,0.08); border-color: rgba(255, 255, 255,0.5); }
 
 .sidebar-btn-active {
-  background: rgba(0,255,204,0.15);
-  color: #00ffcc;
-  border: 1px solid rgba(0,255,204,0.4);
-  box-shadow: 0 0 12px rgba(0,255,204,0.15);
+  background: rgba(255, 255, 255,0.15);
+  color: #E8E8E8;
+  border: 1px solid rgba(255, 255, 255,0.4);
+  box-shadow: 0 0 12px rgba(255, 255, 255,0.15);
 }
 
-.sidebar-btn-follow:hover  { border-color: rgba(0,255,204,0.25); color: #00ffcc; }
+.sidebar-btn-follow:hover  { border-color: rgba(255, 255, 255,0.25); color: #E8E8E8; }
 
 .sidebar-btn-tracking-on {
   background: rgba(245,158,11,0.15);
@@ -369,8 +408,8 @@ a:active {
 .airport-tab:hover { color: rgba(255, 255, 255, 0.75); }
 .airport-tab.is-active {
   color: #0b0f17;
-  background: linear-gradient(135deg, #00ffcc 0%, #10b981 100%);
-  box-shadow: 0 4px 12px rgba(0, 255, 204, 0.2);
+  background: linear-gradient(135deg, #E8E8E8 0%, #BFC1C2 100%);
+  box-shadow: 0 4px 12px rgba(255, 255, 255, 0.2);
 }
 .airport-tab-count {
   display: inline-flex;
@@ -394,13 +433,13 @@ a:active {
   padding: 12px 14px;
   border-radius: 16px;
   background: rgba(22, 29, 46, 0.7);
-  border: 1px solid rgba(0, 255, 204, 0.08);
+  border: 1px solid rgba(255, 255, 255, 0.08);
   transition: background 0.18s var(--ease-in-out), border-color 0.18s var(--ease-in-out), transform 0.08s var(--ease-in-out);
 }
 
 .airport-flight-row:hover {
   background: rgba(22, 29, 46, 0.92);
-  border-color: rgba(0, 255, 204, 0.18);
+  border-color: rgba(255, 255, 255, 0.18);
 }
 
 .airport-flight-row:active {
@@ -417,9 +456,9 @@ a:active {
   min-width: 78px;
   padding: 9px 10px;
   border-radius: 12px;
-  border: 1px solid rgba(0, 255, 204, 0.18);
-  background: rgba(0, 255, 204, 0.08);
-  color: #9ef7ea;
+  border: 1px solid rgba(255, 255, 255, 0.18);
+  background: rgba(255, 255, 255, 0.08);
+  color: #E5E7EB;
   font-size: 11px;
   font-weight: 700;
   letter-spacing: 0.02em;
@@ -427,8 +466,8 @@ a:active {
 }
 
 .airport-track-btn:hover {
-  background: rgba(0, 255, 204, 0.14);
-  border-color: rgba(0, 255, 204, 0.28);
+  background: rgba(255, 255, 255, 0.14);
+  border-color: rgba(255, 255, 255, 0.28);
 }
 
 .airport-track-btn:active {
@@ -449,7 +488,7 @@ a:active {
   gap: 6px;
   font-size: 11px;
   font-weight: 700;
-  color: #00ffcc;
+  color: #E8E8E8;
 }
 
 .airport-progress-pill-track {
@@ -463,8 +502,8 @@ a:active {
 .airport-progress-pill-fill {
   height: 100%;
   border-radius: inherit;
-  background: linear-gradient(90deg, #10b981 0%, #00ffcc 100%);
-  box-shadow: 0 0 10px rgba(0, 255, 204, 0.35);
+  background: linear-gradient(90deg, #BFC1C2 0%, #E8E8E8 100%);
+  box-shadow: 0 0 10px rgba(255, 255, 255, 0.35);
 }
 
 .smart-weather-marker {
@@ -655,7 +694,7 @@ a:active {
   background: rgba(11, 16, 28, 0.98);
   backdrop-filter: blur(28px) saturate(160%);
   -webkit-backdrop-filter: blur(28px) saturate(160%);
-  border: 1px solid rgba(0, 255, 204, 0.12);
+  border: 1px solid rgba(255, 255, 255, 0.12);
   border-radius: 28px 28px 0 0;
   /* Slide up from bottom */
   animation: sheet-in 0.35s var(--ease-spring) both;
@@ -688,8 +727,8 @@ a:active {
   object-fit: contain;
   /* Crisp rendering on all DPR screens */
   image-rendering: -webkit-optimize-contrast;
-  filter: drop-shadow(0 0 18px rgba(0, 255, 204, 0.55))
-          drop-shadow(0 0 6px rgba(0, 255, 204, 0.25));
+  filter: drop-shadow(0 0 18px rgba(255, 255, 255, 0.55))
+          drop-shadow(0 0 6px rgba(255, 255, 255, 0.25));
 }
 
 .onboarding-logo-wordmark {
@@ -766,16 +805,16 @@ a:active {
 
 .onboarding-btn-primary {
   width: 100%; padding: 15px 0;
-  background: linear-gradient(135deg, #00ffcc 0%, #10b981 100%);
+  background: linear-gradient(135deg, #E8E8E8 0%, #BFC1C2 100%);
   border-radius: 16px; border: none;
   color: #000; font-weight: 700; font-size: 15px;
   letter-spacing: -0.2px; cursor: pointer;
-  box-shadow: 0 0 28px rgba(0,255,204,0.35);
+  box-shadow: 0 0 28px rgba(255, 255, 255,0.35);
   transition: transform 0.12s var(--ease-in-out), box-shadow 0.18s;
 }
 .onboarding-btn-primary:active {
   transform: scale(0.97);
-  box-shadow: 0 0 16px rgba(0,255,204,0.25);
+  box-shadow: 0 0 16px rgba(255, 255, 255,0.25);
 }
 
 .onboarding-btn-ghost {
@@ -801,11 +840,11 @@ a:active {
   background: rgba(13, 18, 32, 0.97);
   backdrop-filter: blur(24px) saturate(160%);
   -webkit-backdrop-filter: blur(24px) saturate(160%);
-  border: 1px solid rgba(0,255,204,0.18);
+  border: 1px solid rgba(255, 255, 255,0.18);
   border-radius: 18px;
   padding: 12px 14px;
   display: flex; align-items: center; gap: 12px;
-  box-shadow: 0 8px 36px rgba(0,0,0,0.55), 0 0 0 1px rgba(0,255,204,0.06);
+  box-shadow: 0 8px 36px rgba(0,0,0,0.55), 0 0 0 1px rgba(255, 255, 255,0.06);
   animation: banner-rise 0.3s var(--ease-spring) both;
 }
 @keyframes banner-rise {
@@ -815,8 +854,8 @@ a:active {
 
 .install-banner-icon {
   width: 40px; height: 40px; border-radius: 12px; flex-shrink: 0;
-  background: rgba(0,255,204,0.1);
-  border: 1px solid rgba(0,255,204,0.25);
+  background: rgba(255, 255, 255,0.1);
+  border: 1px solid rgba(255, 255, 255,0.25);
   display: flex; align-items: center; justify-content: center;
 }
 
@@ -829,7 +868,7 @@ a:active {
 
 .install-banner-cta {
   padding: 9px 16px; border-radius: 11px; border: none; flex-shrink: 0;
-  background: linear-gradient(135deg, #00ffcc 0%, #10b981 100%);
+  background: linear-gradient(135deg, #E8E8E8 0%, #BFC1C2 100%);
   color: #000; font-weight: 700; font-size: 12px;
   cursor: pointer; white-space: nowrap;
   transition: transform 0.1s var(--ease-in-out);
@@ -895,7 +934,7 @@ a:active {
 .mobile-search-cancel {
   background: none;
   border: none;
-  color: #00ffcc;
+  color: #E8E8E8;
   font-size: 15px;
   font-weight: 600;
   padding: 6px 4px;
@@ -956,9 +995,9 @@ a:active {
   background: rgba(13, 18, 32, 0.97);
   backdrop-filter: blur(24px) saturate(160%);
   -webkit-backdrop-filter: blur(24px) saturate(160%);
-  border: 1px solid rgba(0, 255, 204, 0.2);
+  border: 1px solid rgba(255, 255, 255, 0.2);
   border-radius: 16px;
-  box-shadow: 0 8px 36px rgba(0, 0, 0, 0.55), 0 0 0 1px rgba(0, 255, 204, 0.06);
+  box-shadow: 0 8px 36px rgba(0, 0, 0, 0.55), 0 0 0 1px rgba(255, 255, 255, 0.06);
 
   animation: toast-in 0.28s var(--ease-spring) both;
 }
@@ -1047,17 +1086,17 @@ a:active {
   width: 48px;
   height: 48px;
   border-radius: 50%;
-  border: 1px solid rgba(0, 255, 204, 0.35);
-  background: linear-gradient(135deg, #00ffcc 0%, #10b981 100%);
+  border: 1px solid rgba(255, 255, 255, 0.35);
+  background: linear-gradient(135deg, #E8E8E8 0%, #BFC1C2 100%);
   color: #0b0f17;
   display: flex;
   align-items: center;
   justify-content: center;
   cursor: pointer;
   box-shadow:
-    0 0 20px rgba(0, 255, 204, 0.4),
+    0 0 20px rgba(255, 255, 255, 0.4),
     0 6px 18px rgba(0, 0, 0, 0.35),
-    0 0 0 1px rgba(0, 255, 204, 0.08) inset;
+    0 0 0 1px rgba(255, 255, 255, 0.08) inset;
   transition:
     transform 0.22s var(--ease-spring),
     box-shadow 0.18s var(--ease-smooth),
@@ -1067,7 +1106,7 @@ a:active {
 }
 .feedback-fab-trigger:hover {
   box-shadow:
-    0 0 28px rgba(0, 255, 204, 0.55),
+    0 0 28px rgba(255, 255, 255, 0.55),
     0 8px 22px rgba(0, 0, 0, 0.45);
 }
 .feedback-fab-trigger:active { transform: scale(0.92); }
@@ -1117,7 +1156,7 @@ a:active {
   gap: 10px;
   padding: 9px 12px 9px 14px;
   border-radius: 999px;
-  border: 1px solid rgba(0, 255, 204, 0.22);
+  border: 1px solid rgba(255, 255, 255, 0.22);
   background: rgba(13, 18, 32, 0.95);
   backdrop-filter: blur(18px) saturate(160%);
   -webkit-backdrop-filter: blur(18px) saturate(160%);
@@ -1128,7 +1167,7 @@ a:active {
   cursor: pointer;
   box-shadow:
     0 8px 22px rgba(0, 0, 0, 0.45),
-    0 0 0 1px rgba(0, 255, 204, 0.05) inset;
+    0 0 0 1px rgba(255, 255, 255, 0.05) inset;
   transition:
     background 0.18s var(--ease-smooth),
     border-color 0.18s var(--ease-smooth),
@@ -1139,7 +1178,7 @@ a:active {
 }
 .feedback-fab-item:hover {
   background: rgba(22, 29, 46, 0.98);
-  border-color: rgba(0, 255, 204, 0.38);
+  border-color: rgba(255, 255, 255, 0.38);
 }
 .feedback-fab-item:active { transform: scale(0.96); }
 
@@ -1153,16 +1192,16 @@ a:active {
   align-items: center;
   justify-content: center;
   flex-shrink: 0;
-  background: rgba(0, 255, 204, 0.12);
-  color: #00ffcc;
-  border: 1px solid rgba(0, 255, 204, 0.25);
+  background: rgba(255, 255, 255, 0.12);
+  color: #E8E8E8;
+  border: 1px solid rgba(255, 255, 255, 0.25);
 }
 
 .feedback-fab-item-donate .feedback-fab-item-icon {
-  background: linear-gradient(135deg, #00ffcc 0%, #10b981 100%);
+  background: linear-gradient(135deg, #E8E8E8 0%, #BFC1C2 100%);
   color: #0b0f17;
   border-color: transparent;
-  box-shadow: 0 0 10px rgba(0, 255, 204, 0.45);
+  box-shadow: 0 0 10px rgba(255, 255, 255, 0.45);
 }
 
 /* Staggered reveal so the items don't pop all at once */
@@ -1192,18 +1231,18 @@ a:active {
 }
 .alert-row-btn:hover .alert-row-body {
   background: rgba(22, 29, 46, 0.92);
-  border-color: rgba(0, 255, 204, 0.18);
+  border-color: rgba(255, 255, 255, 0.18);
 }
 /* While the parent resolves the tracked aircraft (local → callsign →
    global airplanes.live lookup), the row shows a subtle emerald
    pulsing dot and a slight dim so the user knows we're working on it. */
 .alert-row-btn.is-resolving .alert-row-body {
-  background: rgba(0, 255, 204, 0.06);
-  border-color: rgba(0, 255, 204, 0.22);
+  background: rgba(255, 255, 255, 0.06);
+  border-color: rgba(255, 255, 255, 0.22);
   opacity: 0.85;
 }
 .alert-row-loading-dot {
-  box-shadow: 0 0 6px rgba(16, 185, 129, 0.6);
+  box-shadow: 0 0 6px rgba(200, 202, 205, 0.6);
   animation: alert-row-pulse 0.9s infinite ease-in-out;
 }
 @keyframes alert-row-pulse {
@@ -1296,7 +1335,7 @@ a:active {
   padding: 10px 12px;
   border-radius: 14px;
   background: rgba(22, 29, 46, 0.62);
-  border: 1px solid rgba(0, 255, 204, 0.06);
+  border: 1px solid rgba(255, 255, 255, 0.06);
   transition: background 0.18s var(--ease-in-out),
               border-color 0.18s var(--ease-in-out),
               transform 0.08s var(--ease-in-out);
@@ -1307,7 +1346,7 @@ a:active {
 
 .insights-row:hover {
   background: rgba(22, 29, 46, 0.88);
-  border-color: rgba(0, 255, 204, 0.18);
+  border-color: rgba(255, 255, 255, 0.18);
 }
 
 .insights-row:active {
@@ -1322,9 +1361,9 @@ a:active {
   height: 32px;
   flex-shrink: 0;
   border-radius: 10px;
-  background: rgba(0, 255, 204, 0.08);
-  border: 1px solid rgba(0, 255, 204, 0.15);
-  color: #00ffcc;
+  background: rgba(255, 255, 255, 0.08);
+  border: 1px solid rgba(255, 255, 255, 0.15);
+  color: #E8E8E8;
 }
 
 .insights-row-wrap {
@@ -1380,9 +1419,9 @@ a:active {
 }
 
 .insights-row-meta .chip.is-ok {
-  color: #00ffcc;
-  background: rgba(0, 255, 204, 0.1);
-  border-color: rgba(0, 255, 204, 0.22);
+  color: #E8E8E8;
+  background: rgba(255, 255, 255, 0.1);
+  border-color: rgba(255, 255, 255, 0.22);
 }
 
 .insights-track-btn {
@@ -1390,9 +1429,9 @@ a:active {
   min-width: 72px;
   padding: 8px 10px;
   border-radius: 11px;
-  border: 1px solid rgba(0, 255, 204, 0.2);
-  background: rgba(0, 255, 204, 0.08);
-  color: #9ef7ea;
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  background: rgba(255, 255, 255, 0.08);
+  color: #E5E7EB;
   font-size: 10.5px;
   font-weight: 700;
   letter-spacing: 0.02em;
@@ -1403,8 +1442,8 @@ a:active {
 }
 
 .insights-track-btn:hover {
-  background: rgba(0, 255, 204, 0.16);
-  border-color: rgba(0, 255, 204, 0.32);
+  background: rgba(255, 255, 255, 0.16);
+  border-color: rgba(255, 255, 255, 0.32);
 }
 
 .insights-track-btn:active { transform: scale(0.97); }
@@ -1481,7 +1520,7 @@ a:active {
   position: absolute;
   inset: 0;
   background:
-    radial-gradient(ellipse at 50% 40%, rgba(0, 255, 204, 0.08) 0%, rgba(11, 15, 23, 0.86) 55%),
+    radial-gradient(ellipse at 50% 40%, rgba(255, 255, 255, 0.08) 0%, rgba(11, 15, 23, 0.86) 55%),
     linear-gradient(180deg, rgba(11, 15, 23, 0.72) 0%, rgba(5, 8, 14, 0.9) 100%);
   -webkit-backdrop-filter: blur(18px) saturate(1.1);
   backdrop-filter: blur(18px) saturate(1.1);
@@ -1501,8 +1540,8 @@ a:active {
   position: absolute;
   inset: 0;
   background:
-    radial-gradient(circle at 50% 110%, rgba(0, 255, 204, 0.22) 0%, rgba(0, 255, 204, 0) 45%),
-    radial-gradient(circle at 50% 0%,   rgba(0, 255, 204, 0.14) 0%, rgba(0, 255, 204, 0) 38%);
+    radial-gradient(circle at 50% 110%, rgba(255, 255, 255, 0.22) 0%, rgba(255, 255, 255, 0) 45%),
+    radial-gradient(circle at 50% 0%,   rgba(255, 255, 255, 0.14) 0%, rgba(255, 255, 255, 0) 38%);
   opacity: 0;
   animation: landing-beam 1.8s cubic-bezier(0.22, 1, 0.36, 1) 80ms both;
   pointer-events: none;
@@ -1533,8 +1572,8 @@ a:active {
   gap: 9px;
   padding: 7px 14px;
   border-radius: 999px;
-  background: rgba(0, 255, 204, 0.08);
-  border: 1px solid rgba(0, 255, 204, 0.22);
+  background: rgba(255, 255, 255, 0.08);
+  border: 1px solid rgba(255, 255, 255, 0.22);
   backdrop-filter: blur(10px);
   -webkit-backdrop-filter: blur(10px);
   opacity: 0;
@@ -1549,8 +1588,8 @@ a:active {
   width: 22px;
   height: 22px;
   border-radius: 8px;
-  background: rgba(0, 255, 204, 0.12);
-  color: #00ffcc;
+  background: rgba(255, 255, 255, 0.12);
+  color: #E8E8E8;
 }
 
 .landing-intro-logo-text {
@@ -1564,8 +1603,8 @@ a:active {
   width: 6px;
   height: 6px;
   border-radius: 50%;
-  background: #10b981;
-  box-shadow: 0 0 8px rgba(16, 185, 129, 0.7);
+  background: #BFC1C2;
+  box-shadow: 0 0 8px rgba(200, 202, 205, 0.7);
   animation: landing-live-pulse 1.3s ease-in-out infinite;
 }
 
@@ -1573,7 +1612,7 @@ a:active {
   font-size: 9px;
   font-weight: 700;
   letter-spacing: 0.2em;
-  color: #10b981;
+  color: #BFC1C2;
   text-transform: uppercase;
 }
 
@@ -1597,7 +1636,7 @@ a:active {
 }
 
 .landing-intro-title-accent {
-  background: linear-gradient(120deg, #00ffcc 0%, #10b981 60%, #34d399 100%);
+  background: linear-gradient(120deg, #E8E8E8 0%, #BFC1C2 60%, #C0C0C0 100%);
   -webkit-background-clip: text;
   background-clip: text;
   color: transparent;
@@ -1627,11 +1666,11 @@ a:active {
   font-weight: 700;
   letter-spacing: 0.01em;
   color: #0b0f17;
-  background: linear-gradient(135deg, #00ffcc 0%, #10b981 100%);
-  border: 1px solid rgba(0, 255, 204, 0.55);
+  background: linear-gradient(135deg, #E8E8E8 0%, #BFC1C2 100%);
+  border: 1px solid rgba(255, 255, 255, 0.55);
   box-shadow:
-    0 8px 30px rgba(0, 255, 204, 0.35),
-    0 0 0 1px rgba(0, 255, 204, 0.2) inset;
+    0 8px 30px rgba(255, 255, 255, 0.35),
+    0 0 0 1px rgba(255, 255, 255, 0.2) inset;
   cursor: pointer;
   -webkit-tap-highlight-color: transparent;
   opacity: 0;
@@ -1644,12 +1683,12 @@ a:active {
   transform: translateY(-1px);
   filter: brightness(1.08);
   box-shadow:
-    0 12px 36px rgba(0, 255, 204, 0.45),
-    0 0 0 1px rgba(0, 255, 204, 0.35) inset;
+    0 12px 36px rgba(255, 255, 255, 0.45),
+    0 0 0 1px rgba(255, 255, 255, 0.35) inset;
 }
 .landing-intro-cta:active { transform: translateY(0) scale(0.985); }
 .landing-intro-cta:focus-visible {
-  outline: 2px solid rgba(0, 255, 204, 0.8);
+  outline: 2px solid rgba(255, 255, 255, 0.8);
   outline-offset: 3px;
 }
 
@@ -1693,7 +1732,7 @@ a:active {
 
 .landing-preview-card:hover {
   background: rgba(22, 29, 46, 0.78);
-  border-color: rgba(0, 255, 204, 0.22);
+  border-color: rgba(255, 255, 255, 0.22);
 }
 .landing-preview-card:active { transform: scale(0.985); }
 
@@ -1704,9 +1743,9 @@ a:active {
   width: 30px;
   height: 30px;
   border-radius: 10px;
-  background: rgba(0, 255, 204, 0.1);
-  border: 1px solid rgba(0, 255, 204, 0.22);
-  color: #00ffcc;
+  background: rgba(255, 255, 255, 0.1);
+  border: 1px solid rgba(255, 255, 255, 0.22);
+  color: #E8E8E8;
   flex-shrink: 0;
 }
 
@@ -1779,7 +1818,7 @@ a:active {
   padding: 8px 13px;
   border-radius: 999px;
   background: rgba(22, 29, 46, 0.72);
-  border: 1px solid rgba(0, 255, 204, 0.26);
+  border: 1px solid rgba(255, 255, 255, 0.26);
   color: rgba(255, 255, 255, 0.9);
   font-size: 12px;
   font-weight: 600;
@@ -1799,12 +1838,12 @@ a:active {
 
 .donate-pill:hover {
   background: rgba(22, 29, 46, 0.92);
-  border-color: rgba(0, 255, 204, 0.45);
+  border-color: rgba(255, 255, 255, 0.45);
   transform: translateY(-1px);
-  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.4), 0 0 0 1px rgba(0, 255, 204, 0.15) inset;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.4), 0 0 0 1px rgba(255, 255, 255, 0.15) inset;
 }
 .donate-pill:active { transform: translateY(0) scale(0.97); }
-.donate-pill:focus-visible { outline: 2px solid rgba(0, 255, 204, 0.6); outline-offset: 3px; }
+.donate-pill:focus-visible { outline: 2px solid rgba(255, 255, 255, 0.6); outline-offset: 3px; }
 
 .donate-pill-icon {
   display: inline-flex;
@@ -1847,7 +1886,7 @@ a:active {
   padding: 10px 12px 10px 14px;
   border-radius: 16px;
   background: rgba(17, 24, 39, 0.9);
-  border: 1px solid rgba(0, 255, 204, 0.22);
+  border: 1px solid rgba(255, 255, 255, 0.22);
   backdrop-filter: blur(14px);
   -webkit-backdrop-filter: blur(14px);
   color: #fff;
@@ -1905,8 +1944,8 @@ a:active {
   font-weight: 700;
   letter-spacing: 0.02em;
   color: #0b0f17;
-  background: linear-gradient(135deg, #00ffcc 0%, #10b981 100%);
-  border: 1px solid rgba(0, 255, 204, 0.5);
+  background: linear-gradient(135deg, #E8E8E8 0%, #BFC1C2 100%);
+  border: 1px solid rgba(255, 255, 255, 0.5);
   cursor: pointer;
   transition: transform 0.12s ease, filter 0.2s ease;
   min-height: 32px;
@@ -1947,5 +1986,234 @@ a:active {
   .donate-toast {
     animation: none !important;
   }
+}
+
+/* ════════════════════════════════════════════════════════════
+   VOGUE SILVER PREMIUM — FINAL POLISH LAYER
+   ════════════════════════════════════════════════════════════
+   These rules are appended last so they override the earlier
+   post-sweep baselines. Everything below is additive polish:
+   metallic wordmark sweep, enhanced glass with inner glow +
+   hover shine, and button micro-interactions (scale 1.02,
+   soft press, silver border glow).
+   ════════════════════════════════════════════════════════════ */
+
+/* ── Metallic wordmark sweep ──────────────────────────────
+   Applied to the "FlightMapr" text on first load. A brushed-
+   metal gradient travels left-to-right across the letters via
+   background-clip:text. Subtle, not flashy — looks like light
+   passing across polished chrome. ~1.5s, ease-in-out. */
+.metallic-wordmark {
+  background: var(--metallic-sweep);
+  background-size: 220% 100%;
+  background-position: 100% 0;
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+  -webkit-text-fill-color: transparent;
+  animation: metallic-sweep 1.5s var(--ease-in-out) both;
+  /* Very soft ambient shadow so the wordmark still reads on
+     busy map tiles even mid-animation */
+  filter: drop-shadow(0 1px 1px rgba(0, 0, 0, 0.35));
+}
+
+@keyframes metallic-sweep {
+  0%   { background-position: 100% 0; }
+  100% { background-position: 0 0;    }
+}
+
+/* After the first sweep, pin a soft static metallic fill so
+   the logo doesn't snap back to a single flat tone. */
+.metallic-wordmark-static {
+  background: var(--metallic);
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+  -webkit-text-fill-color: transparent;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .metallic-wordmark {
+    animation: none !important;
+    background: var(--metallic);
+    background-size: 100% 100%;
+    background-position: 0 0;
+  }
+}
+
+/* ── Enhanced glass: inner glow + metallic shine on hover ─
+   The extra ::after layer is painted above the glass surface
+   and lights up as a diagonal highlight on hover / focus,
+   mimicking light catching on brushed metal. */
+.glass,
+.glass-lighter {
+  position: relative;
+  box-shadow:
+    0 8px 32px rgba(0, 0, 0, 0.35),
+    0 0 0 1px rgba(255, 255, 255, 0.05) inset,
+    0 1px 0 rgba(255, 255, 255, 0.07) inset;
+  transition:
+    background 0.25s var(--ease-in-out),
+    border-color 0.25s var(--ease-in-out),
+    box-shadow 0.25s var(--ease-in-out),
+    transform 0.25s var(--ease-in-out);
+}
+
+.glass::after,
+.glass-lighter::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  pointer-events: none;
+  background: var(--metallic-soft);
+  opacity: 0;
+  mix-blend-mode: screen;
+  transition: opacity 0.3s var(--ease-in-out);
+}
+
+.glass:hover::after,
+.glass-lighter:hover::after {
+  opacity: 0.55;
+}
+
+/* ── Buttons: silver glass + metallic shine on hover ───── */
+.btn-icon {
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  color: rgba(255, 255, 255, 0.85);
+  transition:
+    background 0.22s var(--ease-in-out),
+    border-color 0.22s var(--ease-in-out),
+    color 0.22s var(--ease-in-out),
+    box-shadow 0.22s var(--ease-in-out),
+    transform 0.12s var(--ease-in-out);
+}
+.btn-icon:hover {
+  background: rgba(255, 255, 255, 0.12);
+  border-color: rgba(255, 255, 255, 0.22);
+  color: #ffffff;
+  box-shadow:
+    0 0 0 1px rgba(255, 255, 255, 0.08) inset,
+    0 4px 18px rgba(255, 255, 255, 0.08);
+  transform: scale(1.02);
+}
+.btn-icon:active {
+  transform: scale(0.94);
+  box-shadow: 0 0 0 1px rgba(255, 255, 255, 0.05) inset;
+}
+
+.sidebar-btn {
+  transition:
+    background 0.22s var(--ease-in-out),
+    border-color 0.22s var(--ease-in-out),
+    color 0.22s var(--ease-in-out),
+    box-shadow 0.22s var(--ease-in-out),
+    transform 0.12s var(--ease-in-out);
+}
+.sidebar-btn-outline:hover {
+  background: rgba(255, 255, 255, 0.08);
+  border-color: rgba(255, 255, 255, 0.55);
+  box-shadow:
+    0 0 0 1px rgba(255, 255, 255, 0.12) inset,
+    0 4px 18px rgba(255, 255, 255, 0.08);
+  transform: scale(1.02);
+}
+.sidebar-btn-outline:active  { transform: scale(0.97); }
+
+.sidebar-btn-active {
+  background: var(--metallic-soft);
+  box-shadow:
+    0 0 0 1px rgba(255, 255, 255, 0.22) inset,
+    0 0 18px rgba(255, 255, 255, 0.16);
+}
+
+.airport-track-btn,
+.insights-track-btn {
+  transition:
+    background 0.22s var(--ease-in-out),
+    border-color 0.22s var(--ease-in-out),
+    color 0.22s var(--ease-in-out),
+    box-shadow 0.22s var(--ease-in-out),
+    transform 0.12s var(--ease-in-out);
+}
+.airport-track-btn:hover,
+.insights-track-btn:hover {
+  transform: scale(1.02);
+  box-shadow:
+    0 0 0 1px rgba(255, 255, 255, 0.15) inset,
+    0 6px 22px rgba(255, 255, 255, 0.08);
+}
+.airport-track-btn:active,
+.insights-track-btn:active { transform: scale(0.97); }
+
+/* ── Primary CTAs: polished 3-stop metallic gradient ─── */
+.landing-intro-cta,
+.donate-toast-cta {
+  background: var(--metallic);
+  border: 1px solid rgba(255, 255, 255, 0.6);
+  color: #0b0f17;
+  box-shadow:
+    0 0 0 1px rgba(255, 255, 255, 0.25) inset,
+    0 1px 0 rgba(255, 255, 255, 0.6) inset,
+    0 8px 28px rgba(255, 255, 255, 0.22);
+  position: relative;
+  overflow: hidden;
+}
+.landing-intro-cta::before,
+.donate-toast-cta::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(
+    110deg,
+    rgba(255, 255, 255, 0) 0%,
+    rgba(255, 255, 255, 0.55) 50%,
+    rgba(255, 255, 255, 0) 100%
+  );
+  transform: translateX(-120%);
+  transition: transform 0.9s var(--ease-in-out);
+  pointer-events: none;
+}
+.landing-intro-cta:hover::before,
+.donate-toast-cta:hover::before {
+  transform: translateX(120%);
+}
+.landing-intro-cta:hover,
+.donate-toast-cta:hover {
+  filter: brightness(1.05);
+  box-shadow:
+    0 0 0 1px rgba(255, 255, 255, 0.38) inset,
+    0 1px 0 rgba(255, 255, 255, 0.75) inset,
+    0 12px 36px rgba(255, 255, 255, 0.32);
+  transform: translateY(-1px) scale(1.02);
+}
+
+/* Refined "Live" dot — no more green ping. Subtle silver
+   pulse that evokes a radar sweep rather than a status led. */
+.landing-intro-logo-dot {
+  background: var(--silver-200);
+  box-shadow:
+    0 0 0 1px rgba(255, 255, 255, 0.4) inset,
+    0 0 10px rgba(255, 255, 255, 0.55);
+}
+
+/* Keep the accent word in the headline polished silver */
+.landing-intro-title-accent {
+  background: var(--metallic);
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+  -webkit-text-fill-color: transparent;
+}
+
+/* Donate pill: subtle silver glow on hover instead of flat bg */
+.donate-pill:hover {
+  background: rgba(22, 29, 46, 0.92);
+  border-color: rgba(255, 255, 255, 0.55);
+  box-shadow:
+    0 8px 24px rgba(0, 0, 0, 0.4),
+    0 0 0 1px rgba(255, 255, 255, 0.18) inset,
+    0 0 18px rgba(255, 255, 255, 0.08);
+  transform: translateY(-1px) scale(1.02);
 }
 

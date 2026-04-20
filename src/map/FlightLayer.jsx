@@ -23,8 +23,8 @@ function getIconState(selected, hovered, previewed) {
     return {
       body: '#f8fafc',
       accent: '#8bfff1',
-      outline: 'rgba(0, 255, 204, 0.95)',
-      glow: 'drop-shadow(0 0 12px rgba(0,255,204,0.9)) drop-shadow(0 0 4px rgba(255,255,255,0.95))',
+      outline: 'rgba(255, 255, 255, 0.95)',
+      glow: 'drop-shadow(0 0 12px rgba(255, 255, 255,0.9)) drop-shadow(0 0 4px rgba(255,255,255,0.95))',
       size: 34,
     };
   }
@@ -127,14 +127,14 @@ function miniPopupContent(f) {
 
   return (
     `<div style="font-family:'Inter',system-ui,sans-serif;min-width:155px;padding:2px 0;">` +
-    `<div style="font-size:14px;font-weight:700;color:#00ffcc;margin-bottom:5px;letter-spacing:-0.3px;">${f.callsign}</div>` +
+    `<div style="font-size:14px;font-weight:700;color:#E8E8E8;margin-bottom:5px;letter-spacing:-0.3px;">${f.callsign}</div>` +
     `<div style="font-size:12px;color:#fff;display:flex;align-items:center;gap:8px;font-weight:600;">` +
-    `<span>${origin}</span><span style="color:#00ffcc;font-size:13px;">?</span><span>${dest}</span>` +
+    `<span>${origin}</span><span style="color:#E8E8E8;font-size:13px;">?</span><span>${dest}</span>` +
     `</div>` +
     (altStr ? `<div style="font-size:10px;color:rgba(255,255,255,0.45);margin-top:3px;">${altStr}</div>` : '') +
     `<button data-action="select" style="margin-top:8px;width:100%;padding:6px 0;` +
-    `background:rgba(0,255,204,0.13);border:1px solid rgba(0,255,204,0.35);` +
-    `border-radius:7px;color:#00ffcc;font-size:11px;font-weight:600;cursor:pointer;` +
+    `background:rgba(255, 255, 255,0.13);border:1px solid rgba(255, 255, 255,0.35);` +
+    `border-radius:7px;color:#E8E8E8;font-size:11px;font-weight:600;cursor:pointer;` +
     `font-family:'Inter',sans-serif;-webkit-tap-highlight-color:transparent;">` +
     `View Full Details ?</button></div>`
   );
@@ -143,7 +143,7 @@ function miniPopupContent(f) {
 function tooltipContent(f) {
   return (
     `<div style="font-family:'Inter',sans-serif;font-size:12px;color:#fff;min-width:130px;">` +
-    `<div style="font-weight:700;color:#00ffcc;font-size:13px;margin-bottom:2px;">${f.callsign}</div>` +
+    `<div style="font-weight:700;color:#E8E8E8;font-size:13px;margin-bottom:2px;">${f.callsign}</div>` +
     `<div style="color:rgba(255,255,255,0.55);font-size:10px;">${f.airline}</div>` +
     `</div>`
   );
@@ -195,7 +195,7 @@ export function FlightLayer({ selectedFlightId, onFlightSelect }) {
     if (!flight) return;
     trailRef.current = L.polyline(
       flight.trail.map((p) => [p.lat, p.lng]),
-      { color: 'rgba(0,255,204,0.6)', weight: 2.5, lineCap: 'round', interactive: false },
+      { color: 'rgba(255, 255, 255,0.6)', weight: 2.5, lineCap: 'round', interactive: false },
     ).addTo(map);
   }, [selectedFlightId, map]);
 

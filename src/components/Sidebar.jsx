@@ -38,7 +38,7 @@ function RouteArrow({ origin, destination }) {
         <div className="text-[10px] text-white/25 mt-0.5">{origin.name}</div>
       </div>
       <div className="flex flex-col items-center gap-1.5 flex-shrink-0 px-2">
-        <Navigation2 size={13} className="text-[#00ffcc] rotate-90" />
+        <Navigation2 size={13} className="text-[#E8E8E8] rotate-90" />
         <div className="text-[10px] text-white/30 font-medium">direct</div>
       </div>
       <div className="flex-1 text-right">
@@ -57,12 +57,12 @@ function ProgressBar({ progress }) {
     <div>
       <div className="flex justify-between items-center mb-1.5">
         <span className="text-[10px] text-white/35 uppercase tracking-widest">Progress</span>
-        <span className="text-xs font-semibold text-[#00ffcc]">{pct}%</span>
+        <span className="text-xs font-semibold text-[#E8E8E8]">{pct}%</span>
       </div>
       <div className="w-full h-1 rounded-full bg-white/8 overflow-hidden">
         <div
-          className="h-full rounded-full bg-gradient-to-r from-[#10b981] to-[#00ffcc] fill-bar"
-          style={{ width: `${pct}%`, boxShadow: '0 0 8px #00ffcc80' }}
+          className="h-full rounded-full bg-gradient-to-r from-[#BFC1C2] to-[#E8E8E8] fill-bar"
+          style={{ width: `${pct}%`, boxShadow: '0 0 8px #E8E8E880' }}
         />
       </div>
       <div className="flex justify-between mt-1">
@@ -76,8 +76,8 @@ function ProgressBar({ progress }) {
 function LiveTrackingRow({ loading }) {
   return (
     <div className="flex items-center gap-3 py-1">
-      <div className="w-8 h-8 rounded-lg bg-[#00ffcc]/10 flex items-center justify-center flex-shrink-0">
-        <Radio size={14} className="text-[#00ffcc]" />
+      <div className="w-8 h-8 rounded-lg bg-[#E8E8E8]/10 flex items-center justify-center flex-shrink-0">
+        <Radio size={14} className="text-[#E8E8E8]" />
       </div>
       <div>
         <div className="text-xs font-semibold text-white">Live ADS-B Tracking</div>
@@ -309,14 +309,14 @@ export function Sidebar({ flightId, isFollowing, onClose, onCenterMap, onToggleF
             <AirlineBadge name={flight.airline} />
             <div className="min-w-0">
               <div className="flex items-center gap-2 mb-0.5 flex-wrap">
-                <span className="text-lg font-bold text-[#00ffcc] tracking-tight">{flight.callsign}</span>
+                <span className="text-lg font-bold text-[#E8E8E8] tracking-tight">{flight.callsign}</span>
                 {isLive ? (
                   <span className="text-[10px] bg-red-500/20 text-red-400 rounded px-1.5 py-0.5 font-semibold uppercase tracking-wide flex items-center gap-1">
                     <span className="w-1.5 h-1.5 rounded-full bg-red-400 blink-dot inline-block" />
                     Live
                   </span>
                 ) : (
-                  <span className="text-[10px] bg-[#00ffcc]/15 text-[#00ffcc] rounded px-1.5 py-0.5 font-semibold uppercase tracking-wide">
+                  <span className="text-[10px] bg-[#E8E8E8]/15 text-[#E8E8E8] rounded px-1.5 py-0.5 font-semibold uppercase tracking-wide">
                     En Route
                   </span>
                 )}
@@ -511,7 +511,7 @@ function InfoRow({ icon, label, value, highlight, mono, warn }) {
         <span className="text-[11px]">{label}</span>
       </div>
       <span className={`text-xs font-medium text-right ${
-        highlight ? 'text-[#00ffcc]'
+        highlight ? 'text-[#E8E8E8]'
         : warn     ? 'text-amber-400'
         : mono     ? 'text-white/50 font-mono text-[10px]'
         : 'text-white/80'

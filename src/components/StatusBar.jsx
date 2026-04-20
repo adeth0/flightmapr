@@ -54,7 +54,7 @@ export function StatusBar({ flightCount, dataSource }) {
           target="_blank"
           rel="noopener noreferrer"
           aria-label="Donate to FlightMapr"
-          className="text-[10px] font-semibold text-[#00ffcc]/60 hover:text-[#00ffcc] transition-colors whitespace-nowrap"
+          className="text-[10px] font-semibold text-[#E8E8E8]/60 hover:text-[#E8E8E8] transition-colors whitespace-nowrap"
         >
           Donate ✈️
         </a>

@@ -1,7 +1,7 @@
 export function GlassCard({ children, className = '', onClick }) {
   return (
     <div
-      className={`glass rounded-2xl ${onClick ? 'cursor-pointer hover:border-[rgba(0,255,204,0.25)] transition-colors' : ''} ${className}`}
+      className={`glass rounded-2xl ${onClick ? 'cursor-pointer hover:border-[rgba(255, 255, 255,0.25)] transition-colors' : ''} ${className}`}
       onClick={onClick}
     >
       {children}

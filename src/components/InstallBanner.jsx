@@ -91,7 +91,7 @@ export function InstallBanner() {
           alt="FlightMapr"
           draggable={false}
           style={{ width: 26, height: 26, objectFit: 'contain',
-            filter: 'drop-shadow(0 0 5px rgba(0,255,204,0.5))' }}
+            filter: 'drop-shadow(0 0 5px rgba(255, 255, 255,0.5))' }}
         />
       </div>
 
@@ -100,9 +100,9 @@ export function InstallBanner() {
         <div className="install-banner-title">Install FlightMapr</div>
         {isIosSafari && !prompt ? (
           <div className="install-banner-desc">
-            Tap <span style={{ color: '#00ffcc' }}>Share ↑</span>
+            Tap <span style={{ color: '#E8E8E8' }}>Share ↑</span>
             {' → '}
-            <span style={{ color: '#00ffcc' }}>Add to Home Screen</span>
+            <span style={{ color: '#E8E8E8' }}>Add to Home Screen</span>
             {' for flight alerts'}
           </div>
         ) : (

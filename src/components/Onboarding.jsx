@@ -15,7 +15,7 @@ export const hasOnboarded    = () => !!localStorage.getItem(ONBOARDING_KEY);
 const SLIDES = [
   {
     emoji:    '✈️',
-    color:    '#00ffcc',
+    color:    '#E8E8E8',
     title:    'Track Flights in Real-Time',
     body:     'See live aircraft positions updated every 15 seconds from real ADS-B transponders worldwide.',
   },
@@ -79,7 +79,7 @@ export function Onboarding({ onComplete }) {
             draggable={false}
           />
           <span className="onboarding-logo-wordmark">
-            Flight<span style={{ color: '#00ffcc' }}>Mapr</span>
+            Flight<span style={{ color: '#E8E8E8' }}>Mapr</span>
           </span>
         </div>
 
@@ -106,7 +106,7 @@ export function Onboarding({ onComplete }) {
               className="onboarding-dot"
               style={{
                 width:      i === slide ? 22 : 7,
-                background: i === slide ? '#00ffcc' : 'rgba(255,255,255,0.18)',
+                background: i === slide ? '#E8E8E8' : 'rgba(255,255,255,0.18)',
               }}
               aria-label={`Go to slide ${i + 1}`}
             />

@@ -28,7 +28,7 @@ const MAX_RADIUS  = 130_000; // metres
 function delayColor(avgDelay) {
   if (avgDelay >= 25) return '#ef4444'; // red
   if (avgDelay >= 10) return '#f59e0b'; // amber
-  return '#10b981';                     // green
+  return '#BFC1C2';                     // green
 }
 
 function delayFillOpacity(count) {

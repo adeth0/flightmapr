@@ -57,7 +57,7 @@ export function TrackingBar({ followFlightId, onSelect, onFlyTo, onResumeFollow 
       <Navigation2
         size={11}
         className="flex-shrink-0"
-        style={{ color: '#00ffcc' }}
+        style={{ color: '#E8E8E8' }}
         aria-hidden="true"
       />
       <span className="tracking-bar-label">
