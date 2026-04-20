@@ -344,6 +344,110 @@ html, body, #root {
   animation: tracked-ring 1.8s ease-in-out infinite;
 }
 
+/* ── Selected aircraft — premium silver halo + ring ───────
+   Layered over the base SVG glyph. The glyph itself keeps its
+   original yellow/amber palette (see getIconState); the halo
+   + ring provide the "focus" feedback without masking colour.
+   Performance: all animations are composite-only (transform +
+   opacity), drop-shadow is GPU-accelerated on WebKit/Blink. */
+.aircraft-icon-shell.is-selected {
+  transform: scale(1.12);
+  transition: transform 220ms var(--ease-smooth),
+              filter    220ms var(--ease-smooth);
+  filter:
+    drop-shadow(0 0 12px rgba(255, 255, 255, 0.6))
+    drop-shadow(0 0 18px rgba(255, 255, 255, 0.32));
+  z-index: 5;
+}
+
+/* Outer pulsing ring — very subtle, never steals focus */
+.aircraft-selected-ring {
+  position: absolute;
+  inset: -9px;
+  border-radius: 999px;
+  border: 1.5px solid rgba(255, 255, 255, 0.68);
+  box-shadow:
+    0 0 0 1px rgba(255, 255, 255, 0.2) inset,
+    0 0 18px rgba(255, 255, 255, 0.35);
+  pointer-events: none;
+  animation: selected-ring-pulse 2.2s var(--ease-in-out) infinite;
+  will-change: transform, opacity;
+}
+
+/* Diffuse silver halo behind the glyph (soft-spread glow).
+   Sits one layer above the ring inset so it reads as spill
+   rather than a hard outline. */
+.aircraft-selected-halo {
+  position: absolute;
+  inset: -14px;
+  border-radius: 999px;
+  background:
+    radial-gradient(circle,
+      rgba(255, 255, 255, 0.28) 0%,
+      rgba(255, 255, 255, 0.14) 35%,
+      rgba(255, 255, 255, 0) 70%);
+  pointer-events: none;
+  opacity: 0.85;
+  animation: selected-halo-breathe 2.8s var(--ease-in-out) infinite;
+  z-index: -1;
+}
+
+@keyframes selected-ring-pulse {
+  0%, 100% { opacity: 0.9; transform: scale(1);    }
+  50%      { opacity: 0.45; transform: scale(1.15); }
+}
+@keyframes selected-halo-breathe {
+  0%, 100% { opacity: 0.85; transform: scale(1);    }
+  50%      { opacity: 0.55; transform: scale(1.08); }
+}
+
+/* ── Premium tracking path — silver polyline with soft glow ─
+   Styled directly via the Leaflet <path> element. We use an SVG
+   filter (drop-shadow) rather than CSS box-shadow because the
+   polyline is an <svg path>, not a block box. The glow is subtle
+   enough not to smear when panning. */
+.flight-trail-path {
+  stroke: rgba(255, 255, 255, 0.55);
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  filter:
+    drop-shadow(0 0 4px rgba(255, 255, 255, 0.38))
+    drop-shadow(0 0 8px rgba(255, 255, 255, 0.18));
+  pointer-events: none;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .aircraft-icon-shell.is-selected { transition: none; }
+  .aircraft-selected-ring,
+  .aircraft-selected-halo { animation: none !important; }
+}
+
+/* Light mode — graphite halo reads crisper on paper-white tiles */
+[data-theme="light"] .aircraft-icon-shell.is-selected {
+  filter:
+    drop-shadow(0 0 8px rgba(11, 13, 16, 0.25))
+    drop-shadow(0 0 16px rgba(255, 255, 255, 0.8));
+}
+[data-theme="light"] .aircraft-selected-ring {
+  border-color: rgba(11, 13, 16, 0.45);
+  box-shadow:
+    0 0 0 1px rgba(255, 255, 255, 0.6) inset,
+    0 0 18px rgba(11, 13, 16, 0.18);
+}
+[data-theme="light"] .aircraft-selected-halo {
+  background:
+    radial-gradient(circle,
+      rgba(11, 13, 16, 0.18) 0%,
+      rgba(11, 13, 16, 0.08) 40%,
+      rgba(11, 13, 16, 0) 70%);
+}
+[data-theme="light"] .flight-trail-path {
+  stroke: rgba(11, 13, 16, 0.48);
+  filter:
+    drop-shadow(0 0 3px rgba(11, 13, 16, 0.2))
+    drop-shadow(0 0 6px rgba(11, 13, 16, 0.1));
+}
+
 /* ── Tracked-aircraft amber ring ────────────────────────── */
 @keyframes tracked-ring {
   0%, 100% { opacity: 0.7; transform: scale(1); }

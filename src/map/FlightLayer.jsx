@@ -4,6 +4,14 @@ import L from 'leaflet';
 import { flightService } from '../services/flightService';
 import { notificationService } from '../services/notificationService';
 
+// Cap the tracking polyline at this many points. The flightService may
+// accumulate longer histories for analytics, but the on-screen path is
+// throttled here so that very long-haul flights don't gradually degrade
+// paint performance on mobile (Leaflet rebuilds the SVG path on every
+// setLatLngs). 100 samples ≈ 5-8 minutes of live track at typical poll
+// intervals, which is the sweet spot for visibility + cheap repaint.
+const TRAIL_MAX_POINTS = 100;
+
 function classifyAircraft(flight) {
   const text = `${flight?.aircraft ?? ''} ${flight?.category ?? ''}`.toLowerCase();
 
@@ -18,17 +26,14 @@ function classifyAircraft(flight) {
   return 'commercial';
 }
 
+// ─────────────────────────────────────────────────────────
+//  Selection no longer forces a white body / mint accent — the
+//  old override made selected aircraft blend into the map tiles.
+//  The base palette is now preserved on selection; the premium
+//  silver halo, pulsing ring and scale-up are layered on in CSS
+//  via `.aircraft-icon-shell.is-selected` + `.aircraft-selected-ring`.
+// ─────────────────────────────────────────────────────────
 function getIconState(selected, hovered, previewed) {
-  if (selected) {
-    return {
-      body: '#f8fafc',
-      accent: '#8bfff1',
-      outline: 'rgba(255, 255, 255, 0.95)',
-      glow: 'drop-shadow(0 0 12px rgba(255, 255, 255,0.9)) drop-shadow(0 0 4px rgba(255,255,255,0.95))',
-      size: 34,
-    };
-  }
-
   if (previewed) {
     return {
       body: '#fef3c7',
@@ -49,11 +54,17 @@ function getIconState(selected, hovered, previewed) {
     };
   }
 
+  // Default (and selected) — yellow/amber with dark outline so the
+  // aircraft stays visible against light *and* dark map tiles. When
+  // `selected` is true we DON'T change colours; the CSS class adds
+  // a silver glow + subtle ring pulse around the same glyph.
   return {
     body: '#f8d64e',
     accent: '#f59e0b',
     outline: 'rgba(15, 23, 42, 0.92)',
-    glow: 'drop-shadow(0 0 4px rgba(15,23,42,0.9)) drop-shadow(0 0 6px rgba(251,191,36,0.38))',
+    glow: selected
+      ? 'drop-shadow(0 0 4px rgba(15,23,42,0.9)) drop-shadow(0 0 8px rgba(251,191,36,0.55))'
+      : 'drop-shadow(0 0 4px rgba(15,23,42,0.9)) drop-shadow(0 0 6px rgba(251,191,36,0.38))',
     size: 26,
   };
 }
@@ -106,10 +117,25 @@ function createIcon(flight, selected = false, hovered = false, previewed = false
     ? '<div class="aircraft-track-ring"></div>'
     : '';
 
+  // Premium silver halo + pulsing ring for the selected aircraft.
+  // Layered as DOM overlays inside the shell so we can animate them
+  // with plain CSS without re-rendering the SVG glyph every frame.
+  const selectedRing = selected
+    ? '<div class="aircraft-selected-ring" aria-hidden="true"></div>' +
+      '<div class="aircraft-selected-halo" aria-hidden="true"></div>'
+    : '';
+
+  const shellClasses = [
+    'aircraft-icon-shell',
+    `aircraft-icon-${type}`,
+    selected ? 'is-selected' : '',
+  ].filter(Boolean).join(' ');
+
   return L.divIcon({
     html:
-      `<div class="aircraft-icon-shell aircraft-icon-${type}" style="width:${size}px;height:${size}px;">` +
+      `<div class="${shellClasses}" style="width:${size}px;height:${size}px;">` +
       ring +
+      selectedRing +
       `<div data-plane-rot class="aircraft-icon-rotator" style="transform:rotate(${flight.heading}deg);">` +
       renderAircraftSvg(type, palette, size) +
       '</div></div>',
@@ -123,7 +149,7 @@ function createIcon(flight, selected = false, hovered = false, previewed = false
 function miniPopupContent(f) {
   const origin = f.origin?.code && f.origin.code !== '----' ? f.origin.code : '---';
   const dest = f.destination?.code && f.destination.code !== '----' ? f.destination.code : '---';
-  const altStr = f.altitude ? `${f.altitude.toLocaleString()} ft � ${f.speed} kts` : '';
+  const altStr = f.altitude ? `${f.altitude.toLocaleString()} ft � ${f.speed} kts` : '';
 
   return (
     `<div style="font-family:'Inter',system-ui,sans-serif;min-width:155px;padding:2px 0;">` +
@@ -188,15 +214,28 @@ export function FlightLayer({ selectedFlightId, onFlightSelect }) {
     }
   }, [selectedFlightId]);
 
+  // ── Premium tracking path ────────────────────────────────
+  // Drawn behind the selected aircraft, it visualises the recent
+  // track so "Follow Flight" becomes obvious. Capped to the last
+  // TRAIL_MAX_POINTS samples so very long trails don't regress
+  // paint cost on weaker mobile GPUs. Styling (silver stroke +
+  // soft glow) lives in index.css via `.flight-trail-path`.
   useEffect(() => {
     if (trailRef.current) { trailRef.current.remove(); trailRef.current = null; }
     if (!selectedFlightId) return;
     const flight = flightService.getFlight(selectedFlightId);
     if (!flight) return;
-    trailRef.current = L.polyline(
-      flight.trail.map((p) => [p.lat, p.lng]),
-      { color: 'rgba(255, 255, 255,0.6)', weight: 2.5, lineCap: 'round', interactive: false },
-    ).addTo(map);
+    const pts = (flight.trail || []).slice(-TRAIL_MAX_POINTS).map((p) => [p.lat, p.lng]);
+    trailRef.current = L.polyline(pts, {
+      color: 'rgba(255, 255, 255, 0.55)',
+      weight: 2.5,
+      opacity: 1,
+      lineCap: 'round',
+      lineJoin: 'round',
+      interactive: false,
+      smoothFactor: 1.2,
+      className: 'flight-trail-path',
+    }).addTo(map);
   }, [selectedFlightId, map]);
 
   function safeRemovePopup(popup) {
@@ -422,7 +461,13 @@ export function FlightLayer({ selectedFlightId, onFlightSelect }) {
         }
 
         if (isSel && trailRef.current) {
-          trailRef.current.setLatLngs(flight.trail.map((p) => [p.lat, p.lng]));
+          // Incremental update — Leaflet diffs the path internally so
+          // this is cheap enough to fire every tick. Still cap it here
+          // as a belt-and-braces guard against a runaway trail.
+          const trailPts = (flight.trail || [])
+            .slice(-TRAIL_MAX_POINTS)
+            .map((p) => [p.lat, p.lng]);
+          trailRef.current.setLatLngs(trailPts);
         }
 
         if (pendingPreviewRef.current?.id === flight.id) {
