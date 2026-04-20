@@ -30,11 +30,28 @@
   --emerald:       #E8E8E8;
   --emerald-dim:   #BFC1C2;
 
-  /* Surfaces */
-  --bg:            #0f1113;  /* deep charcoal per brief     */
-  --card:          #15181c;  /* one shade up from page bg    */
+  /* ─── DARK MODE (default) — graphite + silver ─────────── */
+  color-scheme: dark;
+  --bg:            #0B0D10;  /* deep graphite per brief       */
+  --bg-alt:        #10131a;  /* gentle elevation over --bg    */
+  --card:          #15181c;  /* elevated card surface         */
   --border:        rgba(255, 255, 255, 0.12);
   --border-strong: rgba(255, 255, 255, 0.20);
+
+  /* Text tokens — drive theme-aware typography */
+  --text:          #ffffff;
+  --text-strong:   #ffffff;
+  --text-muted:    rgba(255, 255, 255, 0.68);
+  --text-subtle:   rgba(255, 255, 255, 0.45);
+
+  /* Glass surfaces (translucent layers) */
+  --glass-bg:      rgba(255, 255, 255, 0.06);
+  --glass-bg-alt:  rgba(255, 255, 255, 0.1);
+
+  /* Opaque-feeling surface panels (dark-mode preset) */
+  --surface:         rgba(17, 24, 39, 0.78);
+  --surface-strong:  rgba(11, 13, 16, 0.88);
+  --surface-lighter: rgba(22, 29, 46, 0.7);
 
   /* Soft white glow used across hover / focus states */
   --soft-glow:     rgba(255, 255, 255, 0.6);
@@ -57,6 +74,60 @@
   --ease-in-out:   cubic-bezier(0.4, 0, 0.2, 1);
 }
 
+/* ─── LIGHT MODE — chrome silver on white ─────────────────
+   Activated by adding data-theme="light" on <html>. Every
+   color token flips; gradient tokens shift to a cooler chrome
+   palette with deeper mid-tones so polish still reads on
+   paper-white surfaces. */
+[data-theme="light"] {
+  color-scheme: light;
+  --bg:            #F7F7F8;
+  --bg-alt:        #FFFFFF;
+  --card:          #FFFFFF;
+  --border:        rgba(11, 13, 16, 0.1);
+  --border-strong: rgba(11, 13, 16, 0.22);
+
+  --text:          #0B0D10;
+  --text-strong:   #000000;
+  --text-muted:    rgba(11, 13, 16, 0.62);
+  --text-subtle:   rgba(11, 13, 16, 0.42);
+
+  --glass-bg:      rgba(255, 255, 255, 0.7);
+  --glass-bg-alt:  rgba(255, 255, 255, 0.85);
+
+  --surface:         rgba(255, 255, 255, 0.88);
+  --surface-strong:  rgba(255, 255, 255, 0.96);
+  --surface-lighter: rgba(255, 255, 255, 0.78);
+
+  --soft-glow:     rgba(11, 13, 16, 0.18);
+
+  /* Chrome silver — darker mid-tones read crisp on white */
+  --silver:        #8C8C8C;
+  --silver-50:     #ffffff;
+  --silver-100:    #F4F5F7;
+  --silver-200:    #D6D8DA;
+  --silver-300:    #BFC1C2;
+  --silver-400:    #A9ABAE;
+  --silver-500:    #8C8C8C;
+  --silver-600:    #6F7175;
+  --silver-700:    #4A4C50;
+  --silver-800:    #2A2C30;
+  --emerald:       #8C8C8C;
+  --emerald-dim:   #6F7175;
+
+  /* Chrome gradient — more contrast so it doesn't wash out */
+  --metallic:      linear-gradient(135deg, #A9ABAE 0%, #F4F5F7 50%, #8C8C8C 100%);
+  --metallic-soft: linear-gradient(135deg, rgba(140,140,140,0.12) 0%, rgba(215,216,218,0.35) 50%, rgba(140,140,140,0.12) 100%);
+  --metallic-sweep:linear-gradient(110deg,
+                     rgba(111,113,117,0) 0%,
+                     rgba(111,113,117,1) 15%,
+                     rgba(169,171,174,1) 40%,
+                     rgba(215,216,218,1) 50%,
+                     rgba(169,171,174,1) 60%,
+                     rgba(111,113,117,1) 85%,
+                     rgba(111,113,117,0) 100%);
+}
+
 /* ════════════════════════════════════════════════════════════
    BASE
    ════════════════════════════════════════════════════════════ */
@@ -67,7 +138,10 @@ html, body, #root {
   overflow: hidden;
   font-family: 'Inter', system-ui, sans-serif;
   background: var(--bg);
-  color: #fff;
+  color: var(--text);
+  /* Smooth cross-theme crossfade — short enough to feel instant */
+  transition: background-color 0.28s var(--ease-in-out),
+              color 0.28s var(--ease-in-out);
   /* Prevent rubber-band on iOS when touching the map */
   overscroll-behavior: none;
   -webkit-overflow-scrolling: touch;
@@ -2216,4 +2290,439 @@ a:active {
     0 0 18px rgba(255, 255, 255, 0.08);
   transform: translateY(-1px) scale(1.02);
 }
+
+/* ════════════════════════════════════════════════════════════
+   THEME TOGGLE — glass pill with sliding metallic thumb
+   ════════════════════════════════════════════════════════════
+   Mounted fixed top-right, just above the content. Sized for a
+   44 px tap target on coarse pointers (the outer button is the
+   hit zone; the visible track is smaller). */
+.theme-toggle {
+  position: fixed;
+  top: calc(14px + env(safe-area-inset-top, 0px));
+  right: calc(16px + env(safe-area-inset-right, 0px));
+  z-index: 1200;
+  width: 58px;
+  height: 30px;
+  padding: 0;
+  border-radius: 999px;
+  border: 1px solid var(--border-strong);
+  background: var(--surface-lighter);
+  backdrop-filter: blur(14px) saturate(160%);
+  -webkit-backdrop-filter: blur(14px) saturate(160%);
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+  box-shadow:
+    0 4px 18px rgba(0, 0, 0, 0.3),
+    0 0 0 1px rgba(255, 255, 255, 0.05) inset;
+  transition: background 0.25s var(--ease-in-out),
+              border-color 0.25s var(--ease-in-out),
+              box-shadow 0.25s var(--ease-in-out),
+              transform 0.12s var(--ease-in-out);
+}
+.theme-toggle:hover {
+  transform: scale(1.02);
+  border-color: rgba(255, 255, 255, 0.35);
+  box-shadow:
+    0 6px 22px rgba(0, 0, 0, 0.35),
+    0 0 0 1px rgba(255, 255, 255, 0.12) inset;
+}
+.theme-toggle:active { transform: scale(0.97); }
+.theme-toggle:focus-visible {
+  outline: 2px solid rgba(255, 255, 255, 0.6);
+  outline-offset: 3px;
+}
+
+.theme-toggle-track {
+  position: relative;
+  display: block;
+  width: 100%;
+  height: 100%;
+}
+
+.theme-toggle-ic {
+  position: absolute;
+  top: 50%;
+  transform: translateY(-50%);
+  width: 18px;
+  height: 18px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  pointer-events: none;
+  opacity: 0.45;
+  transition: opacity 0.3s var(--ease-in-out);
+}
+.theme-toggle-ic-moon { left: 6px;  color: var(--silver-200); }
+.theme-toggle-ic-sun  { right: 6px; color: var(--silver-400); }
+.theme-toggle.is-dark  .theme-toggle-ic-moon { opacity: 1; }
+.theme-toggle.is-light .theme-toggle-ic-sun  { opacity: 1; color: #6F7175; }
+
+.theme-toggle-thumb {
+  position: absolute;
+  top: 3px;
+  left: 3px;
+  width: 22px;
+  height: 22px;
+  border-radius: 50%;
+  background: var(--metallic);
+  box-shadow:
+    0 1px 2px rgba(0, 0, 0, 0.35),
+    0 0 0 1px rgba(255, 255, 255, 0.2) inset,
+    0 0 10px rgba(255, 255, 255, 0.12);
+  transition: transform 0.32s var(--ease-spring),
+              background 0.3s var(--ease-in-out),
+              box-shadow 0.3s var(--ease-in-out);
+}
+.theme-toggle.is-light .theme-toggle-thumb {
+  transform: translateX(28px);
+  box-shadow:
+    0 1px 3px rgba(11, 13, 16, 0.2),
+    0 0 0 1px rgba(11, 13, 16, 0.08) inset,
+    0 0 10px rgba(11, 13, 16, 0.08);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .theme-toggle, .theme-toggle-thumb { transition: none !important; }
+}
+
+/* ════════════════════════════════════════════════════════════
+   LIGHT MODE OVERRIDES — chrome silver on white
+   ════════════════════════════════════════════════════════════
+   Inverts dark translucent surfaces to paper-white translucents,
+   flips text to dark graphite, and tones down harsh white inner
+   glows so they don't bleed on light tiles.
+   ════════════════════════════════════════════════════════════ */
+
+/* ── Glass primitives ────────────────────────────────────── */
+[data-theme="light"] .glass {
+  background: var(--glass-bg);
+  border: 1px solid rgba(11, 13, 16, 0.1);
+  color: var(--text);
+  box-shadow:
+    0 8px 32px rgba(11, 13, 16, 0.08),
+    0 0 0 1px rgba(255, 255, 255, 0.6) inset,
+    0 1px 0 rgba(255, 255, 255, 0.8) inset;
+}
+[data-theme="light"] .glass-lighter {
+  background: var(--glass-bg-alt);
+  border: 1px solid rgba(11, 13, 16, 0.08);
+  color: var(--text);
+  box-shadow:
+    0 4px 20px rgba(11, 13, 16, 0.06),
+    0 0 0 1px rgba(255, 255, 255, 0.5) inset;
+}
+
+/* The metallic shine overlay uses screen blending which over-
+   brightens on white surfaces — swap to overlay + lower opacity. */
+[data-theme="light"] .glass::after,
+[data-theme="light"] .glass-lighter::after {
+  mix-blend-mode: overlay;
+}
+[data-theme="light"] .glass:hover::after,
+[data-theme="light"] .glass-lighter:hover::after {
+  opacity: 0.4;
+}
+
+/* ── Leaflet: zoom, popups, attribution ──────────────────── */
+[data-theme="light"] .leaflet-container { background: #eef1f4 !important; }
+[data-theme="light"] .leaflet-control-zoom {
+  border: 1px solid rgba(11, 13, 16, 0.12) !important;
+  box-shadow: 0 4px 20px rgba(11, 13, 16, 0.12) !important;
+}
+[data-theme="light"] .leaflet-control-zoom a {
+  background: rgba(255, 255, 255, 0.92) !important;
+  color: var(--text) !important;
+  border-bottom: 1px solid rgba(11, 13, 16, 0.08) !important;
+}
+[data-theme="light"] .leaflet-control-zoom a:hover {
+  background: rgba(255, 255, 255, 1) !important;
+}
+[data-theme="light"] .leaflet-popup-content-wrapper,
+[data-theme="light"] .leaflet-popup-tip {
+  background: rgba(255, 255, 255, 0.96) !important;
+  color: var(--text) !important;
+  box-shadow: 0 6px 24px rgba(11, 13, 16, 0.12) !important;
+}
+[data-theme="light"] .leaflet-control-attribution {
+  background: rgba(255, 255, 255, 0.72) !important;
+  color: var(--text-muted) !important;
+}
+
+/* ── Tracking bar ────────────────────────────────────────── */
+[data-theme="light"] .tracking-bar {
+  background: rgba(255, 255, 255, 0.92);
+  border-color: rgba(11, 13, 16, 0.12);
+  color: var(--text);
+  box-shadow: 0 4px 18px rgba(11, 13, 16, 0.1);
+}
+[data-theme="light"] .tracking-bar-label { color: var(--text-muted); }
+[data-theme="light"] .tracking-bar-label strong { color: var(--text); }
+
+/* ── Buttons ─────────────────────────────────────────────── */
+[data-theme="light"] .btn-icon {
+  background: rgba(11, 13, 16, 0.05);
+  border-color: rgba(11, 13, 16, 0.08);
+  color: var(--text);
+}
+[data-theme="light"] .btn-icon:hover {
+  background: rgba(11, 13, 16, 0.08);
+  border-color: rgba(11, 13, 16, 0.2);
+  color: var(--text-strong);
+  box-shadow:
+    0 0 0 1px rgba(11, 13, 16, 0.1) inset,
+    0 4px 18px rgba(11, 13, 16, 0.08);
+}
+
+[data-theme="light"] .sidebar-btn-outline {
+  color: var(--text);
+  border-color: rgba(11, 13, 16, 0.22);
+  background: transparent;
+}
+[data-theme="light"] .sidebar-btn-outline:hover {
+  background: rgba(11, 13, 16, 0.04);
+  border-color: rgba(11, 13, 16, 0.4);
+  box-shadow:
+    0 0 0 1px rgba(11, 13, 16, 0.08) inset,
+    0 4px 18px rgba(11, 13, 16, 0.06);
+}
+[data-theme="light"] .sidebar-btn-active {
+  background: var(--metallic-soft);
+  color: var(--text);
+  border: 1px solid rgba(11, 13, 16, 0.28);
+  box-shadow:
+    0 0 0 1px rgba(255, 255, 255, 0.8) inset,
+    0 0 14px rgba(11, 13, 16, 0.06);
+}
+[data-theme="light"] .sidebar-btn-follow:hover {
+  border-color: rgba(11, 13, 16, 0.28);
+  color: var(--text);
+}
+
+/* ── Landing intro ───────────────────────────────────────── */
+[data-theme="light"] .landing-intro-backdrop {
+  background:
+    radial-gradient(ellipse at center top,
+      rgba(255, 255, 255, 0.9) 0%,
+      rgba(247, 247, 248, 0.94) 55%,
+      rgba(231, 232, 234, 0.96) 100%);
+}
+[data-theme="light"] .landing-intro-beam {
+  background:
+    radial-gradient(ellipse at center top,
+      rgba(140, 140, 140, 0.18) 0%,
+      rgba(140, 140, 140, 0) 60%);
+}
+[data-theme="light"] .landing-intro-logo {
+  background: rgba(255, 255, 255, 0.78);
+  border-color: rgba(11, 13, 16, 0.12);
+  box-shadow: 0 4px 14px rgba(11, 13, 16, 0.06);
+}
+[data-theme="light"] .landing-intro-logo-text { color: var(--text); }
+[data-theme="light"] .landing-intro-logo-live { color: var(--silver-600); }
+[data-theme="light"] .landing-intro-logo-dot  {
+  background: var(--silver-500);
+  box-shadow:
+    0 0 0 1px rgba(11, 13, 16, 0.12) inset,
+    0 0 10px rgba(11, 13, 16, 0.12);
+}
+[data-theme="light"] .landing-intro-title,
+[data-theme="light"] .landing-intro-title-break { color: var(--text); }
+[data-theme="light"] .landing-intro-sub,
+[data-theme="light"] .landing-intro-footer { color: var(--text-muted); }
+[data-theme="light"] .landing-preview-card {
+  background: rgba(255, 255, 255, 0.82);
+  border-color: rgba(11, 13, 16, 0.08);
+  color: var(--text);
+}
+[data-theme="light"] .landing-preview-card:hover {
+  background: rgba(255, 255, 255, 0.95);
+  border-color: rgba(11, 13, 16, 0.22);
+  box-shadow: 0 6px 18px rgba(11, 13, 16, 0.08);
+}
+[data-theme="light"] .landing-preview-title { color: var(--text); }
+[data-theme="light"] .landing-preview-hint  { color: var(--text-muted); }
+[data-theme="light"] .landing-preview-icon {
+  background: rgba(11, 13, 16, 0.06);
+  color: var(--silver-600);
+}
+
+/* ── Donate pill / toast ─────────────────────────────────── */
+[data-theme="light"] .donate-pill {
+  background: rgba(255, 255, 255, 0.82);
+  border-color: rgba(11, 13, 16, 0.14);
+  color: var(--text);
+  box-shadow:
+    0 4px 18px rgba(11, 13, 16, 0.1),
+    0 0 0 1px rgba(255, 255, 255, 0.5) inset;
+}
+[data-theme="light"] .donate-pill:hover {
+  background: rgba(255, 255, 255, 0.96);
+  border-color: rgba(11, 13, 16, 0.28);
+  box-shadow:
+    0 8px 24px rgba(11, 13, 16, 0.16),
+    0 0 0 1px rgba(11, 13, 16, 0.08) inset;
+}
+[data-theme="light"] .donate-toast {
+  background: rgba(255, 255, 255, 0.96);
+  border-color: rgba(11, 13, 16, 0.14);
+  color: var(--text);
+  box-shadow:
+    0 14px 42px rgba(11, 13, 16, 0.14),
+    0 0 0 1px rgba(255, 255, 255, 0.5) inset;
+}
+[data-theme="light"] .donate-toast-title { color: var(--text); }
+[data-theme="light"] .donate-toast-body  { color: var(--text-muted); }
+[data-theme="light"] .donate-toast-close {
+  background: rgba(11, 13, 16, 0.05);
+  color: rgba(11, 13, 16, 0.55);
+  border-color: rgba(11, 13, 16, 0.08);
+}
+[data-theme="light"] .donate-toast-close:hover {
+  background: rgba(11, 13, 16, 0.1);
+  color: var(--text);
+}
+
+/* ── Onboarding ──────────────────────────────────────────── */
+[data-theme="light"] .onboarding-overlay {
+  background: rgba(247, 247, 248, 0.76);
+}
+[data-theme="light"] .onboarding-sheet {
+  background: rgba(255, 255, 255, 0.96);
+  border-color: rgba(11, 13, 16, 0.12);
+  color: var(--text);
+  box-shadow: 0 20px 60px rgba(11, 13, 16, 0.18);
+}
+[data-theme="light"] .onboarding-title { color: var(--text); }
+[data-theme="light"] .onboarding-desc  { color: var(--text-muted); }
+[data-theme="light"] .onboarding-skip  { color: var(--text-subtle); }
+[data-theme="light"] .onboarding-skip:hover { color: var(--text-muted); }
+[data-theme="light"] .onboarding-btn-ghost {
+  color: var(--text);
+  border-color: rgba(11, 13, 16, 0.14);
+}
+[data-theme="light"] .onboarding-btn-ghost:hover {
+  border-color: rgba(11, 13, 16, 0.28);
+  color: var(--text);
+}
+
+/* ── Install banner ──────────────────────────────────────── */
+[data-theme="light"] .install-banner {
+  background: rgba(255, 255, 255, 0.94);
+  border-color: rgba(11, 13, 16, 0.12);
+  color: var(--text);
+}
+[data-theme="light"] .install-banner-title { color: var(--text); }
+[data-theme="light"] .install-banner-desc  { color: var(--text-muted); }
+[data-theme="light"] .install-banner-close {
+  color: rgba(11, 13, 16, 0.55);
+}
+[data-theme="light"] .install-banner-close:hover {
+  background: rgba(11, 13, 16, 0.06);
+  color: var(--text);
+}
+
+/* ── Scrollbar ───────────────────────────────────────────── */
+[data-theme="light"] ::-webkit-scrollbar-thumb {
+  background: rgba(11, 13, 16, 0.22);
+}
+
+/* ── Generic Tailwind utility overrides ──────────────────── */
+/* The top bars and some panels use Tailwind arbitrary-value
+   classes like bg-black/90, text-white, border-white/10. In
+   light mode we re-route them through CSS so we don't need to
+   touch the JSX. Escape sequences match Tailwind's compiled
+   output for /value classes. */
+[data-theme="light"] .bg-black\/90,
+[data-theme="light"] .bg-black\/80,
+[data-theme="light"] .bg-black\/70,
+[data-theme="light"] .bg-black\/60,
+[data-theme="light"] .bg-black\/50 {
+  background-color: rgba(255, 255, 255, 0.9) !important;
+}
+[data-theme="light"] .bg-black\/40,
+[data-theme="light"] .bg-black\/30 {
+  background-color: rgba(255, 255, 255, 0.75) !important;
+}
+[data-theme="light"] .bg-black { background-color: #FFFFFF !important; }
+[data-theme="light"] .text-white        { color: var(--text) !important; }
+[data-theme="light"] .text-white\/90    { color: var(--text) !important; }
+[data-theme="light"] .text-white\/80    { color: var(--text-muted) !important; }
+[data-theme="light"] .text-white\/70    { color: var(--text-muted) !important; }
+[data-theme="light"] .text-white\/60    { color: var(--text-muted) !important; }
+[data-theme="light"] .text-white\/50    { color: var(--text-subtle) !important; }
+[data-theme="light"] .text-white\/40    { color: var(--text-subtle) !important; }
+[data-theme="light"] .border-white\/10,
+[data-theme="light"] .border-white\/15,
+[data-theme="light"] .border-white\/20,
+[data-theme="light"] .border-white\/25,
+[data-theme="light"] .border-white\/30 {
+  border-color: rgba(11, 13, 16, 0.12) !important;
+}
+[data-theme="light"] .border-white\/40,
+[data-theme="light"] .border-white\/50 {
+  border-color: rgba(11, 13, 16, 0.22) !important;
+}
+[data-theme="light"] .bg-white\/5  { background-color: rgba(11, 13, 16, 0.04) !important; }
+[data-theme="light"] .bg-white\/10 { background-color: rgba(11, 13, 16, 0.06) !important; }
+[data-theme="light"] .bg-white\/15 { background-color: rgba(11, 13, 16, 0.08) !important; }
+[data-theme="light"] .bg-white\/20 { background-color: rgba(11, 13, 16, 0.1) !important; }
+
+/* Any panel that uses #0f1113 / #15181c directly */
+[data-theme="light"] [style*="background:#0f1113"],
+[data-theme="light"] [style*="background: #0f1113"],
+[data-theme="light"] [style*="background:#0B0D10"],
+[data-theme="light"] [style*="background: #0B0D10"],
+[data-theme="light"] [style*="background:#15181c"],
+[data-theme="light"] [style*="background: #15181c"] {
+  background: var(--card) !important;
+  color: var(--text) !important;
+}
+
+/* ── Insights / Airport panels (rely on .glass) ─────────── */
+/* These already inherit via .glass; we only fix their body
+   text + dividers that hardcoded rgba(255,255,255,*) */
+[data-theme="light"] .airport-sidebar-header,
+[data-theme="light"] .insights-panel-header {
+  border-bottom-color: rgba(11, 13, 16, 0.1) !important;
+}
+
+/* Map overlay panels */
+[data-theme="light"] .smart-weather-label,
+[data-theme="light"] .smart-weather-value { color: var(--text); }
+
+/* CTAs stay light-on-silver in both themes; just retint border */
+[data-theme="light"] .landing-intro-cta,
+[data-theme="light"] .donate-toast-cta {
+  border-color: rgba(11, 13, 16, 0.18);
+  color: #0B0D10;
+  box-shadow:
+    0 0 0 1px rgba(255, 255, 255, 0.5) inset,
+    0 1px 0 rgba(255, 255, 255, 0.8) inset,
+    0 8px 28px rgba(11, 13, 16, 0.18);
+}
+[data-theme="light"] .landing-intro-cta:hover,
+[data-theme="light"] .donate-toast-cta:hover {
+  box-shadow:
+    0 0 0 1px rgba(11, 13, 16, 0.18) inset,
+    0 1px 0 rgba(255, 255, 255, 0.9) inset,
+    0 12px 36px rgba(11, 13, 16, 0.24);
+}
+
+/* Theme toggle light-mode inversion */
+[data-theme="light"] .theme-toggle {
+  background: rgba(255, 255, 255, 0.78);
+  border-color: rgba(11, 13, 16, 0.14);
+  box-shadow:
+    0 4px 18px rgba(11, 13, 16, 0.1),
+    0 0 0 1px rgba(255, 255, 255, 0.6) inset;
+}
+[data-theme="light"] .theme-toggle:hover {
+  border-color: rgba(11, 13, 16, 0.28);
+  box-shadow:
+    0 6px 22px rgba(11, 13, 16, 0.14),
+    0 0 0 1px rgba(11, 13, 16, 0.08) inset;
+}
+[data-theme="light"] .theme-toggle-ic-moon { color: var(--silver-700); }
+[data-theme="light"] .theme-toggle-ic-sun  { color: var(--silver-600); opacity: 1; }
 

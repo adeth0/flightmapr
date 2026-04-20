@@ -13,10 +13,17 @@ import { FeedbackFab }       from './components/FeedbackFab';
 import { LandingIntro }      from './components/LandingIntro';
 import { DonatePill }        from './components/DonatePill';
 import { DonateToast }       from './components/DonateToast';
+import { ThemeToggle }       from './components/ThemeToggle';
 import { flightService }     from './services/flightService';
 import { getUserLocation, getCachedLocation } from './services/geoService';
 import { openSkyService }    from './services/openSkyService';
 import { notificationService } from './services/notificationService';
+import { initTheme }         from './services/themeService';
+
+// Apply the persisted (or system-preferred) theme before the first
+// paint so there's zero flash of wrong-theme chrome on load. Runs
+// once at module eval time — idempotent inside initTheme.
+initTheme();
 
 // Normalise any callsign / flight number to the canonical ADS-B form
 // (uppercase, no whitespace). Used for local search + global lookup.
@@ -553,6 +560,11 @@ export default function App() {
       {/* Circular trigger; tap to reveal the Feedback + Donate
           actions. See FeedbackFab.jsx for platform notes. */}
       <FeedbackFab />
+
+      {/* ── Theme toggle (graphite ↔ chrome silver) ────────── */}
+      {/* Fixed top-right glass capsule; hidden while the landing
+          intro is running so it doesn't compete with the hero CTA. */}
+      {introComplete && <ThemeToggle />}
 
       {/* ── Always-visible glass Donate pill ─────────────── */}
       {/* Small, non-intrusive "Support FlightMapr" pill that
