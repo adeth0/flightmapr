@@ -3004,6 +3004,114 @@ a:active {
 [data-theme="light"] .text-white\/25 { color: rgba(11, 13, 16, 0.38) !important; }
 [data-theme="light"] .text-white\/20 { color: rgba(11, 13, 16, 0.32) !important; }
 [data-theme="light"] .text-white\/15 { color: rgba(11, 13, 16, 0.28) !important; }
+[data-theme="light"] .text-white\/12 { color: rgba(11, 13, 16, 0.24) !important; }
+[data-theme="light"] .text-white\/55 { color: var(--text-muted)  !important; }
+[data-theme="light"] .text-white\/45 { color: var(--text-muted)  !important; }
+[data-theme="light"] .text-white\/8  { color: rgba(11, 13, 16, 0.2) !important; }
+
+/* Tailwind arbitrary silver utilities (text-[#E8E8E8], bg-[#E8E8E8]/NN,
+   border-[#E8E8E8]/NN) — flip to graphite / soft-neutral in light mode
+   so icons, accents and pill chips don't vanish against paper-white
+   glass surfaces. Covers the Flight Insights panel, search dropdowns,
+   top-bar chips, sidebars, StatusBar, etc. */
+[data-theme="light"] .text-\[\#E8E8E8\]       { color: var(--silver-600) !important; }
+[data-theme="light"] .text-\[\#E8E8E8\]\/70   { color: var(--silver-500) !important; }
+[data-theme="light"] .text-\[\#E8E8E8\]\/60   { color: var(--silver-500) !important; }
+[data-theme="light"] .text-\[\#E8E8E8\]\/50   { color: var(--silver-400) !important; }
+[data-theme="light"] .text-\[\#BFC1C2\]       { color: var(--silver-600) !important; }
+
+[data-theme="light"] .bg-\[\#E8E8E8\]\/5,
+[data-theme="light"] .bg-\[\#E8E8E8\]\/8,
+[data-theme="light"] .bg-\[\#E8E8E8\]\/10 {
+  background-color: rgba(11, 13, 16, 0.05) !important;
+}
+[data-theme="light"] .bg-\[\#E8E8E8\]\/12,
+[data-theme="light"] .bg-\[\#E8E8E8\]\/15 {
+  background-color: rgba(11, 13, 16, 0.07) !important;
+}
+
+[data-theme="light"] .border-\[\#E8E8E8\]\/20,
+[data-theme="light"] .border-\[\#E8E8E8\]\/30,
+[data-theme="light"] .border-\[\#E8E8E8\]\/35,
+[data-theme="light"] .border-\[\#E8E8E8\]\/40 {
+  border-color: rgba(11, 13, 16, 0.18) !important;
+}
+
+/* ════════════════════════════════════════════════════════════
+   FLIGHT INSIGHTS — light theme (day map) overrides
+   ════════════════════════════════════════════════════════════
+   The panel's rows, section headers, and track buttons were
+   built with dark-theme surfaces (dark navy rows, silver icons,
+   rgba-white text). In light theme the outer GlassCard flips to
+   paper-white but the row stayed dark navy — meanwhile the
+   inner Tailwind `text-white` got auto-inverted to dark graphite,
+   creating dark-on-dark text inside dark-on-white rows. This
+   block re-skins every inner surface so the panel reads as a
+   premium paper-and-graphite composition on day-map UIs. */
+
+[data-theme="light"] .insights-panel {
+  color: var(--text);
+}
+
+[data-theme="light"] .insights-section-title {
+  color: var(--text-muted);
+}
+[data-theme="light"] .insights-section-count {
+  color: var(--text-subtle);
+}
+
+[data-theme="light"] .insights-row {
+  background: rgba(255, 255, 255, 0.8);
+  border-color: rgba(11, 13, 16, 0.1);
+  color: var(--text);
+  box-shadow: 0 1px 0 rgba(11, 13, 16, 0.03);
+}
+[data-theme="light"] .insights-row:hover {
+  background: rgba(255, 255, 255, 0.96);
+  border-color: rgba(11, 13, 16, 0.24);
+  box-shadow:
+    0 4px 14px rgba(11, 13, 16, 0.08),
+    0 0 0 1px rgba(11, 13, 16, 0.06) inset;
+}
+
+[data-theme="light"] .insights-row-icon {
+  background: rgba(11, 13, 16, 0.05);
+  border-color: rgba(11, 13, 16, 0.12);
+  color: var(--silver-600);
+}
+
+[data-theme="light"] .insights-row-title { color: var(--text); }
+[data-theme="light"] .insights-row-sub,
+[data-theme="light"] .insights-row-meta { color: var(--text-muted); }
+[data-theme="light"] .insights-row-meta .chip {
+  background: rgba(11, 13, 16, 0.05);
+  border-color: rgba(11, 13, 16, 0.08);
+  color: var(--text-muted);
+}
+
+[data-theme="light"] .insights-track-btn {
+  background: rgba(11, 13, 16, 0.05);
+  border-color: rgba(11, 13, 16, 0.14);
+  color: var(--text);
+}
+[data-theme="light"] .insights-track-btn:hover {
+  background: rgba(11, 13, 16, 0.1);
+  border-color: rgba(11, 13, 16, 0.28);
+  box-shadow:
+    0 0 0 1px rgba(11, 13, 16, 0.08) inset,
+    0 4px 18px rgba(11, 13, 16, 0.06);
+}
+[data-theme="light"] .insights-track-btn.is-active {
+  background: rgba(245, 158, 11, 0.14);
+  border-color: rgba(245, 158, 11, 0.45);
+  color: #8B5E00;
+}
+
+[data-theme="light"] .insights-empty {
+  background: rgba(11, 13, 16, 0.03);
+  border-color: rgba(11, 13, 16, 0.12);
+  color: var(--text-subtle);
+}
 
 /* In-app toast — light theme mirror so headline + body read
    correctly on a bright backdrop (otherwise the hardcoded dark
