@@ -45,21 +45,40 @@ function tierVisibleAtZoom(tier, zoom) {
 }
 
 // ── Icon builders ─────────────────────────────────────────
+// Graphite-black diamond with a soft white hairline border and a
+// low-opacity glow. Deliberately dark so the marker stays visible
+// on EVERY tile set (light streets, dark night, satellite, etc.)
+// and doesn't read as "an aircraft" — aircraft stay silver.
+//
+// Hover / click handling lives in CSS via `.airport-marker`:
+//   • hover → scale(1.05) + slightly stronger glow
+//   • active → scale(0.96) briefly for a tactile tap
+// The fill and stroke colors never change — only scale + glow —
+// per the visibility spec.
 function buildIcon(code, showLabel) {
   const diamond =
-    `<div style="width:7px;height:7px;background:rgba(255, 255, 255,0.65);` +
-    `border:1.5px solid #E8E8E8;border-radius:1px;transform:rotate(45deg);` +
-    `box-shadow:0 0 6px rgba(255, 255, 255,0.4);"></div>`;
+    `<div class="airport-marker-dot" style="` +
+      `width:8px;height:8px;` +
+      `background:#0B0D10;` +
+      `border:1px solid rgba(255,255,255,0.15);` +
+      `border-radius:1.5px;` +
+      `transform:rotate(45deg);` +
+      `box-shadow:0 0 8px rgba(255,255,255,0.25),0 0 2px rgba(0,0,0,0.6);` +
+      `transition:transform 140ms ease, box-shadow 140ms ease;` +
+      `"></div>`;
   const label = showLabel
-    ? `<div style="position:absolute;top:10px;left:50%;transform:translateX(-50%);` +
-      `white-space:nowrap;font-family:'Inter',sans-serif;font-size:8px;font-weight:700;` +
-      `color:#E8E8E8;text-shadow:0 0 6px #000,0 0 3px #000,0 0 2px rgba(0,0,0,0.9);">${code}</div>`
+    ? `<div class="airport-marker-label" style="` +
+        `position:absolute;top:12px;left:50%;transform:translateX(-50%);` +
+        `white-space:nowrap;font-family:'Inter',sans-serif;font-size:8px;font-weight:700;` +
+        `color:#E8E8E8;letter-spacing:0.04em;` +
+        `text-shadow:0 0 6px #000,0 0 3px #000,0 0 2px rgba(0,0,0,0.9);` +
+        `">${code}</div>`
     : '';
   return L.divIcon({
-    html: `<div style="position:relative;">${diamond}${label}</div>`,
-    className: '',
-    iconSize:   [7, 7],
-    iconAnchor: [3, 3],
+    html: `<div class="airport-marker" style="position:relative;">${diamond}${label}</div>`,
+    className: 'airport-marker-wrap',
+    iconSize:   [8, 8],
+    iconAnchor: [4, 4],
   });
 }
 

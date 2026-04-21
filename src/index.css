@@ -2396,98 +2396,51 @@ a:active {
 }
 
 /* ════════════════════════════════════════════════════════════
-   THEME TOGGLE — glass pill with sliding metallic thumb
+   AIRPORT MARKER — graphite diamond with soft white glow
    ════════════════════════════════════════════════════════════
-   Mounted fixed top-right, just above the content. Sized for a
-   44 px tap target on coarse pointers (the outer button is the
-   hit zone; the visible track is smaller). */
-.theme-toggle {
-  position: fixed;
-  top: calc(14px + env(safe-area-inset-top, 0px));
-  right: calc(16px + env(safe-area-inset-right, 0px));
-  z-index: 1200;
-  width: 58px;
-  height: 30px;
-  padding: 0;
-  border-radius: 999px;
-  border: 1px solid var(--border-strong);
-  background: var(--surface-lighter);
-  backdrop-filter: blur(14px) saturate(160%);
-  -webkit-backdrop-filter: blur(14px) saturate(160%);
-  cursor: pointer;
-  -webkit-tap-highlight-color: transparent;
+   The dot itself is rendered via AirportLayer's `buildIcon`
+   (inline styles for fill / border / glow so Leaflet's divIcon
+   stays self-contained). These rules layer on the hover and
+   active affordances — per the visibility spec, we only scale
+   and brighten the glow; the fill and stroke colours never
+   change, so the marker stays visually stable. */
+.airport-marker-wrap { background: transparent; border: 0; }
+
+.airport-marker       { cursor: pointer; }
+.airport-marker:hover .airport-marker-dot,
+.airport-marker:focus-visible .airport-marker-dot {
+  transform: rotate(45deg) scale(1.05);
   box-shadow:
-    0 4px 18px rgba(0, 0, 0, 0.3),
-    0 0 0 1px rgba(255, 255, 255, 0.05) inset;
-  transition: background 0.25s var(--ease-in-out),
-              border-color 0.25s var(--ease-in-out),
-              box-shadow 0.25s var(--ease-in-out),
-              transform 0.12s var(--ease-in-out);
+    0 0 10px rgba(255, 255, 255, 0.4),
+    0 0 2px  rgba(0, 0, 0, 0.7);
 }
-.theme-toggle:hover {
-  transform: scale(1.02);
-  border-color: rgba(255, 255, 255, 0.35);
-  box-shadow:
-    0 6px 22px rgba(0, 0, 0, 0.35),
-    0 0 0 1px rgba(255, 255, 255, 0.12) inset;
-}
-.theme-toggle:active { transform: scale(0.97); }
-.theme-toggle:focus-visible {
-  outline: 2px solid rgba(255, 255, 255, 0.6);
-  outline-offset: 3px;
+.airport-marker:active .airport-marker-dot {
+  transform: rotate(45deg) scale(0.96);
 }
 
-.theme-toggle-track {
-  position: relative;
-  display: block;
-  width: 100%;
-  height: 100%;
-}
-
-.theme-toggle-ic {
-  position: absolute;
-  top: 50%;
-  transform: translateY(-50%);
-  width: 18px;
-  height: 18px;
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  pointer-events: none;
-  opacity: 0.45;
-  transition: opacity 0.3s var(--ease-in-out);
-}
-.theme-toggle-ic-moon { left: 6px;  color: var(--silver-200); }
-.theme-toggle-ic-sun  { right: 6px; color: var(--silver-400); }
-.theme-toggle.is-dark  .theme-toggle-ic-moon { opacity: 1; }
-.theme-toggle.is-light .theme-toggle-ic-sun  { opacity: 1; color: #6F7175; }
-
-.theme-toggle-thumb {
-  position: absolute;
-  top: 3px;
-  left: 3px;
-  width: 22px;
-  height: 22px;
-  border-radius: 50%;
-  background: var(--metallic);
+/* Light mode: keep the airport dots dark (they must stand out on
+   day tiles too) but soften the glow so it doesn't blow out. */
+[data-theme="light"] .airport-marker-dot {
   box-shadow:
-    0 1px 2px rgba(0, 0, 0, 0.35),
-    0 0 0 1px rgba(255, 255, 255, 0.2) inset,
-    0 0 10px rgba(255, 255, 255, 0.12);
-  transition: transform 0.32s var(--ease-spring),
-              background 0.3s var(--ease-in-out),
-              box-shadow 0.3s var(--ease-in-out);
+    0 0 6px  rgba(11, 13, 16, 0.25),
+    0 0 2px  rgba(11, 13, 16, 0.4) !important;
 }
-.theme-toggle.is-light .theme-toggle-thumb {
-  transform: translateX(28px);
+[data-theme="light"] .airport-marker:hover .airport-marker-dot,
+[data-theme="light"] .airport-marker:focus-visible .airport-marker-dot {
   box-shadow:
-    0 1px 3px rgba(11, 13, 16, 0.2),
-    0 0 0 1px rgba(11, 13, 16, 0.08) inset,
-    0 0 10px rgba(11, 13, 16, 0.08);
+    0 0 10px rgba(11, 13, 16, 0.35),
+    0 0 2px  rgba(11, 13, 16, 0.5) !important;
+}
+[data-theme="light"] .airport-marker-label {
+  color: #0B0D10 !important;
+  text-shadow:
+    0 0 6px rgba(255, 255, 255, 0.9),
+    0 0 3px rgba(255, 255, 255, 0.9),
+    0 0 2px rgba(255, 255, 255, 0.9) !important;
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .theme-toggle, .theme-toggle-thumb { transition: none !important; }
+  .airport-marker-dot { transition: none !important; }
 }
 
 /* ════════════════════════════════════════════════════════════
@@ -2812,21 +2765,4 @@ a:active {
     0 1px 0 rgba(255, 255, 255, 0.9) inset,
     0 12px 36px rgba(11, 13, 16, 0.24);
 }
-
-/* Theme toggle light-mode inversion */
-[data-theme="light"] .theme-toggle {
-  background: rgba(255, 255, 255, 0.78);
-  border-color: rgba(11, 13, 16, 0.14);
-  box-shadow:
-    0 4px 18px rgba(11, 13, 16, 0.1),
-    0 0 0 1px rgba(255, 255, 255, 0.6) inset;
-}
-[data-theme="light"] .theme-toggle:hover {
-  border-color: rgba(11, 13, 16, 0.28);
-  box-shadow:
-    0 6px 22px rgba(11, 13, 16, 0.14),
-    0 0 0 1px rgba(11, 13, 16, 0.08) inset;
-}
-[data-theme="light"] .theme-toggle-ic-moon { color: var(--silver-700); }
-[data-theme="light"] .theme-toggle-ic-sun  { color: var(--silver-600); opacity: 1; }
 

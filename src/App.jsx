@@ -13,17 +13,11 @@ import { FeedbackFab }       from './components/FeedbackFab';
 import { LandingIntro }      from './components/LandingIntro';
 import { DonatePill }        from './components/DonatePill';
 import { DonateToast }       from './components/DonateToast';
-import { ThemeToggle }       from './components/ThemeToggle';
 import { flightService }     from './services/flightService';
 import { getUserLocation, getCachedLocation } from './services/geoService';
 import { openSkyService }    from './services/openSkyService';
 import { notificationService } from './services/notificationService';
-import { initTheme }         from './services/themeService';
-
-// Apply the persisted (or system-preferred) theme before the first
-// paint so there's zero flash of wrong-theme chrome on load. Runs
-// once at module eval time — idempotent inside initTheme.
-initTheme();
+import { syncThemeWithMap }  from './services/themeService';
 
 // Normalise any callsign / flight number to the canonical ADS-B form
 // (uppercase, no whitespace). Used for local search + global lookup.
@@ -99,6 +93,18 @@ export default function App() {
     notificationService.ensureStarted();
     return () => flightService.stop();
   }, []);
+
+  // ── Theme sync: UI chrome follows the map's day/night state ───────
+  //   • Map dark (night tiles)  → graphite + silver UI with soft glow
+  //   • Map light (day tiles)   → chrome silver on white with muted glow
+  //
+  // The standalone light/dark pill has been retired; the single source
+  // of truth for theme is now `dayNightEnabled`. syncThemeWithMap writes
+  // `data-theme` on <html> AND toggles `body.dark-mode` for any style
+  // hooks that prefer a class selector over an attribute selector.
+  useEffect(() => {
+    syncThemeWithMap(dayNightEnabled);
+  }, [dayNightEnabled]);
 
   // ── Catch-up pings on visibility / focus ────────────────
   // When the app returns to the foreground (tab reveal, PWA resume),
@@ -560,11 +566,6 @@ export default function App() {
       {/* Circular trigger; tap to reveal the Feedback + Donate
           actions. See FeedbackFab.jsx for platform notes. */}
       <FeedbackFab />
-
-      {/* ── Theme toggle (graphite ↔ chrome silver) ────────── */}
-      {/* Fixed top-right glass capsule; hidden while the landing
-          intro is running so it doesn't compete with the hero CTA. */}
-      {introComplete && <ThemeToggle />}
 
       {/* ── Always-visible glass Donate pill ─────────────── */}
       {/* Small, non-intrusive "Support FlightMapr" pill that

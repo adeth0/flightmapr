@@ -1,77 +1,64 @@
 // ─────────────────────────────────────────────────────────
-//  themeService — dual-theme state (graphite / chrome silver)
+//  themeService — UI theme follows the map's day/night state.
 //
-//  Applies `data-theme="dark|light"` to <html> so CSS custom
-//  properties under :root and [data-theme="light"] flip.
-//  Persists user choice in localStorage, with a graceful
-//  fall-back to the system preference for first-time visitors.
+//  Historically this module exposed a manual dark/light toggle
+//  persisted to localStorage. The UX has since changed: the user
+//  no longer picks a theme — the UI chrome automatically mirrors
+//  whichever tile set the map is showing.
+//
+//    • dayNightEnabled = true  → NIGHT map → graphite + silver UI
+//    • dayNightEnabled = false → DAY map  → chrome + white UI
+//
+//  We still drive everything through `data-theme="dark|light"` on
+//  <html> so the existing CSS custom properties under :root and
+//  [data-theme="light"] keep working untouched. In addition we
+//  toggle a `dark-mode` class on <body> as a convenience hook for
+//  any style that prefers a class selector.
 //
 //  API:
-//    initTheme()          — call once at boot (before first paint)
-//    getTheme()           — 'dark' | 'light'
-//    setTheme(theme)      — explicit set + persist
-//    toggleTheme()        — flip dark ↔ light
-//    subscribeTheme(fn)   — returns unsubscribe
+//    syncThemeWithMap(isNight)  — called from App.jsx whenever
+//                                  dayNightEnabled changes.
+//    getTheme()                 — current 'dark' | 'light' (read-only).
+//    subscribeTheme(fn)         — listen for theme changes.
+//    THEMES                     — named constants.
 //
-//  Design notes:
-//    • No React dependency — works anywhere (even in workers).
-//    • Writes inline `color-scheme` so native form controls + the
-//      browser's scrollbar match the active theme immediately.
-//    • Listens to `prefers-color-scheme` changes only when the
-//      user has never made an explicit choice.
+//  The legacy `initTheme`, `setTheme`, `toggleTheme` functions are
+//  retained as no-op shims so any stale imports elsewhere won't
+//  crash the build; they all route through syncThemeWithMap.
 // ─────────────────────────────────────────────────────────
 
-const STORAGE_KEY = 'flightmapr_theme_v1';
 const DARK  = 'dark';
 const LIGHT = 'light';
 
 const listeners = new Set();
-let current     = null;   // cached value to avoid repeated storage reads
-let initialised = false;
-
-function readStored() {
-  try { return localStorage.getItem(STORAGE_KEY); } catch { return null; }
-}
-
-function writeStored(theme) {
-  try { localStorage.setItem(STORAGE_KEY, theme); } catch { /* private mode */ }
-}
-
-function systemPref() {
-  try {
-    if (typeof window !== 'undefined' && window.matchMedia) {
-      return window.matchMedia('(prefers-color-scheme: light)').matches ? LIGHT : DARK;
-    }
-  } catch { /* no-op */ }
-  return DARK;
-}
+let current = DARK; // default matches product brief (graphite-first)
 
 function apply(theme) {
   current = theme === LIGHT ? LIGHT : DARK;
-  if (typeof document !== 'undefined' && document.documentElement) {
+  if (typeof document !== 'undefined') {
     const root = document.documentElement;
-    root.setAttribute('data-theme', current);
-    // Native UI (scrollbars, form controls) picks this up immediately
-    root.style.colorScheme = current;
+    if (root) {
+      root.setAttribute('data-theme', current);
+      // Native UI (scrollbars, form controls) picks this up immediately
+      root.style.colorScheme = current;
+    }
+    // Convenience class hook for selectors like `body.dark-mode …`
+    if (document.body) {
+      document.body.classList.toggle('dark-mode',  current === DARK);
+      document.body.classList.toggle('light-mode', current === LIGHT);
+    }
   }
-  listeners.forEach(fn => { try { fn(current); } catch { /* swallow */ } });
+  listeners.forEach((fn) => { try { fn(current); } catch { /* swallow */ } });
+}
+
+// Public: called from App.jsx whenever `dayNightEnabled` flips.
+// `isNight === true` → night map → dark UI chrome.
+export function syncThemeWithMap(isNight) {
+  apply(isNight ? DARK : LIGHT);
 }
 
 export function getTheme() {
-  if (current) return current;
-  current = readStored() === LIGHT ? LIGHT : (readStored() === DARK ? DARK : null);
-  if (!current) current = DARK; // default per product brief
   return current;
-}
-
-export function setTheme(theme) {
-  if (theme !== DARK && theme !== LIGHT) return;
-  writeStored(theme);
-  apply(theme);
-}
-
-export function toggleTheme() {
-  setTheme(getTheme() === LIGHT ? DARK : LIGHT);
 }
 
 export function subscribeTheme(fn) {
@@ -80,31 +67,11 @@ export function subscribeTheme(fn) {
   return () => listeners.delete(fn);
 }
 
-export function initTheme() {
-  if (initialised) return current;
-  initialised = true;
+// ── Legacy no-op shims ───────────────────────────────────
+// Kept so any lingering imports elsewhere in the codebase don't
+// break the build while the rest of the app migrates over.
+export function initTheme()   { apply(current); return current; }
+export function setTheme(t)   { apply(t); }
+export function toggleTheme() { apply(current === DARK ? LIGHT : DARK); }
 
-  const stored = readStored();
-  const initial = stored === LIGHT ? LIGHT
-                : stored === DARK  ? DARK
-                : systemPref();
-  apply(initial);
-
-  // Respond to OS-level changes only if the user hasn't pinned a choice
-  try {
-    if (!stored && typeof window !== 'undefined' && window.matchMedia) {
-      const mql = window.matchMedia('(prefers-color-scheme: light)');
-      const handler = (e) => {
-        // Re-check stored value in case the user picked one mid-session
-        if (!readStored()) apply(e.matches ? LIGHT : DARK);
-      };
-      if (mql.addEventListener) mql.addEventListener('change', handler);
-      else if (mql.addListener) mql.addListener(handler); // Safari <14
-    }
-  } catch { /* no-op */ }
-
-  return current;
-}
-
-// Convenience named constants for consumers
 export const THEMES = Object.freeze({ DARK, LIGHT });
