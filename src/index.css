@@ -1074,7 +1074,9 @@ a:active {
   z-index: 2500;
   display: flex;
   flex-direction: column;
+  /* Dark theme default; light theme override lives further down. */
   background: rgba(11, 15, 23, 0.98);
+  color: #fff;
   backdrop-filter: blur(20px) saturate(150%);
   -webkit-backdrop-filter: blur(20px) saturate(150%);
   animation: overlay-in 0.18s var(--ease-smooth) both;
@@ -1392,6 +1394,112 @@ a:active {
 }
 
 /* Alert row — interactive (click to focus on map) */
+/* ════════════════════════════════════════════════════════════
+   ALERTS DASHBOARD
+   ════════════════════════════════════════════════════════════
+   Fully scoped styling so the panel reads cleanly on BOTH the
+   dark (night-map) and light (day-map) themes. Previously the
+   panel relied on Tailwind arbitrary classes that inverted in
+   unexpected ways in light mode (black text on muddy glass,
+   navy hover on a white row, etc.) — now every surface, border,
+   icon and hover state is explicit and theme-aware. */
+
+.alerts-panel {
+  position: absolute;
+  top: calc(68px + env(safe-area-inset-top, 0px));
+  right: calc(16px + env(safe-area-inset-right, 0px));
+  z-index: 950;
+  width: 288px;
+  max-width: calc(100vw - 32px);
+  border-radius: 16px;
+  overflow: hidden;
+  background: rgba(17, 24, 39, 0.88);
+  backdrop-filter: blur(18px) saturate(160%);
+  -webkit-backdrop-filter: blur(18px) saturate(160%);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  box-shadow:
+    0 18px 42px rgba(0, 0, 0, 0.42),
+    0 0 0 1px rgba(255, 255, 255, 0.05) inset;
+  color: #fff;
+}
+
+.alerts-panel-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 10px 14px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+}
+.alerts-panel-title-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+}
+.alerts-panel-bell  { color: #FBBF24; flex-shrink: 0; }
+.alerts-panel-title {
+  font-size: 12px;
+  font-weight: 700;
+  color: #fff;
+  letter-spacing: 0.01em;
+}
+.alerts-panel-count {
+  font-size: 9px;
+  font-weight: 800;
+  line-height: 1;
+  padding: 3px 6px;
+  border-radius: 999px;
+  background: rgba(251, 191, 36, 0.22);
+  color: #FBBF24;
+  border: 1px solid rgba(251, 191, 36, 0.35);
+  flex-shrink: 0;
+}
+.alerts-panel-close {
+  width: 24px;
+  height: 24px;
+  border-radius: 8px;
+  background: rgba(255, 255, 255, 0.06);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  color: rgba(255, 255, 255, 0.55);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: background 0.15s var(--ease-in-out), color 0.15s var(--ease-in-out);
+  flex-shrink: 0;
+}
+.alerts-panel-close:hover {
+  background: rgba(255, 255, 255, 0.12);
+  color: #fff;
+}
+.alerts-panel-close:active { transform: scale(0.96); }
+
+.alerts-panel-body  { padding: 12px; }
+.alerts-panel-list  { display: flex; flex-direction: column; gap: 8px; }
+.alerts-panel-empty {
+  text-align: center;
+  padding: 24px 8px 10px;
+}
+.alerts-panel-empty-icon  { color: rgba(255, 255, 255, 0.18); margin: 0 auto 10px; display: block; }
+.alerts-panel-empty-title { font-size: 12px; font-weight: 600; color: rgba(255, 255, 255, 0.55); }
+.alerts-panel-empty-hint  {
+  font-size: 10px;
+  color: rgba(255, 255, 255, 0.4);
+  margin-top: 4px;
+  line-height: 1.5;
+}
+.alerts-panel-empty-accent { color: #FBBF24; font-weight: 600; }
+.alerts-panel-foot {
+  font-size: 9px;
+  color: rgba(255, 255, 255, 0.35);
+  text-align: center;
+  margin-top: 8px;
+  padding-top: 6px;
+  border-top: 1px solid rgba(255, 255, 255, 0.06);
+}
+
+/* ── Individual alert row ───────────────────────────────── */
 .alert-row-btn {
   width: 100%;
   text-align: left;
@@ -1400,32 +1508,189 @@ a:active {
   padding: 0;
   cursor: pointer;
   -webkit-tap-highlight-color: transparent;
+  outline: none;
 }
-.alert-row-btn:active .alert-row-body { transform: scale(0.985); }
+.alert-row-btn:focus-visible .alert-row-body {
+  box-shadow: 0 0 0 2px rgba(251, 191, 36, 0.55);
+}
 .alert-row-body {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 10px 12px;
+  border-radius: 12px;
+  background: rgba(255, 255, 255, 0.05);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  color: #fff;
   transition: background 0.15s var(--ease-in-out),
               border-color 0.15s var(--ease-in-out),
               transform 0.08s var(--ease-in-out);
 }
 .alert-row-btn:hover .alert-row-body {
-  background: rgba(22, 29, 46, 0.92);
-  border-color: rgba(255, 255, 255, 0.18);
+  background: rgba(255, 255, 255, 0.09);
+  border-color: rgba(255, 255, 255, 0.2);
 }
-/* While the parent resolves the tracked aircraft (local → callsign →
-   global airplanes.live lookup), the row shows a subtle emerald
-   pulsing dot and a slight dim so the user knows we're working on it. */
+.alert-row-btn:active .alert-row-body { transform: scale(0.985); }
 .alert-row-btn.is-resolving .alert-row-body {
-  background: rgba(255, 255, 255, 0.06);
-  border-color: rgba(255, 255, 255, 0.22);
+  background: rgba(255, 255, 255, 0.05);
+  border-color: rgba(255, 255, 255, 0.18);
   opacity: 0.85;
 }
+
+.alert-row-main     { flex: 1; min-width: 0; }
+.alert-row-heading  { display: flex; align-items: center; gap: 6px; margin-bottom: 2px; }
+.alert-row-cs       {
+  font-size: 12px;
+  font-weight: 800;
+  color: #FBBF24;
+  letter-spacing: 0.01em;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.alert-row-dot {
+  width: 6px; height: 6px; border-radius: 50%;
+  background: rgba(251, 191, 36, 0.75);
+  flex-shrink: 0;
+}
+.alert-row-btn.is-resolving .alert-row-dot { background: #34D399; }
+.alert-row-sub {
+  font-size: 10px;
+  color: rgba(255, 255, 255, 0.55);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.alert-row-remove {
+  width: 24px; height: 24px;
+  border-radius: 8px;
+  background: rgba(255, 255, 255, 0.05);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  color: rgba(255, 255, 255, 0.35);
+  display: flex; align-items: center; justify-content: center;
+  cursor: pointer;
+  flex-shrink: 0;
+  transition: background 0.15s var(--ease-in-out),
+              color 0.15s var(--ease-in-out),
+              border-color 0.15s var(--ease-in-out);
+}
+.alert-row-remove:hover {
+  background: rgba(239, 68, 68, 0.2);
+  color: #F87171;
+  border-color: rgba(239, 68, 68, 0.35);
+}
+
 .alert-row-loading-dot {
-  box-shadow: 0 0 6px rgba(200, 202, 205, 0.6);
+  box-shadow: 0 0 6px rgba(52, 211, 153, 0.75);
   animation: alert-row-pulse 0.9s infinite ease-in-out;
 }
 @keyframes alert-row-pulse {
   0%, 100% { opacity: 0.35; transform: scale(0.82); }
   50%      { opacity: 1;    transform: scale(1.1);  }
+}
+
+/* ── Alerts dashboard — light theme (day map) ─────────── */
+[data-theme="light"] .alerts-panel {
+  background: rgba(255, 255, 255, 0.94);
+  border-color: rgba(11, 13, 16, 0.1);
+  color: var(--text);
+  box-shadow:
+    0 18px 42px rgba(11, 13, 16, 0.16),
+    0 0 0 1px rgba(255, 255, 255, 0.8) inset;
+}
+[data-theme="light"] .alerts-panel-header    { border-bottom-color: rgba(11, 13, 16, 0.08); }
+[data-theme="light"] .alerts-panel-title     { color: var(--text); }
+[data-theme="light"] .alerts-panel-bell      { color: #B8860B; }
+[data-theme="light"] .alerts-panel-count     {
+  background: rgba(184, 134, 11, 0.15);
+  color: #8B5E00;
+  border-color: rgba(184, 134, 11, 0.3);
+}
+[data-theme="light"] .alerts-panel-close {
+  background: rgba(11, 13, 16, 0.05);
+  border-color: rgba(11, 13, 16, 0.1);
+  color: var(--text-muted);
+}
+[data-theme="light"] .alerts-panel-close:hover {
+  background: rgba(11, 13, 16, 0.09);
+  color: var(--text);
+}
+[data-theme="light"] .alerts-panel-empty-icon   { color: rgba(11, 13, 16, 0.18); }
+[data-theme="light"] .alerts-panel-empty-title  { color: var(--text-muted); }
+[data-theme="light"] .alerts-panel-empty-hint   { color: var(--text-subtle); }
+[data-theme="light"] .alerts-panel-empty-accent { color: #8B5E00; }
+[data-theme="light"] .alerts-panel-foot         {
+  color: var(--text-subtle);
+  border-top-color: rgba(11, 13, 16, 0.08);
+}
+
+[data-theme="light"] .alert-row-body {
+  background: rgba(255, 255, 255, 0.72);
+  border-color: rgba(11, 13, 16, 0.1);
+  color: var(--text);
+}
+[data-theme="light"] .alert-row-btn:hover .alert-row-body {
+  background: rgba(255, 255, 255, 0.95);
+  border-color: rgba(11, 13, 16, 0.24);
+}
+[data-theme="light"] .alert-row-btn.is-resolving .alert-row-body {
+  background: rgba(255, 255, 255, 0.72);
+  border-color: rgba(11, 13, 16, 0.18);
+}
+[data-theme="light"] .alert-row-cs  { color: #8B5E00; }
+[data-theme="light"] .alert-row-dot { background: rgba(184, 134, 11, 0.9); }
+[data-theme="light"] .alert-row-sub { color: var(--text-muted); }
+[data-theme="light"] .alert-row-remove {
+  background: rgba(11, 13, 16, 0.05);
+  border-color: rgba(11, 13, 16, 0.1);
+  color: rgba(11, 13, 16, 0.45);
+}
+[data-theme="light"] .alert-row-remove:hover {
+  background: rgba(239, 68, 68, 0.14);
+  color: #B91C1C;
+  border-color: rgba(239, 68, 68, 0.35);
+}
+
+/* ════════════════════════════════════════════════════════════
+   MOBILE SEARCH OVERLAY — light-theme overrides
+   ════════════════════════════════════════════════════════════
+   The overlay's dark background is baked in, but in light mode
+   the child `text-white` utilities get re-routed to dark graphite
+   by our Tailwind-overrides block — which meant dark text on a
+   dark overlay (unreadable). Flip the overlay to a paper surface
+   in light mode so the (now-dark) text has the contrast it needs. */
+[data-theme="light"] .mobile-search-overlay {
+  background: rgba(247, 247, 248, 0.98);
+  color: var(--text);
+}
+[data-theme="light"] .mobile-search-bar {
+  border-bottom-color: rgba(11, 13, 16, 0.1);
+}
+[data-theme="light"] .mobile-search-bar input,
+[data-theme="light"] .mobile-search-bar input::placeholder {
+  color: var(--text);
+}
+[data-theme="light"] .mobile-search-bar input::placeholder { color: var(--text-subtle); }
+[data-theme="light"] .mobile-search-clear {
+  background: rgba(11, 13, 16, 0.06);
+  color: var(--text-muted);
+}
+[data-theme="light"] .mobile-search-clear:active {
+  background: rgba(11, 13, 16, 0.12);
+}
+[data-theme="light"] .mobile-search-cancel { color: var(--text); }
+[data-theme="light"] .mobile-search-empty  { color: var(--text-subtle); }
+[data-theme="light"] .mobile-search-results button + button {
+  border-top-color: rgba(11, 13, 16, 0.06);
+}
+/* Hover + tap feedback on search rows (both themes) */
+.mobile-search-results button:hover,
+.mobile-search-results button:active {
+  background: rgba(255, 255, 255, 0.06);
+}
+[data-theme="light"] .mobile-search-results button:hover,
+[data-theme="light"] .mobile-search-results button:active {
+  background: rgba(11, 13, 16, 0.05);
 }
 
 /* ─────────────────────────────────────────────────────────
@@ -1814,10 +2079,12 @@ a:active {
 }
 
 .landing-intro-title-accent {
-  background: linear-gradient(120deg, #E8E8E8 0%, #BFC1C2 60%, #C0C0C0 100%);
-  -webkit-background-clip: text;
-  background-clip: text;
-  color: transparent;
+  /* Solid silver — no gradient, no shimmer, no clip tricks.
+     Reads cleaner and more premium at title weight than the
+     previous metallic gradient clip. */
+  color: #E8E8E8;
+  background: none;
+  -webkit-text-fill-color: currentColor;
 }
 
 .landing-intro-title-break { color: rgba(255, 255, 255, 0.92); }
@@ -2377,11 +2644,13 @@ a:active {
 
 /* Keep the accent word in the headline polished silver */
 .landing-intro-title-accent {
-  background: var(--metallic);
-  -webkit-background-clip: text;
-  background-clip: text;
-  color: transparent;
-  -webkit-text-fill-color: transparent;
+  /* Light mode: deeper silver tone so the word stays legible
+     on the bright landing backdrop while still reading as
+     "silver" — no gradient, no shimmer, matching the dark-mode
+     treatment. */
+  color: #A8AAAC;
+  background: none;
+  -webkit-text-fill-color: currentColor;
 }
 
 /* Donate pill: subtle silver glow on hover instead of flat bg */
@@ -2722,6 +2991,41 @@ a:active {
 }
 [data-theme="light"] .bg-white\/5  { background-color: rgba(11, 13, 16, 0.04) !important; }
 [data-theme="light"] .bg-white\/10 { background-color: rgba(11, 13, 16, 0.06) !important; }
+
+/* Tailwind placeholder-white/* utilities invert to muted graphite so
+   search fields stay readable on a light surface. */
+[data-theme="light"] .placeholder-white\/30::placeholder,
+[data-theme="light"] .placeholder-white\/25::placeholder,
+[data-theme="light"] .placeholder-white\/40::placeholder {
+  color: rgba(11, 13, 16, 0.4) !important;
+}
+[data-theme="light"] .text-white\/35 { color: var(--text-subtle) !important; }
+[data-theme="light"] .text-white\/30 { color: var(--text-subtle) !important; }
+[data-theme="light"] .text-white\/25 { color: rgba(11, 13, 16, 0.38) !important; }
+[data-theme="light"] .text-white\/20 { color: rgba(11, 13, 16, 0.32) !important; }
+[data-theme="light"] .text-white\/15 { color: rgba(11, 13, 16, 0.28) !important; }
+
+/* In-app toast — light theme mirror so headline + body read
+   correctly on a bright backdrop (otherwise the hardcoded dark
+   panel would sit oddly against the light chrome). */
+[data-theme="light"] .in-app-toast {
+  background: rgba(255, 255, 255, 0.96);
+  border-color: rgba(11, 13, 16, 0.12);
+  color: var(--text);
+  box-shadow:
+    0 8px 28px rgba(11, 13, 16, 0.14),
+    0 0 0 1px rgba(255, 255, 255, 0.6) inset;
+}
+[data-theme="light"] .in-app-toast-title { color: var(--text); }
+[data-theme="light"] .in-app-toast-body  { color: var(--text-muted); }
+[data-theme="light"] .in-app-toast-close {
+  background: rgba(11, 13, 16, 0.06);
+  color: var(--text-muted);
+}
+[data-theme="light"] .in-app-toast-close:hover {
+  background: rgba(11, 13, 16, 0.12);
+  color: var(--text);
+}
 [data-theme="light"] .bg-white\/15 { background-color: rgba(11, 13, 16, 0.08) !important; }
 [data-theme="light"] .bg-white\/20 { background-color: rgba(11, 13, 16, 0.1) !important; }
 

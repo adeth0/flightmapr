@@ -39,40 +39,41 @@ export function AlertsDashboard({ onClose, onFocusFlight }) {
 
   return (
     <div
-      className="absolute top-[68px] right-4 z-[950] w-72 glass rounded-2xl overflow-hidden animate-slide-down"
+      className="alerts-panel animate-slide-down"
       style={{ pointerEvents: 'auto' }}
+      role="dialog"
+      aria-label="Flight alerts"
     >
-      <div className="flex items-center justify-between px-4 py-3 border-b border-white/5">
-        <div className="flex items-center gap-2">
-          <Bell size={13} className="text-amber-400" />
-          <span className="text-xs font-semibold text-white">Flight Alerts</span>
+      <div className="alerts-panel-header">
+        <div className="alerts-panel-title-row">
+          <Bell size={13} className="alerts-panel-bell" aria-hidden="true" />
+          <span className="alerts-panel-title">Flight Alerts</span>
           {tracked.length > 0 && (
-            <span className="text-[9px] bg-amber-400/20 text-amber-400 rounded-full px-1.5 py-0.5 font-bold leading-none">
-              {tracked.length}
-            </span>
+            <span className="alerts-panel-count">{tracked.length}</span>
           )}
         </div>
         <button
+          type="button"
           onClick={onClose}
-          className="w-6 h-6 rounded-lg bg-white/5 hover:bg-white/10 flex items-center justify-center transition-colors"
+          className="alerts-panel-close"
           aria-label="Close alerts"
         >
-          <X size={11} className="text-white/50" />
+          <X size={11} aria-hidden="true" />
         </button>
       </div>
 
-      <div className="p-3">
+      <div className="alerts-panel-body">
         {tracked.length === 0 ? (
-          <div className="text-center py-6">
-            <BellOff size={26} className="text-white/12 mx-auto mb-2.5" />
-            <p className="text-xs text-white/30 font-medium">No flights tracked</p>
-            <p className="text-[10px] text-white/20 mt-1 leading-relaxed">
+          <div className="alerts-panel-empty">
+            <BellOff size={26} className="alerts-panel-empty-icon" aria-hidden="true" />
+            <p className="alerts-panel-empty-title">No flights tracked</p>
+            <p className="alerts-panel-empty-hint">
               Select a flight and tap<br />
-              <span className="text-amber-400/60">Track</span> to get alerts
+              <span className="alerts-panel-empty-accent">Track</span> to get alerts
             </p>
           </div>
         ) : (
-          <div className="space-y-2">
+          <div className="alerts-panel-list">
             {tracked.map((item) => (
               <AlertRow
                 key={item.id}
@@ -82,7 +83,7 @@ export function AlertsDashboard({ onClose, onFocusFlight }) {
                 onClick={() => handleRowClick(item)}
               />
             ))}
-            <p className="text-[9px] text-white/20 text-center mt-2 pt-1 border-t border-white/5">
+            <p className="alerts-panel-foot">
               Tap a flight to focus it on the map
             </p>
           </div>
@@ -157,17 +158,16 @@ function AlertRow({ item, resolving, onRemove, onClick }) {
         WebkitTapHighlightColor: 'transparent',
       }}
     >
-      <div className="alert-row-body flex items-center gap-3 glass-lighter rounded-xl px-3 py-2.5">
-        <div className="flex-1 min-w-0">
-          <div className="flex items-center gap-1.5 mb-0.5">
-            <span className="text-xs font-bold text-amber-400 truncate">{item.flightNumber ?? item.callsign}</span>
+      <div className="alert-row-body">
+        <div className="alert-row-main">
+          <div className="alert-row-heading">
+            <span className="alert-row-cs">{item.flightNumber ?? item.callsign}</span>
             <span
-              className={`w-1.5 h-1.5 rounded-full flex-shrink-0 ${
-                resolving ? 'bg-emerald-400 alert-row-loading-dot' : 'bg-amber-400/70 blink-dot'
-              }`}
+              className={`alert-row-dot ${resolving ? 'alert-row-loading-dot' : 'blink-dot'}`}
+              aria-hidden="true"
             />
           </div>
-          <div className="text-[10px] text-white/35 truncate">
+          <div className="alert-row-sub">
             {resolving
               ? 'Locating aircraft…'
               : hasRoute
@@ -184,10 +184,10 @@ function AlertRow({ item, resolving, onRemove, onClick }) {
           onPointerDown={(e) => e.stopPropagation()}
           title="Stop tracking"
           aria-label={`Stop tracking ${item.flightNumber ?? item.callsign}`}
-          className="w-6 h-6 rounded-lg bg-white/5 hover:bg-red-500/20 text-white/25 hover:text-red-400 flex items-center justify-center transition-colors flex-shrink-0"
+          className="alert-row-remove"
           style={{ touchAction: 'manipulation' }}
         >
-          <X size={10} />
+          <X size={10} aria-hidden="true" />
         </button>
       </div>
     </div>
