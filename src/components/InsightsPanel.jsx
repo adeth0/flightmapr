@@ -235,28 +235,28 @@ export function InsightsPanel({ userLocation, onClose, onSelectFlight, onSelectA
         </div>
       </div>
 
-      <GlassCard className="p-4 flex-shrink-0">
+      <GlassCard className="insights-header-card p-4 flex-shrink-0">
         <div className="flex items-start justify-between gap-3">
           <div className="min-w-0">
             <div className="flex items-center gap-2 mb-1">
-              <span className="w-9 h-9 rounded-xl bg-[#E8E8E8]/12 border border-[#E8E8E8]/20 flex items-center justify-center">
-                <Sparkles size={16} className="text-[#E8E8E8]" />
+              <span className="insights-header-badge w-9 h-9 rounded-xl flex items-center justify-center">
+                <Sparkles size={16} className="insights-header-badge-icon" />
               </span>
               <div className="min-w-0">
-                <div className="text-lg font-bold tracking-tight text-white">Flight Insights</div>
-                <div className="text-[10px] text-white/45 tracking-[0.18em] uppercase">
+                <div className="insights-header-title">Flight Insights</div>
+                <div className="insights-header-eyebrow">
                   Live · updated every {Math.round(REFRESH_MS / 1_000)}s
                 </div>
               </div>
             </div>
             {userLocation
-              ? <div className="text-xs text-white/45">Within 200 mi of your location · {totalRows} signals</div>
-              : <div className="text-xs text-white/45">Global snapshot · {totalRows} signals</div>
+              ? <div className="insights-header-sub">Within 200 mi of your location · {totalRows} signals</div>
+              : <div className="insights-header-sub">Global snapshot · {totalRows} signals</div>
             }
           </div>
 
-          <button onClick={onClose} className="btn-icon flex-shrink-0" aria-label="Close insights">
-            <X size={13} className="text-white/50" />
+          <button onClick={onClose} className="btn-icon insights-header-close flex-shrink-0" aria-label="Close insights">
+            <X size={13} />
           </button>
         </div>
       </GlassCard>

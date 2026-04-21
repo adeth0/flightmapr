@@ -2989,8 +2989,20 @@ a:active {
 [data-theme="light"] .border-white\/50 {
   border-color: rgba(11, 13, 16, 0.22) !important;
 }
+[data-theme="light"] .bg-white\/4  { background-color: rgba(11, 13, 16, 0.035) !important; }
 [data-theme="light"] .bg-white\/5  { background-color: rgba(11, 13, 16, 0.04) !important; }
+[data-theme="light"] .bg-white\/8  { background-color: rgba(11, 13, 16, 0.05) !important; }
 [data-theme="light"] .bg-white\/10 { background-color: rgba(11, 13, 16, 0.06) !important; }
+[data-theme="light"] .bg-white\/12 { background-color: rgba(11, 13, 16, 0.07) !important; }
+[data-theme="light"] .bg-white\/25 { background-color: rgba(11, 13, 16, 0.14) !important; }
+[data-theme="light"] .bg-white\/30 { background-color: rgba(11, 13, 16, 0.16) !important; }
+/* Hover variants so interactive rows/pills stay legible on paper */
+[data-theme="light"] .hover\:bg-white\/4:hover  { background-color: rgba(11, 13, 16, 0.04) !important; }
+[data-theme="light"] .hover\:bg-white\/5:hover  { background-color: rgba(11, 13, 16, 0.05) !important; }
+[data-theme="light"] .hover\:bg-white\/8:hover  { background-color: rgba(11, 13, 16, 0.07) !important; }
+[data-theme="light"] .hover\:bg-white\/10:hover { background-color: rgba(11, 13, 16, 0.09) !important; }
+[data-theme="light"] .active\:bg-white\/8:active   { background-color: rgba(11, 13, 16, 0.08) !important; }
+[data-theme="light"] .active\:bg-white\/10:active  { background-color: rgba(11, 13, 16, 0.1)  !important; }
 
 /* Tailwind placeholder-white/* utilities invert to muted graphite so
    search fields stay readable on a light surface. */
@@ -3111,6 +3123,96 @@ a:active {
   background: rgba(11, 13, 16, 0.03);
   border-color: rgba(11, 13, 16, 0.12);
   color: var(--text-subtle);
+}
+
+/* ════════════════════════════════════════════════════════════
+   FLIGHT INSIGHTS — HEADER CARD (dedicated class-based colours)
+   ════════════════════════════════════════════════════════════
+   Replaces the Tailwind `text-white`/`text-white/45` utilities
+   inside the insights header so "Flight Insights",
+   "Live · updated every 8s", and
+   "Within 200 mi of your location · N signals" always pick up
+   the correct colour for the current theme — graphite on paper
+   in day mode, silver on graphite in night mode. No Tailwind
+   opacity utility gymnastics, no specificity wars.
+   ════════════════════════════════════════════════════════════ */
+.insights-header-card {
+  color: var(--text);
+}
+.insights-header-title {
+  font-size: 1.125rem;
+  font-weight: 700;
+  letter-spacing: -0.01em;
+  color: #ffffff;
+}
+.insights-header-eyebrow {
+  font-size: 10px;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  color: rgba(255, 255, 255, 0.6);
+  margin-top: 1px;
+}
+.insights-header-sub {
+  font-size: 12px;
+  color: rgba(255, 255, 255, 0.6);
+  margin-top: 4px;
+}
+.insights-header-badge {
+  background: rgba(232, 232, 232, 0.12);
+  border: 1px solid rgba(232, 232, 232, 0.2);
+}
+.insights-header-badge-icon { color: #E8E8E8; }
+.insights-header-close     { color: rgba(255, 255, 255, 0.55); }
+
+/* Light-theme variants — solid graphite on paper-white card so
+   nothing clashes with the white background. */
+[data-theme="light"] .insights-header-title    { color: var(--text); }
+[data-theme="light"] .insights-header-eyebrow  { color: var(--text-muted); }
+[data-theme="light"] .insights-header-sub      { color: var(--text-muted); }
+[data-theme="light"] .insights-header-badge {
+  background: rgba(11, 13, 16, 0.05);
+  border-color: rgba(11, 13, 16, 0.12);
+}
+[data-theme="light"] .insights-header-badge-icon { color: var(--silver-600); }
+[data-theme="light"] .insights-header-close     { color: var(--text-muted); }
+
+/* ════════════════════════════════════════════════════════════
+   LIGHT THEME CONTRAST GUARD — catch-all
+   ════════════════════════════════════════════════════════════
+   Final safety net: if any element in light mode still carries
+   a Tailwind `text-white*` utility that isn't specifically
+   re-coloured above, force it to dark graphite. Attribute
+   substring matching covers every opacity variant (including
+   any new arbitrary ones we haven't listed individually —
+   /10, /28, /65, etc.) so nothing ever renders white-on-white.
+
+   Specific per-opacity rules earlier in this file win on source
+   order for the muted tones (so /40, /50, /70 still get
+   `var(--text-muted)`), while this catch-all handles everything
+   else.
+   ════════════════════════════════════════════════════════════ */
+[data-theme="light"] [class*="text-white"] {
+  color: var(--text) !important;
+}
+
+/* Specifically re-soften the muted ranges so labels stay subtle
+   rather than slamming hard graphite everywhere. These beat the
+   catch-all above because they are more-specific (class selector
+   with escaped slash). */
+[data-theme="light"] .text-white\/10 { color: rgba(11, 13, 16, 0.22) !important; }
+[data-theme="light"] .text-white\/28 { color: rgba(11, 13, 16, 0.4)  !important; }
+[data-theme="light"] .text-white\/65 { color: var(--text-muted)       !important; }
+[data-theme="light"] .text-white\/75 { color: var(--text-muted)       !important; }
+[data-theme="light"] .text-white\/85 { color: var(--text)             !important; }
+
+/* Also guard against arbitrary silver hex utilities used in some
+   spots — `text-[#E8E8E8]` already has explicit overrides, this
+   is the substring-match fallback. */
+[data-theme="light"] [class*="text-[#E"],
+[data-theme="light"] [class*="text-[#F"] {
+  /* Any element using a bright silver/white-ish arbitrary colour
+     flips to graphite in light mode. */
+  color: var(--text) !important;
 }
 
 /* In-app toast — light theme mirror so headline + body read
