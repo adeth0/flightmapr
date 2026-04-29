@@ -3,32 +3,60 @@
 @tailwind utilities;
 
 /* ════════════════════════════════════════════════════════════
-   DESIGN TOKENS — Vogue Silver Metallic System
+   DESIGN TOKENS — Azure Sky System
    ════════════════════════════════════════════════════════════
-   Replaces the previous emerald accent system with a premium
-   brushed-silver palette. Surfaces are deep charcoal with soft
-   white glows; accents use a metallic gradient that catches
-   light on hover to suggest polished chrome rather than paint.
+   Replaces the previous brushed-silver palette with a vibrant
+   azure scheme. Bright accents land on `--azure-400` (#38BDF8);
+   gradients become a sky-to-deep-sky sweep. The neutral grey
+   `--silver-500`+ tones are kept as muted text colours so body
+   copy stays readable on both themes — only the *highlight*
+   tones (silver-200/-300, the metallic gradient) become azure.
+   Tailwind arbitrary utilities like `text-[#38BDF8]`,
+   `bg-[#38BDF8]/12`, and `border-[#38BDF8]/30` (which the JSX
+   uses as the silver accent throughout) are overridden later
+   in this file so they automatically pick up the azure colour.
    ════════════════════════════════════════════════════════════ */
 :root {
-  /* Silver ramp — from brightest highlight to deepest shade */
+  /* Azure ramp — bright at top, deep at bottom (Tailwind sky-*) */
+  --azure-50:      #F0F9FF;
+  --azure-100:     #E0F2FE;
+  --azure-200:     #BAE6FD;
+  --azure-300:     #7DD3FC;
+  --azure-400:     #38BDF8;   /* primary brand accent          */
+  --azure-500:     #0EA5E9;
+  --azure-600:     #0284C7;
+  --azure-700:     #0369A1;
+  --azure-800:     #075985;
+  --azure:         #38BDF8;   /* short alias                   */
+
+  /* Silver ramp — the bright end (200/300) is repointed to
+     azure tones so any pre-existing call to `var(--silver-200)`
+     becomes azure automatically. The deeper end (500–800) keeps
+     neutral grey values because that's where muted body text /
+     borders pick up their colour. */
   --silver-50:     #ffffff;
   --silver-100:    #F4F5F7;
-  --silver-200:    #E8E8E8;
-  --silver-300:    #D6D8DA;
+  --silver-200:    #38BDF8;   /* was #38BDF8 — bright azure    */
+  --silver-300:    #7DD3FC;   /* was #D6D8DA — light azure     */
   --silver-400:    #C0C1C3;
   --silver-500:    #A9ABAE;
   --silver-600:    #8C8C8C;
   --silver-700:    #6F7175;
   --silver-800:    #4A4C50;
 
-  /* Primary silver token (single brightest swatch) */
-  --silver:        #E8E8E8;
+  /* Primary highlight token — was silver-200, now azure-400 */
+  --silver:        var(--azure-400);
 
   /* Back-compat aliases so any unmigrated var(--emerald*) call
-     still resolves to a sensible silver tone rather than green. */
-  --emerald:       #E8E8E8;
-  --emerald-dim:   #BFC1C2;
+     still resolves to a sensible accent tone. */
+  --emerald:       var(--azure-400);
+  --emerald-dim:   var(--azure-300);
+
+  /* Soft accent-tinted glow used for selected-aircraft halos,
+     focus rings, and highlight pills. Replaces the white-only
+     glow with a subtle azure tint that matches the new theme. */
+  --accent-glow:   rgba(56, 189, 248, 0.55);
+  --accent-glow-soft: rgba(56, 189, 248, 0.25);
 
   /* ─── DARK MODE (default) — graphite + silver ─────────── */
   color-scheme: dark;
@@ -56,17 +84,17 @@
   /* Soft white glow used across hover / focus states */
   --soft-glow:     rgba(255, 255, 255, 0.6);
 
-  /* Signature brushed-metal gradients */
-  --metallic:      linear-gradient(135deg, #C0C0C0 0%, #E8E8E8 50%, #BFC1C2 100%);
-  --metallic-soft: linear-gradient(135deg, rgba(232,232,232,0.18) 0%, rgba(255,255,255,0.35) 50%, rgba(191,193,194,0.18) 100%);
+  /* Signature azure gradients (replaces brushed-metal) */
+  --metallic:      linear-gradient(135deg, #0EA5E9 0%, #38BDF8 50%, #0284C7 100%);
+  --metallic-soft: linear-gradient(135deg, rgba(56,189,248,0.22) 0%, rgba(125,211,252,0.4) 50%, rgba(2,132,199,0.22) 100%);
   --metallic-sweep:linear-gradient(110deg,
-                     rgba(140,140,140,0) 0%,
-                     rgba(140,140,140,1) 15%,
-                     rgba(232,232,232,1) 40%,
-                     rgba(255,255,255,1) 50%,
-                     rgba(232,232,232,1) 60%,
-                     rgba(140,140,140,1) 85%,
-                     rgba(140,140,140,0) 100%);
+                     rgba(2,132,199,0) 0%,
+                     rgba(2,132,199,1) 15%,
+                     rgba(56,189,248,1) 40%,
+                     rgba(186,230,253,1) 50%,
+                     rgba(56,189,248,1) 60%,
+                     rgba(2,132,199,1) 85%,
+                     rgba(2,132,199,0) 100%);
 
   /* Animation easing — natural, iOS-grade curves */
   --ease-spring:   cubic-bezier(0.34, 1.56, 0.64, 1);
@@ -101,23 +129,29 @@
 
   --soft-glow:     rgba(11, 13, 16, 0.18);
 
-  /* Chrome silver — darker mid-tones read crisp on white */
-  --silver:        #8C8C8C;
+  /* Azure on white — deeper sky tones so accents stand out
+     against bright Voyager / paper backdrops. The neutral grey
+     end of the ramp keeps body-text greys for readability. */
+  --silver:        var(--azure-600);
   --silver-50:     #ffffff;
-  --silver-100:    #F4F5F7;
-  --silver-200:    #D6D8DA;
-  --silver-300:    #BFC1C2;
+  --silver-100:    #E0F2FE;
+  --silver-200:    var(--azure-600);  /* deep azure on bright */
+  --silver-300:    var(--azure-500);
   --silver-400:    #A9ABAE;
   --silver-500:    #8C8C8C;
   --silver-600:    #6F7175;
   --silver-700:    #4A4C50;
   --silver-800:    #2A2C30;
-  --emerald:       #8C8C8C;
-  --emerald-dim:   #6F7175;
+  --emerald:       var(--azure-600);
+  --emerald-dim:   var(--azure-500);
 
-  /* Chrome gradient — more contrast so it doesn't wash out */
-  --metallic:      linear-gradient(135deg, #A9ABAE 0%, #F4F5F7 50%, #8C8C8C 100%);
-  --metallic-soft: linear-gradient(135deg, rgba(140,140,140,0.12) 0%, rgba(215,216,218,0.35) 50%, rgba(140,140,140,0.12) 100%);
+  /* Light-theme accent glow — deeper azure so it reads on white */
+  --accent-glow:      rgba(2, 132, 199, 0.32);
+  --accent-glow-soft: rgba(2, 132, 199, 0.16);
+
+  /* Azure gradient — deeper tones for white surfaces */
+  --metallic:      linear-gradient(135deg, #0369A1 0%, #38BDF8 50%, #0284C7 100%);
+  --metallic-soft: linear-gradient(135deg, rgba(2,132,199,0.18) 0%, rgba(56,189,248,0.35) 50%, rgba(2,132,199,0.18) 100%);
   --metallic-sweep:linear-gradient(110deg,
                      rgba(111,113,117,0) 0%,
                      rgba(111,113,117,1) 15%,
@@ -184,7 +218,7 @@ html, body, #root {
 }
 .leaflet-control-zoom a {
   background: rgba(17,24,39,0.88) !important;
-  color: #E8E8E8 !important;
+  color: #38BDF8 !important;
   border-bottom: 1px solid rgba(255, 255, 255,0.1) !important;
   width: 36px !important; height: 36px !important; line-height: 36px !important;
   font-size: 18px !important;
@@ -262,7 +296,7 @@ html, body, #root {
 }
 
 .tracking-bar-label strong {
-  color: #E8E8E8;
+  color: #38BDF8;
 }
 
 /* Hide follow bar when the flight card is open on mobile. */
@@ -554,8 +588,8 @@ html, body, #root {
 
 /* ── Follow mode pulse ───────────────────────────────────── */
 @keyframes follow-pulse {
-  0%, 100% { filter: drop-shadow(0 0 6px #E8E8E880); }
-  50%       { filter: drop-shadow(0 0 16px #E8E8E8) drop-shadow(0 0 4px #fff); }
+  0%, 100% { filter: drop-shadow(0 0 6px #38BDF880); }
+  50%       { filter: drop-shadow(0 0 16px #38BDF8) drop-shadow(0 0 4px #fff); }
 }
 .aircraft-following svg { animation: follow-pulse 1.2s ease-in-out infinite; }
 
@@ -628,7 +662,7 @@ a:active {
 .sidebar-btn:active { transform: scale(0.97); }
 
 .sidebar-btn-outline {
-  color: #E8E8E8;
+  color: #38BDF8;
   border: 1px solid rgba(255, 255, 255,0.25);
   background: transparent;
 }
@@ -636,12 +670,12 @@ a:active {
 
 .sidebar-btn-active {
   background: rgba(255, 255, 255,0.15);
-  color: #E8E8E8;
+  color: #38BDF8;
   border: 1px solid rgba(255, 255, 255,0.4);
   box-shadow: 0 0 12px rgba(255, 255, 255,0.15);
 }
 
-.sidebar-btn-follow:hover  { border-color: rgba(255, 255, 255,0.25); color: #E8E8E8; }
+.sidebar-btn-follow:hover  { border-color: rgba(255, 255, 255,0.25); color: #38BDF8; }
 
 .sidebar-btn-tracking-on {
   background: rgba(245,158,11,0.15);
@@ -684,7 +718,7 @@ a:active {
 .airport-tab:hover { color: rgba(255, 255, 255, 0.75); }
 .airport-tab.is-active {
   color: #0b0f17;
-  background: linear-gradient(135deg, #E8E8E8 0%, #BFC1C2 100%);
+  background: linear-gradient(135deg, #38BDF8 0%, #0284C7 100%);
   box-shadow: 0 4px 12px rgba(255, 255, 255, 0.2);
 }
 .airport-tab-count {
@@ -764,7 +798,7 @@ a:active {
   gap: 6px;
   font-size: 11px;
   font-weight: 700;
-  color: #E8E8E8;
+  color: #38BDF8;
 }
 
 .airport-progress-pill-track {
@@ -778,7 +812,7 @@ a:active {
 .airport-progress-pill-fill {
   height: 100%;
   border-radius: inherit;
-  background: linear-gradient(90deg, #BFC1C2 0%, #E8E8E8 100%);
+  background: linear-gradient(90deg, #0284C7 0%, #38BDF8 100%);
   box-shadow: 0 0 10px rgba(255, 255, 255, 0.35);
 }
 
@@ -1081,7 +1115,7 @@ a:active {
 
 .onboarding-btn-primary {
   width: 100%; padding: 15px 0;
-  background: linear-gradient(135deg, #E8E8E8 0%, #BFC1C2 100%);
+  background: linear-gradient(135deg, #38BDF8 0%, #0284C7 100%);
   border-radius: 16px; border: none;
   color: #000; font-weight: 700; font-size: 15px;
   letter-spacing: -0.2px; cursor: pointer;
@@ -1144,7 +1178,7 @@ a:active {
 
 .install-banner-cta {
   padding: 9px 16px; border-radius: 11px; border: none; flex-shrink: 0;
-  background: linear-gradient(135deg, #E8E8E8 0%, #BFC1C2 100%);
+  background: linear-gradient(135deg, #38BDF8 0%, #0284C7 100%);
   color: #000; font-weight: 700; font-size: 12px;
   cursor: pointer; white-space: nowrap;
   transition: transform 0.1s var(--ease-in-out);
@@ -1212,7 +1246,7 @@ a:active {
 .mobile-search-cancel {
   background: none;
   border: none;
-  color: #E8E8E8;
+  color: #38BDF8;
   font-size: 15px;
   font-weight: 600;
   padding: 6px 4px;
@@ -1365,7 +1399,7 @@ a:active {
   height: 48px;
   border-radius: 50%;
   border: 1px solid rgba(255, 255, 255, 0.35);
-  background: linear-gradient(135deg, #E8E8E8 0%, #BFC1C2 100%);
+  background: linear-gradient(135deg, #38BDF8 0%, #0284C7 100%);
   color: #0b0f17;
   display: flex;
   align-items: center;
@@ -1471,12 +1505,12 @@ a:active {
   justify-content: center;
   flex-shrink: 0;
   background: rgba(255, 255, 255, 0.12);
-  color: #E8E8E8;
+  color: #38BDF8;
   border: 1px solid rgba(255, 255, 255, 0.25);
 }
 
 .feedback-fab-item-donate .feedback-fab-item-icon {
-  background: linear-gradient(135deg, #E8E8E8 0%, #BFC1C2 100%);
+  background: linear-gradient(135deg, #38BDF8 0%, #0284C7 100%);
   color: #0b0f17;
   border-color: transparent;
   box-shadow: 0 0 10px rgba(255, 255, 255, 0.45);
@@ -1904,7 +1938,7 @@ a:active {
   border-radius: 10px;
   background: rgba(255, 255, 255, 0.08);
   border: 1px solid rgba(255, 255, 255, 0.15);
-  color: #E8E8E8;
+  color: #38BDF8;
 }
 
 .insights-row-wrap {
@@ -1960,7 +1994,7 @@ a:active {
 }
 
 .insights-row-meta .chip.is-ok {
-  color: #E8E8E8;
+  color: #38BDF8;
   background: rgba(255, 255, 255, 0.1);
   border-color: rgba(255, 255, 255, 0.22);
 }
@@ -2130,7 +2164,7 @@ a:active {
   height: 22px;
   border-radius: 8px;
   background: rgba(255, 255, 255, 0.12);
-  color: #E8E8E8;
+  color: #38BDF8;
 }
 
 .landing-intro-logo-text {
@@ -2144,7 +2178,7 @@ a:active {
   width: 6px;
   height: 6px;
   border-radius: 50%;
-  background: #BFC1C2;
+  background: #0284C7;
   box-shadow: 0 0 8px rgba(200, 202, 205, 0.7);
   animation: landing-live-pulse 1.3s ease-in-out infinite;
 }
@@ -2153,7 +2187,7 @@ a:active {
   font-size: 9px;
   font-weight: 700;
   letter-spacing: 0.2em;
-  color: #BFC1C2;
+  color: #0284C7;
   text-transform: uppercase;
 }
 
@@ -2177,10 +2211,9 @@ a:active {
 }
 
 .landing-intro-title-accent {
-  /* Solid silver — no gradient, no shimmer, no clip tricks.
-     Reads cleaner and more premium at title weight than the
-     previous metallic gradient clip. */
-  color: #E8E8E8;
+  /* Solid azure — title accent in the new sky theme. Crisp,
+     readable, no gradient tricks. */
+  color: var(--azure-400);
   background: none;
   -webkit-text-fill-color: currentColor;
 }
@@ -2198,7 +2231,8 @@ a:active {
   animation: landing-fade-up 720ms cubic-bezier(0.22, 1, 0.36, 1) 360ms forwards;
 }
 
-/* Primary CTA — glassy emerald pill */
+/* Primary CTA — glassy azure pill (was silver). White text on a
+   sky-blue gradient reads cleaner and matches the new theme. */
 .landing-intro-cta {
   display: inline-flex;
   align-items: center;
@@ -2208,12 +2242,12 @@ a:active {
   font-size: 14px;
   font-weight: 700;
   letter-spacing: 0.01em;
-  color: #0b0f17;
-  background: linear-gradient(135deg, #E8E8E8 0%, #BFC1C2 100%);
-  border: 1px solid rgba(255, 255, 255, 0.55);
+  color: #ffffff;
+  background: linear-gradient(135deg, #38BDF8 0%, #0284C7 100%);
+  border: 1px solid rgba(186, 230, 253, 0.55);
   box-shadow:
-    0 8px 30px rgba(255, 255, 255, 0.35),
-    0 0 0 1px rgba(255, 255, 255, 0.2) inset;
+    0 8px 30px rgba(56, 189, 248, 0.4),
+    0 0 0 1px rgba(255, 255, 255, 0.18) inset;
   cursor: pointer;
   -webkit-tap-highlight-color: transparent;
   opacity: 0;
@@ -2224,10 +2258,10 @@ a:active {
 }
 .landing-intro-cta:hover {
   transform: translateY(-1px);
-  filter: brightness(1.08);
+  filter: brightness(1.1);
   box-shadow:
-    0 12px 36px rgba(255, 255, 255, 0.45),
-    0 0 0 1px rgba(255, 255, 255, 0.35) inset;
+    0 12px 36px rgba(56, 189, 248, 0.55),
+    0 0 0 1px rgba(255, 255, 255, 0.32) inset;
 }
 .landing-intro-cta:active { transform: translateY(0) scale(0.985); }
 .landing-intro-cta:focus-visible {
@@ -2288,7 +2322,7 @@ a:active {
   border-radius: 10px;
   background: rgba(255, 255, 255, 0.1);
   border: 1px solid rgba(255, 255, 255, 0.22);
-  color: #E8E8E8;
+  color: #38BDF8;
   flex-shrink: 0;
 }
 
@@ -2487,7 +2521,7 @@ a:active {
   font-weight: 700;
   letter-spacing: 0.02em;
   color: #0b0f17;
-  background: linear-gradient(135deg, #E8E8E8 0%, #BFC1C2 100%);
+  background: linear-gradient(135deg, #38BDF8 0%, #0284C7 100%);
   border: 1px solid rgba(255, 255, 255, 0.5);
   cursor: pointer;
   transition: transform 0.12s ease, filter 0.2s ease;
@@ -2740,13 +2774,10 @@ a:active {
     0 0 10px rgba(255, 255, 255, 0.55);
 }
 
-/* Keep the accent word in the headline polished silver */
-.landing-intro-title-accent {
-  /* Light mode: deeper silver tone so the word stays legible
-     on the bright landing backdrop while still reading as
-     "silver" — no gradient, no shimmer, matching the dark-mode
-     treatment. */
-  color: #A8AAAC;
+/* Light-theme variant of the accent word — qualified so the
+   default dark-theme rule (azure-400) keeps applying on night-map. */
+[data-theme="light"] .landing-intro-title-accent {
+  color: var(--azure-600);
   background: none;
   -webkit-text-fill-color: currentColor;
 }
@@ -3119,33 +3150,64 @@ a:active {
 [data-theme="light"] .text-white\/45 { color: var(--text-muted)  !important; }
 [data-theme="light"] .text-white\/8  { color: rgba(11, 13, 16, 0.2) !important; }
 
-/* Tailwind arbitrary silver utilities (text-[#E8E8E8], bg-[#E8E8E8]/NN,
-   border-[#E8E8E8]/NN) — flip to graphite / soft-neutral in light mode
-   so icons, accents and pill chips don't vanish against paper-white
-   glass surfaces. Covers the Flight Insights panel, search dropdowns,
-   top-bar chips, sidebars, StatusBar, etc. */
-[data-theme="light"] .text-\[\#E8E8E8\]       { color: var(--silver-600) !important; }
-[data-theme="light"] .text-\[\#E8E8E8\]\/70   { color: var(--silver-500) !important; }
-[data-theme="light"] .text-\[\#E8E8E8\]\/60   { color: var(--silver-500) !important; }
-[data-theme="light"] .text-\[\#E8E8E8\]\/50   { color: var(--silver-400) !important; }
-[data-theme="light"] .text-\[\#BFC1C2\]       { color: var(--silver-600) !important; }
+/* ════════════════════════════════════════════════════════════
+   AZURE THEME — Tailwind arbitrary `#38BDF8`, `#0284C7` utilities
+   ════════════════════════════════════════════════════════════
+   The JSX uses `text-[#38BDF8]`, `bg-[#38BDF8]/X`, `border-[#38BDF8]/X`
+   as the brand-accent colour. Repointing the design tokens isn't
+   enough because Tailwind compiles those literals straight to hex
+   strings — so we need explicit class overrides to flip them to
+   azure. Both dark + light themes covered.
+   ════════════════════════════════════════════════════════════ */
 
-[data-theme="light"] .bg-\[\#E8E8E8\]\/5,
-[data-theme="light"] .bg-\[\#E8E8E8\]\/8,
-[data-theme="light"] .bg-\[\#E8E8E8\]\/10 {
-  background-color: rgba(11, 13, 16, 0.05) !important;
-}
-[data-theme="light"] .bg-\[\#E8E8E8\]\/12,
-[data-theme="light"] .bg-\[\#E8E8E8\]\/15 {
-  background-color: rgba(11, 13, 16, 0.07) !important;
-}
+/* DARK theme — bright azure (sky-400) so it pops on graphite tiles. */
+.text-\[\#E8E8E8\]       { color: var(--azure-400) !important; }
+.text-\[\#E8E8E8\]\/90   { color: rgba(56, 189, 248, 0.9) !important; }
+.text-\[\#E8E8E8\]\/80   { color: rgba(56, 189, 248, 0.8) !important; }
+.text-\[\#E8E8E8\]\/70   { color: rgba(56, 189, 248, 0.7) !important; }
+.text-\[\#E8E8E8\]\/60   { color: rgba(56, 189, 248, 0.6) !important; }
+.text-\[\#E8E8E8\]\/50   { color: rgba(56, 189, 248, 0.5) !important; }
+.text-\[\#BFC1C2\]       { color: var(--azure-300) !important; }
 
-[data-theme="light"] .border-\[\#E8E8E8\]\/20,
-[data-theme="light"] .border-\[\#E8E8E8\]\/30,
-[data-theme="light"] .border-\[\#E8E8E8\]\/35,
-[data-theme="light"] .border-\[\#E8E8E8\]\/40 {
-  border-color: rgba(11, 13, 16, 0.18) !important;
-}
+.bg-\[\#E8E8E8\]         { background-color: var(--azure-400) !important; }
+.bg-\[\#E8E8E8\]\/5      { background-color: rgba(56, 189, 248, 0.07) !important; }
+.bg-\[\#E8E8E8\]\/8      { background-color: rgba(56, 189, 248, 0.1)  !important; }
+.bg-\[\#E8E8E8\]\/10     { background-color: rgba(56, 189, 248, 0.12) !important; }
+.bg-\[\#E8E8E8\]\/12     { background-color: rgba(56, 189, 248, 0.15) !important; }
+.bg-\[\#E8E8E8\]\/15     { background-color: rgba(56, 189, 248, 0.18) !important; }
+
+.border-\[\#E8E8E8\]\/20 { border-color: rgba(56, 189, 248, 0.32) !important; }
+.border-\[\#E8E8E8\]\/30 { border-color: rgba(56, 189, 248, 0.4)  !important; }
+.border-\[\#E8E8E8\]\/35 { border-color: rgba(56, 189, 248, 0.46) !important; }
+.border-\[\#E8E8E8\]\/40 { border-color: rgba(56, 189, 248, 0.55) !important; }
+
+/* Hover variants — keep parity with the bg overrides above */
+.hover\:bg-\[\#E8E8E8\]\/5:hover  { background-color: rgba(56, 189, 248, 0.08) !important; }
+.hover\:text-\[\#E8E8E8\]:hover   { color: var(--azure-400) !important; }
+
+/* LIGHT theme — deeper azure (sky-600) so accents read on white. */
+[data-theme="light"] .text-\[\#E8E8E8\]       { color: var(--azure-600) !important; }
+[data-theme="light"] .text-\[\#E8E8E8\]\/90   { color: rgba(2, 132, 199, 0.92) !important; }
+[data-theme="light"] .text-\[\#E8E8E8\]\/80   { color: rgba(2, 132, 199, 0.85) !important; }
+[data-theme="light"] .text-\[\#E8E8E8\]\/70   { color: rgba(2, 132, 199, 0.78) !important; }
+[data-theme="light"] .text-\[\#E8E8E8\]\/60   { color: rgba(2, 132, 199, 0.68) !important; }
+[data-theme="light"] .text-\[\#E8E8E8\]\/50   { color: rgba(2, 132, 199, 0.55) !important; }
+[data-theme="light"] .text-\[\#BFC1C2\]       { color: var(--azure-500) !important; }
+
+[data-theme="light"] .bg-\[\#E8E8E8\]         { background-color: var(--azure-600) !important; }
+[data-theme="light"] .bg-\[\#E8E8E8\]\/5      { background-color: rgba(2, 132, 199, 0.06) !important; }
+[data-theme="light"] .bg-\[\#E8E8E8\]\/8      { background-color: rgba(2, 132, 199, 0.08) !important; }
+[data-theme="light"] .bg-\[\#E8E8E8\]\/10     { background-color: rgba(2, 132, 199, 0.1)  !important; }
+[data-theme="light"] .bg-\[\#E8E8E8\]\/12     { background-color: rgba(2, 132, 199, 0.12) !important; }
+[data-theme="light"] .bg-\[\#E8E8E8\]\/15     { background-color: rgba(2, 132, 199, 0.16) !important; }
+
+[data-theme="light"] .border-\[\#E8E8E8\]\/20 { border-color: rgba(2, 132, 199, 0.28) !important; }
+[data-theme="light"] .border-\[\#E8E8E8\]\/30 { border-color: rgba(2, 132, 199, 0.4)  !important; }
+[data-theme="light"] .border-\[\#E8E8E8\]\/35 { border-color: rgba(2, 132, 199, 0.46) !important; }
+[data-theme="light"] .border-\[\#E8E8E8\]\/40 { border-color: rgba(2, 132, 199, 0.55) !important; }
+
+[data-theme="light"] .hover\:bg-\[\#E8E8E8\]\/5:hover  { background-color: rgba(2, 132, 199, 0.07) !important; }
+[data-theme="light"] .hover\:text-\[\#E8E8E8\]:hover   { color: var(--azure-600) !important; }
 
 /* ════════════════════════════════════════════════════════════
    FLIGHT INSIGHTS — light theme (day map) overrides
@@ -3259,7 +3321,7 @@ a:active {
   background: rgba(232, 232, 232, 0.12);
   border: 1px solid rgba(232, 232, 232, 0.2);
 }
-.insights-header-badge-icon { color: #E8E8E8; }
+.insights-header-badge-icon { color: #38BDF8; }
 .insights-header-close     { color: rgba(255, 255, 255, 0.55); }
 
 /* Light-theme variants — solid graphite on paper-white card so
@@ -3303,15 +3365,12 @@ a:active {
 [data-theme="light"] .text-white\/75 { color: var(--text-muted)       !important; }
 [data-theme="light"] .text-white\/85 { color: var(--text)             !important; }
 
-/* Also guard against arbitrary silver hex utilities used in some
-   spots — `text-[#E8E8E8]` already has explicit overrides, this
-   is the substring-match fallback. */
-[data-theme="light"] [class*="text-[#E"],
-[data-theme="light"] [class*="text-[#F"] {
-  /* Any element using a bright silver/white-ish arbitrary colour
-     flips to graphite in light mode. */
-  color: var(--text) !important;
-}
+/* (removed: the previous `[class*="text-[#E"]` substring catch-all
+    used to force every silver-hex utility to graphite in light mode;
+    that's no longer needed because the explicit azure overrides
+    above remap silver-hex utilities to azure deep tone — which IS
+    visible on bright Voyager / paper tiles. Leaving the catch-all
+    in place would override the new azure rules and bring grey back.) */
 
 /* In-app toast — light theme mirror so headline + body read
    correctly on a bright backdrop (otherwise the hardcoded dark

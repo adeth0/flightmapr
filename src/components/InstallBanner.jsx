@@ -100,9 +100,9 @@ export function InstallBanner() {
         <div className="install-banner-title">Install FlightMapr</div>
         {isIosSafari && !prompt ? (
           <div className="install-banner-desc">
-            Tap <span style={{ color: '#E8E8E8' }}>Share ↑</span>
+            Tap <span style={{ color: '#38BDF8' }}>Share ↑</span>
             {' → '}
-            <span style={{ color: '#E8E8E8' }}>Add to Home Screen</span>
+            <span style={{ color: '#38BDF8' }}>Add to Home Screen</span>
             {' for flight alerts'}
           </div>
         ) : (

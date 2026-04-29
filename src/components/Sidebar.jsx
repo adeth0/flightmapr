@@ -61,8 +61,8 @@ function ProgressBar({ progress }) {
       </div>
       <div className="w-full h-1 rounded-full bg-white/8 overflow-hidden">
         <div
-          className="h-full rounded-full bg-gradient-to-r from-[#BFC1C2] to-[#E8E8E8] fill-bar"
-          style={{ width: `${pct}%`, boxShadow: '0 0 8px #E8E8E880' }}
+          className="h-full rounded-full bg-gradient-to-r from-[#0EA5E9] to-[#38BDF8] fill-bar"
+          style={{ width: `${pct}%`, boxShadow: '0 0 8px rgba(56,189,248,0.55)' }}
         />
       </div>
       <div className="flex justify-between mt-1">

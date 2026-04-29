@@ -3,6 +3,7 @@ import { useMap } from 'react-leaflet';
 import L from 'leaflet';
 import { flightService } from '../services/flightService';
 import { notificationService } from '../services/notificationService';
+import { getCachedEnrichment } from '../services/flightEnrichmentService';
 
 // Cap the tracking polyline at this many points. The flightService may
 // accumulate longer histories for analytics, but the on-screen path is
@@ -69,6 +70,25 @@ function hasValidAirport(ap) {
   if (!Number.isFinite(ap.lat) || !Number.isFinite(ap.lng)) return false;
   if (ap.lat === 0 && ap.lng === 0) return false;
   return true;
+}
+
+// Resolve a flight's origin/destination airports. The live flight
+// object holds default `{code:'----', lat:0, lng:0}` placeholders
+// until adsbdb enrichment lands; the *real* airport metadata only
+// ever lives in flightEnrichmentService's cache, keyed by callsign.
+// This helper picks the most-complete pair available so the route
+// polylines stay live as soon as enrichment resolves, regardless of
+// whether anyone has opened the sidebar yet.
+function resolveRoute(flight) {
+  if (!flight) return { origin: null, destination: null };
+  const en = flight.callsign ? getCachedEnrichment(flight.callsign) : null;
+  const origin      = hasValidAirport(en?.origin)      ? en.origin
+                    : hasValidAirport(flight.origin)   ? flight.origin
+                    : null;
+  const destination = hasValidAirport(en?.destination) ? en.destination
+                    : hasValidAirport(flight.destination) ? flight.destination
+                    : null;
+  return { origin, destination };
 }
 
 function classifyAircraft(flight) {
@@ -293,14 +313,14 @@ function miniPopupContent(f) {
 
   return (
     `<div style="font-family:'Inter',system-ui,sans-serif;min-width:155px;padding:2px 0;">` +
-    `<div style="font-size:14px;font-weight:700;color:#E8E8E8;margin-bottom:5px;letter-spacing:-0.3px;">${f.callsign}</div>` +
+    `<div style="font-size:14px;font-weight:700;color:#38BDF8;margin-bottom:5px;letter-spacing:-0.3px;">${f.callsign}</div>` +
     `<div style="font-size:12px;color:#fff;display:flex;align-items:center;gap:8px;font-weight:600;">` +
-    `<span>${origin}</span><span style="color:#E8E8E8;font-size:13px;">?</span><span>${dest}</span>` +
+    `<span>${origin}</span><span style="color:#38BDF8;font-size:13px;">?</span><span>${dest}</span>` +
     `</div>` +
     (altStr ? `<div style="font-size:10px;color:rgba(255,255,255,0.45);margin-top:3px;">${altStr}</div>` : '') +
     `<button data-action="select" style="margin-top:8px;width:100%;padding:6px 0;` +
     `background:rgba(255, 255, 255,0.13);border:1px solid rgba(255, 255, 255,0.35);` +
-    `border-radius:7px;color:#E8E8E8;font-size:11px;font-weight:600;cursor:pointer;` +
+    `border-radius:7px;color:#38BDF8;font-size:11px;font-weight:600;cursor:pointer;` +
     `font-family:'Inter',sans-serif;-webkit-tap-highlight-color:transparent;">` +
     `View Full Details ?</button></div>`
   );
@@ -309,7 +329,7 @@ function miniPopupContent(f) {
 function tooltipContent(f) {
   return (
     `<div style="font-family:'Inter',sans-serif;font-size:12px;color:#fff;min-width:130px;">` +
-    `<div style="font-weight:700;color:#E8E8E8;font-size:13px;margin-bottom:2px;">${f.callsign}</div>` +
+    `<div style="font-weight:700;color:#38BDF8;font-size:13px;margin-bottom:2px;">${f.callsign}</div>` +
     `<div style="color:rgba(255,255,255,0.55);font-size:10px;">${f.airline}</div>` +
     `</div>`
   );
@@ -391,9 +411,12 @@ export function FlightLayer({ selectedFlightId, onFlightSelect }) {
     //    in azure (#38BDF8) so it's clearly visible against both the
     //    Voyager day tiles and the Carto dark night tiles — silver
     //    used to blend into the basemap.
-    const o = flight.origin;
-    const d = flight.destination;
-    if (hasValidAirport(o) && hasValidAirport(d)) {
+    //
+    //    Endpoint coords come from the enrichment cache (real airport
+    //    lat/lng) rather than flight.origin/destination, which always
+    //    holds a 0,0 placeholder for live ADS-B flights.
+    const { origin: o, destination: d } = resolveRoute(flight);
+    if (o && d) {
       const fullArc = greatCirclePath(o.lat, o.lng, d.lat, d.lng);
       if (fullArc.length > 1) {
         routeRef.current = L.polyline(fullArc, {
@@ -428,7 +451,7 @@ export function FlightLayer({ selectedFlightId, onFlightSelect }) {
     // 3. Forward leg — current position → destination great-circle,
     //    dashed azure. Only when destination is known. The marching-
     //    ants animation in CSS gives it a sense of "where I'm going".
-    if (hasValidAirport(d)) {
+    if (d) {
       const fwd = greatCirclePath(flight.lat, flight.lng, d.lat, d.lng);
       if (fwd.length > 1) {
         forwardRef.current = L.polyline(fwd, {
@@ -678,14 +701,63 @@ export function FlightLayer({ selectedFlightId, onFlightSelect }) {
           trailRef.current.setLatLngs(trailPts);
         }
 
-        // Forward leg — current → destination, recomputed every tick so
-        // the dashed line tracks the aircraft as it advances.
-        if (isSel && forwardRef.current && hasValidAirport(flight.destination)) {
-          const fwd = greatCirclePath(
-            flight.lat, flight.lng,
-            flight.destination.lat, flight.destination.lng,
-          );
-          if (fwd.length > 1) forwardRef.current.setLatLngs(fwd);
+        // Forward leg + full-route lazy creation. Enrichment is async,
+        // so when a flight is first selected we may not yet have its
+        // origin/destination coords. Each tick we re-resolve the route
+        // and either update the existing polylines or create them on
+        // first availability — this is what makes the route "appear"
+        // a few seconds after selection without blocking selection
+        // itself.
+        if (isSel) {
+          const { origin: liveOrigin, destination: liveDest } = resolveRoute(flight);
+
+          // Forward leg (current → destination)
+          if (liveDest) {
+            const fwd = greatCirclePath(
+              flight.lat, flight.lng,
+              liveDest.lat, liveDest.lng,
+            );
+            if (fwd.length > 1) {
+              if (forwardRef.current) {
+                forwardRef.current.setLatLngs(fwd);
+              } else {
+                forwardRef.current = L.polyline(fwd, {
+                  color: '#38BDF8',
+                  weight: 2.4,
+                  opacity: 0.95,
+                  lineCap: 'round',
+                  lineJoin: 'round',
+                  interactive: false,
+                  dashArray: '6 6',
+                  smoothFactor: 1.0,
+                  className: 'flight-forward-path',
+                }).addTo(map);
+              }
+            }
+          }
+
+          // Full planned route (origin → destination) — only created
+          // once both endpoints are known; geometry doesn't change as
+          // the aircraft moves so we don't re-set it every tick.
+          if (liveOrigin && liveDest && !routeRef.current) {
+            const fullArc = greatCirclePath(
+              liveOrigin.lat, liveOrigin.lng,
+              liveDest.lat,  liveDest.lng,
+            );
+            if (fullArc.length > 1) {
+              routeRef.current = L.polyline(fullArc, {
+                color: '#38BDF8',
+                weight: 1.8,
+                opacity: 0.62,
+                lineCap: 'round',
+                lineJoin: 'round',
+                interactive: false,
+                dashArray: '2 6',
+                smoothFactor: 1.0,
+                className: 'flight-route-path',
+              }).addTo(map);
+            }
+          }
         }
 
         if (pendingPreviewRef.current?.id === flight.id) {

@@ -27,7 +27,7 @@ function activityColor(count) {
   if (count >= 25) return '#ff4400';
   if (count >= 12) return '#ffaa00';
   if (count >= 4)  return '#80ff88';
-  return '#E8E8E8';
+  return '#38BDF8';
 }
 
 function activityRadius(count) {
@@ -59,7 +59,7 @@ export function ActivityHeatmapLayer({ enabled }) {
       const circle = L.circle([ap.lat, ap.lng], {
         radius:      BASE_RADIUS,
         color:       'transparent',   // no stroke
-        fillColor:   '#E8E8E8',
+        fillColor:   '#38BDF8',
         fillOpacity: 0.03,
         interactive: false,
       }).addTo(map);

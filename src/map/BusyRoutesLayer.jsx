@@ -67,20 +67,45 @@ function buildArc(olat, olng, dlat, dlng) {
   return pts;
 }
 
+// Cheap "is this airport coord plausibly real" gate.
+function isUsable(ap) {
+  if (!ap) return false;
+  if (!ap.code || ap.code === '----') return false;
+  if (!Number.isFinite(ap.lat) || !Number.isFinite(ap.lng)) return false;
+  if (ap.lat === 0 && ap.lng === 0) return false;
+  return true;
+}
+
 // Pull origin/destination + a stable route key off whatever
 // shape we have (live flight from flightService OR a tracked
-// snapshot from notificationService). Returns null when the
-// endpoints aren't usable yet.
+// snapshot from notificationService). For live flights the
+// flight object's own .origin/.destination is a 0,0 placeholder
+// until adsbdb enrichment lands, so we ALWAYS prefer the
+// enrichment cache when a callsign is available — this is the
+// difference between "routes never render" and "routes render
+// the moment enrichment resolves". Returns null when neither
+// source has plausibly-real coords yet.
 function extractRoute(source) {
-  const o = source?.origin;
-  const d = source?.destination;
-  if (!o || !d) return null;
-  if (!o.code || o.code === '----') return null;
-  if (!d.code || d.code === '----') return null;
-  if (o.code === d.code) return null;
-  if (!Number.isFinite(o.lat) || !Number.isFinite(o.lng)) return null;
-  if (!Number.isFinite(d.lat) || !Number.isFinite(d.lng)) return null;
-  if ((o.lat === 0 && o.lng === 0) || (d.lat === 0 && d.lng === 0)) return null;
+  // Try the source's own origin/destination first.
+  let o = source?.origin;
+  let d = source?.destination;
+
+  // Then upgrade either side from the enrichment cache by callsign.
+  // A `source` with `.callsign` could be a live flight (flightService)
+  // OR a tracked-list item from notificationService — both shapes
+  // expose `.callsign` so this branch covers both.
+  const cs = source?.callsign;
+  if (cs && (!isUsable(o) || !isUsable(d))) {
+    const en = getCachedEnrichment(cs);
+    if (en) {
+      if (!isUsable(o) && isUsable(en.origin))      o = en.origin;
+      if (!isUsable(d) && isUsable(en.destination)) d = en.destination;
+    }
+  }
+
+  if (!isUsable(o) || !isUsable(d)) return null;
+  if (o.code === d.code)            return null;
+
   return {
     key: `${o.code}→${d.code}`,
     origin: o,

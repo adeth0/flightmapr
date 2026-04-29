@@ -452,25 +452,38 @@ export function EnhancedTopBar({
 
             {layersOpen && (
               <div
-                className="absolute top-full right-0 mt-2 glass rounded-2xl overflow-hidden animate-slide-down"
-                style={{ zIndex: 9999, minWidth: 220 }}
+                className="absolute top-full right-0 mt-2 glass rounded-2xl animate-slide-down layers-dropdown"
+                style={{
+                  zIndex: 9999,
+                  minWidth: 240,
+                  // Cap to viewport so on small phones the dropdown never
+                  // clips below the bottom edge — instead it scrolls.
+                  // 96px keeps room for the top bar + the bottom safe-area.
+                  maxHeight: 'calc(100dvh - 96px)',
+                  overflowY: 'auto',
+                  overflowX: 'hidden',
+                  WebkitOverflowScrolling: 'touch',
+                }}
               >
-                <div className="px-4 py-2.5 border-b border-white/8">
-                  <span className="text-[10px] uppercase tracking-widest text-white/35 font-semibold">Map Layers</span>
+                <div className="px-4 py-2.5 border-b border-white/8 sticky top-0 z-10 layers-dropdown-header">
+                  <span className="text-[10px] uppercase tracking-widest text-white/45 font-semibold">Map Layers</span>
                 </div>
-                <LayerRow icon={<Building2 size={15} />} label="Airports" enabled={airportsEnabled} onToggle={onToggleAirports} />
-                <LayerRow icon={<Sun size={15} />} label="Night Mode" enabled={dayNightEnabled} onToggle={onToggleDayNight} />
-                {onToggleDetailedMap && (
-                  <LayerRow
-                    icon={<Mountain size={15} />}
-                    label="Detailed Map"
-                    enabled={!!detailedMapEnabled}
-                    onToggle={onToggleDetailedMap}
-                  />
-                )}
-                <LayerRow icon={<Cloud size={15} />} label="Weather" enabled={weatherEnabled} onToggle={onToggleWeather} />
-                <LayerRow icon={<Flame size={15} />} label="Heatmap" enabled={heatmapEnabled} onToggle={onToggleHeatmap} />
-                <LayerRow icon={<GitBranch size={15} />} label="Busy Routes" enabled={routesEnabled} onToggle={onToggleRoutes} />
+                <LayerRow icon={<Building2 size={15} />}     label="Airports"      enabled={airportsEnabled}      onToggle={onToggleAirports} />
+                <LayerRow icon={<Sun size={15} />}           label="Night Mode"    enabled={dayNightEnabled}      onToggle={onToggleDayNight} />
+                {/* Detailed satellite map — always rendered on every
+                    platform (desktop GUI, iOS/Android PWA). The previous
+                    `{onToggleDetailedMap && ...}` gate caused the row to
+                    quietly vanish on builds where the prop hadn't been
+                    plumbed through. App.jsx now always passes it. */}
+                <LayerRow
+                  icon={<Mountain size={15} />}
+                  label="Detailed Map"
+                  enabled={!!detailedMapEnabled}
+                  onToggle={onToggleDetailedMap}
+                />
+                <LayerRow icon={<Cloud size={15} />}         label="Weather"        enabled={weatherEnabled}       onToggle={onToggleWeather} />
+                <LayerRow icon={<Flame size={15} />}         label="Heatmap"        enabled={heatmapEnabled}       onToggle={onToggleHeatmap} />
+                <LayerRow icon={<GitBranch size={15} />}     label="Routes"         enabled={routesEnabled}        onToggle={onToggleRoutes} />
                 {onToggleDelayHeatmap && (
                   <LayerRow icon={<AlertTriangle size={15} />} label="Delay Heatmap" enabled={!!delayHeatmapEnabled} onToggle={onToggleDelayHeatmap} />
                 )}
@@ -519,7 +532,7 @@ export function EnhancedTopBar({
             rel="noopener noreferrer"
             aria-label="Donate to FlightMapr"
             className="hidden sm:flex items-center gap-1.5 px-3 py-2.5 rounded-2xl text-xs font-bold text-black whitespace-nowrap transition-all shadow-[0_0_16px_rgba(255, 255, 255,0.35)]"
-            style={{ background: 'linear-gradient(135deg, #E8E8E8 0%, #BFC1C2 100%)', pointerEvents: 'auto' }}
+            style={{ background: 'linear-gradient(135deg, #38BDF8 0%, #0284C7 100%)', pointerEvents: 'auto' }}
           >
             <span className="text-sm leading-none">✈️</span>
             <span>Donate</span>

@@ -431,7 +431,7 @@ export function TopBar({
             target="_blank"
             rel="noopener noreferrer"
             className="hidden sm:flex items-center gap-1.5 px-3 py-2.5 rounded-2xl text-xs font-bold text-black whitespace-nowrap transition-all shadow-[0_0_16px_rgba(255, 255, 255,0.35)]"
-            style={{ background: 'linear-gradient(135deg, #E8E8E8 0%, #BFC1C2 100%)', pointerEvents: 'auto' }}
+            style={{ background: 'linear-gradient(135deg, #38BDF8 0%, #0284C7 100%)', pointerEvents: 'auto' }}
           >
             <span className="text-sm leading-none">✈️</span>
             <span>Support FlightMapr</span>
