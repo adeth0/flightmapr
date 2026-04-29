@@ -387,16 +387,19 @@ export function FlightLayer({ selectedFlightId, onFlightSelect }) {
     if (!flight) return;
 
     // 1. Full planned route — origin → destination great-circle.
-    //    Only when both endpoints have plausibly-real coords.
+    //    Only when both endpoints have plausibly-real coords. Drawn
+    //    in azure (#38BDF8) so it's clearly visible against both the
+    //    Voyager day tiles and the Carto dark night tiles — silver
+    //    used to blend into the basemap.
     const o = flight.origin;
     const d = flight.destination;
     if (hasValidAirport(o) && hasValidAirport(d)) {
       const fullArc = greatCirclePath(o.lat, o.lng, d.lat, d.lng);
       if (fullArc.length > 1) {
         routeRef.current = L.polyline(fullArc, {
-          color: 'rgba(255, 255, 255, 0.32)',
-          weight: 1.6,
-          opacity: 1,
+          color: '#38BDF8',
+          weight: 1.8,
+          opacity: 0.62,
           lineCap: 'round',
           lineJoin: 'round',
           interactive: false,
@@ -423,14 +426,15 @@ export function FlightLayer({ selectedFlightId, onFlightSelect }) {
     }).addTo(map);
 
     // 3. Forward leg — current position → destination great-circle,
-    //    dashed silver. Only when destination is known.
+    //    dashed azure. Only when destination is known. The marching-
+    //    ants animation in CSS gives it a sense of "where I'm going".
     if (hasValidAirport(d)) {
       const fwd = greatCirclePath(flight.lat, flight.lng, d.lat, d.lng);
       if (fwd.length > 1) {
         forwardRef.current = L.polyline(fwd, {
-          color: 'rgba(255, 255, 255, 0.7)',
-          weight: 2,
-          opacity: 1,
+          color: '#38BDF8',
+          weight: 2.4,
+          opacity: 0.95,
           lineCap: 'round',
           lineJoin: 'round',
           interactive: false,

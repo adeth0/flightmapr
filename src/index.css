@@ -448,12 +448,13 @@ html, body, #root {
   pointer-events: none;
 }
 .flight-forward-path {
-  stroke: rgba(255, 255, 255, 0.7);
+  stroke: #38BDF8;            /* azure (sky-400) — pops on dark + light tiles */
+  stroke-opacity: 0.95;
   stroke-linecap: round;
   stroke-linejoin: round;
   filter:
-    drop-shadow(0 0 3px rgba(255, 255, 255, 0.32))
-    drop-shadow(0 0 6px rgba(255, 255, 255, 0.14));
+    drop-shadow(0 0 3px rgba(56, 189, 248, 0.5))
+    drop-shadow(0 0 8px rgba(56, 189, 248, 0.22));
   pointer-events: none;
   /* Subtle marching-ants animation so the forward leg reads as
      "active / pending" rather than just a static dashed line. */
@@ -463,10 +464,27 @@ html, body, #root {
   to { stroke-dashoffset: -24; }
 }
 .flight-route-path {
-  stroke: rgba(255, 255, 255, 0.32);
+  stroke: #38BDF8;
+  stroke-opacity: 0.6;
   stroke-linecap: round;
   stroke-linejoin: round;
   pointer-events: none;
+}
+
+/* Selected + tracked busy-route arcs (great-circle, BusyRoutesLayer).
+   Stroke colour is set inline by Leaflet but we still want a soft azure
+   glow so the arcs read against busy basemap content. The `is-primary`
+   variant (selected aircraft) has a stronger glow than tracked ones. */
+.flight-busy-route-arc {
+  pointer-events: none;
+  filter:
+    drop-shadow(0 0 3px rgba(56, 189, 248, 0.4))
+    drop-shadow(0 0 6px rgba(56, 189, 248, 0.18));
+}
+.flight-busy-route-arc.is-primary {
+  filter:
+    drop-shadow(0 0 4px rgba(56, 189, 248, 0.6))
+    drop-shadow(0 0 10px rgba(56, 189, 248, 0.25));
 }
 
 @media (prefers-reduced-motion: reduce) {
@@ -505,13 +523,27 @@ html, body, #root {
     drop-shadow(0 0 6px rgba(11, 13, 16, 0.1));
 }
 [data-theme="light"] .flight-forward-path {
-  stroke: rgba(11, 13, 16, 0.55);
+  /* Deeper azure (sky-600) reads cleanly on bright Voyager tiles
+     where the lighter sky-400 would wash out. */
+  stroke: #0284C7;
+  stroke-opacity: 1;
   filter:
-    drop-shadow(0 0 2px rgba(11, 13, 16, 0.18))
-    drop-shadow(0 0 4px rgba(11, 13, 16, 0.08));
+    drop-shadow(0 0 2px rgba(2, 132, 199, 0.35))
+    drop-shadow(0 0 4px rgba(2, 132, 199, 0.15));
 }
 [data-theme="light"] .flight-route-path {
-  stroke: rgba(11, 13, 16, 0.28);
+  stroke: #0284C7;
+  stroke-opacity: 0.55;
+}
+[data-theme="light"] .flight-busy-route-arc {
+  filter:
+    drop-shadow(0 0 2px rgba(2, 132, 199, 0.3))
+    drop-shadow(0 0 5px rgba(2, 132, 199, 0.12));
+}
+[data-theme="light"] .flight-busy-route-arc.is-primary {
+  filter:
+    drop-shadow(0 0 3px rgba(2, 132, 199, 0.45))
+    drop-shadow(0 0 8px rgba(2, 132, 199, 0.18));
 }
 
 /* ── Tracked-aircraft amber ring ────────────────────────── */

@@ -279,8 +279,10 @@ export function MapView({
       {/* Airport intelligence markers */}
       <AirportLayer enabled={airportsEnabled} />
 
-      {/* Busiest route arcs — drawn above heatmap, below aircraft */}
-      <BusyRoutesLayer enabled={routesEnabled} />
+      {/* Selected + tracked route arcs — drawn above heatmap, below
+          aircraft. Now scoped to the user's selection / tracked list
+          rather than a global "busy routes" projection. */}
+      <BusyRoutesLayer enabled={routesEnabled} selectedFlightId={selectedFlightId} />
 
       {/* Aircraft markers (imperative, 60 fps) */}
       <FlightLayer
