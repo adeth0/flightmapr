@@ -505,6 +505,28 @@ html, body, #root {
   pointer-events: none;
 }
 
+/* Actual flown route — origin → CURRENT position. Solid azure with
+   a soft glow so it reads as the prominent "Flight Route" feature
+   on the detail card. Slightly heavier stroke than the forward leg
+   so the user can tell which half is "already flown" vs "remaining". */
+.flight-flown-path {
+  stroke: #38BDF8;
+  stroke-opacity: 0.95;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  filter:
+    drop-shadow(0 0 4px rgba(56, 189, 248, 0.55))
+    drop-shadow(0 0 9px rgba(56, 189, 248, 0.25));
+  pointer-events: none;
+}
+[data-theme="light"] .flight-flown-path {
+  stroke: #0284C7;
+  stroke-opacity: 1;
+  filter:
+    drop-shadow(0 0 3px rgba(2, 132, 199, 0.4))
+    drop-shadow(0 0 6px rgba(2, 132, 199, 0.18));
+}
+
 /* Selected + tracked busy-route arcs (great-circle, BusyRoutesLayer).
    Stroke colour is set inline by Leaflet but we still want a soft azure
    glow so the arcs read against busy basemap content. The `is-primary`
@@ -676,6 +698,33 @@ a:active {
 }
 
 .sidebar-btn-follow:hover  { border-color: rgba(255, 255, 255,0.25); color: #38BDF8; }
+
+/* Flight Route — azure-tinted action that ties to the route polyline
+   colours on the map. Prominent without being noisy. */
+.sidebar-btn-route {
+  background: rgba(56, 189, 248, 0.12);
+  color: #7DD3FC;
+  border: 1px solid rgba(56, 189, 248, 0.4);
+  box-shadow: 0 0 12px rgba(56, 189, 248, 0.18);
+}
+.sidebar-btn-route:hover {
+  background: rgba(56, 189, 248, 0.18);
+  border-color: rgba(56, 189, 248, 0.6);
+  color: #BAE6FD;
+  box-shadow: 0 0 16px rgba(56, 189, 248, 0.28);
+}
+.sidebar-btn-route:active { transform: scale(0.97); }
+[data-theme="light"] .sidebar-btn-route {
+  background: rgba(2, 132, 199, 0.08);
+  color: #0369A1;
+  border-color: rgba(2, 132, 199, 0.36);
+  box-shadow: 0 0 10px rgba(2, 132, 199, 0.12);
+}
+[data-theme="light"] .sidebar-btn-route:hover {
+  background: rgba(2, 132, 199, 0.14);
+  border-color: rgba(2, 132, 199, 0.55);
+  color: #075985;
+}
 
 .sidebar-btn-tracking-on {
   background: rgba(245,158,11,0.15);

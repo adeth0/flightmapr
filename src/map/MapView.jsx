@@ -1,5 +1,6 @@
 import { useEffect, useRef } from 'react';
 import { MapContainer, Pane, TileLayer, useMap } from 'react-leaflet';
+import L from 'leaflet';
 import { FlightLayer }          from './FlightLayer';
 import { WeatherLayer }         from './WeatherLayer';
 import { DayNightLayer }        from './DayNightLayer';
@@ -11,6 +12,7 @@ import { TILE_LAYERS, MAP_DEFAULTS, FLY_TO_ZOOM } from '../services/mapService';
 import { LOCATION_ZOOM }  from '../services/geoService';
 import { flightService }  from '../services/flightService';
 import { openSkyService } from '../services/openSkyService';
+import { getCachedEnrichment } from '../services/flightEnrichmentService';
 
 // ── BoundsSync ────────────────────────────────────────────
 // Tells openSkyService the current viewport so it can filter
@@ -52,6 +54,7 @@ export function MapView({
   delayHeatmapEnabled,
   detailedMapEnabled,
   flyToFlightId,
+  fitRouteFlightId,
   searchFocusFlightId,
   followFlightId,
   followPaused,
@@ -118,6 +121,51 @@ export function MapView({
       );
     });
   }, [flyToFlightId]); // sidebarOpen consumed via ref — intentionally not in deps
+
+  // ── Fit Flight Route bounds — pan + zoom the map to fit the
+  //     full route (origin + current position + destination) for the
+  //     given flight. Endpoints come from the enrichment cache so
+  //     this works the moment adsbdb has resolved the route. The
+  //     sidebar may be open; on mobile it's a bottom sheet, on
+  //     desktop a right-side panel — we add lateral / vertical
+  //     padding so the route doesn't fall behind the sidebar.
+  useEffect(() => {
+    if (!fitRouteFlightId || !mapRef.current) return;
+    const flight = flightService.getFlight(fitRouteFlightId);
+    if (!flight) return;
+    const map = mapRef.current;
+
+    const en = flight.callsign ? getCachedEnrichment(flight.callsign) : null;
+    const o  = en?.origin      || flight.origin;
+    const d  = en?.destination || flight.destination;
+
+    const pts = [];
+    pts.push([flight.lat, flight.lng]);
+    if (o && Number.isFinite(o.lat) && Number.isFinite(o.lng)
+         && !(o.lat === 0 && o.lng === 0)) pts.push([o.lat, o.lng]);
+    if (d && Number.isFinite(d.lat) && Number.isFinite(d.lng)
+         && !(d.lat === 0 && d.lng === 0)) pts.push([d.lat, d.lng]);
+
+    // Need at least 2 distinct points to make a meaningful bounds.
+    if (pts.length < 2) {
+      map.flyTo([flight.lat, flight.lng], FLY_TO_ZOOM, { duration: 1.0 });
+      return;
+    }
+
+    const bounds = L.latLngBounds(pts);
+    const isMobile = window.innerWidth < 640;
+    map.flyToBounds(bounds, {
+      padding: isMobile
+        ? [40, 40]   // tighter on small screens
+        : [120, 120],
+      maxZoom: 9,
+      duration: 1.4,
+      easeLinearity: 0.25,
+      // On mobile the bottom sheet covers ~60% of viewport — push the
+      // route up so its midpoint isn't hidden behind the sheet.
+      paddingBottomRight: isMobile ? [40, 220] : [380, 120],
+    });
+  }, [fitRouteFlightId]);
 
   // Search focus: preserve map context, avoid sidebar offset, and zoom gently.
   useEffect(() => {

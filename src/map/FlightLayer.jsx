@@ -3,7 +3,7 @@ import { useMap } from 'react-leaflet';
 import L from 'leaflet';
 import { flightService } from '../services/flightService';
 import { notificationService } from '../services/notificationService';
-import { getCachedEnrichment } from '../services/flightEnrichmentService';
+import { getCachedEnrichment, enrichFlight } from '../services/flightEnrichmentService';
 
 // Cap the tracking polyline at this many points. The flightService may
 // accumulate longer histories for analytics, but the on-screen path is
@@ -72,13 +72,30 @@ function hasValidAirport(ap) {
   return true;
 }
 
+// De-duped on-demand enrichment — when the user selects a flight whose
+// adsbdb route hasn't been fetched yet, we kick one off here so the
+// route polylines appear within ~1 second instead of waiting on the
+// lazy background batch. Module-scoped so multiple components (this
+// layer + BusyRoutesLayer) share a single in-flight set.
+const _routeEnrichInFlight = new Set();
+function ensureRouteEnrichment(callsign) {
+  if (!callsign) return;
+  if (_routeEnrichInFlight.has(callsign)) return;
+  if (getCachedEnrichment(callsign)) return;
+  _routeEnrichInFlight.add(callsign);
+  enrichFlight(callsign)
+    .catch(() => { /* swallow — resolveRoute will simply return null */ })
+    .finally(() => _routeEnrichInFlight.delete(callsign));
+}
+
 // Resolve a flight's origin/destination airports. The live flight
 // object holds default `{code:'----', lat:0, lng:0}` placeholders
 // until adsbdb enrichment lands; the *real* airport metadata only
 // ever lives in flightEnrichmentService's cache, keyed by callsign.
 // This helper picks the most-complete pair available so the route
 // polylines stay live as soon as enrichment resolves, regardless of
-// whether anyone has opened the sidebar yet.
+// whether anyone has opened the sidebar yet. If the cache is empty
+// for the callsign we proactively trigger an enrichment fetch.
 function resolveRoute(flight) {
   if (!flight) return { origin: null, destination: null };
   const en = flight.callsign ? getCachedEnrichment(flight.callsign) : null;
@@ -88,6 +105,11 @@ function resolveRoute(flight) {
   const destination = hasValidAirport(en?.destination) ? en.destination
                     : hasValidAirport(flight.destination) ? flight.destination
                     : null;
+  // Trigger an on-demand enrichment if either endpoint is still
+  // unresolved AND we haven't already kicked one off for this callsign.
+  if ((!origin || !destination) && flight.callsign) {
+    ensureRouteEnrichment(flight.callsign);
+  }
   return { origin, destination };
 }
 
@@ -343,9 +365,11 @@ export function FlightLayer({ selectedFlightId, onFlightSelect }) {
   // as a great-circle dashed line so the user can see the exact remaining
   // route end-to-end.
   const forwardRef = useRef(null);
-  // Full planned route polyline: origin → destination, drawn faintly
-  // behind everything else so the user sees the complete planned arc.
-  const routeRef = useRef(null);
+  // Actual flown route: origin → current aircraft position, drawn as a
+  // SOLID azure great-circle. This is the "Flight Route" the user sees
+  // on the detail card — visualises where the plane has come from since
+  // departure. Updated each tick so it tracks the aircraft as it moves.
+  const flownRef = useRef(null);
   const selectedIdRef = useRef(selectedFlightId);
   const onSelectRef = useRef(onFlightSelect);
   const pendingPreviewRef = useRef(null);
@@ -381,59 +405,59 @@ export function FlightLayer({ selectedFlightId, onFlightSelect }) {
     }
   }, [selectedFlightId]);
 
-  // ── Premium tracking path + planned-route visualisation ─
-  // Three layered polylines, drawn behind the selected aircraft:
+  // ── Flight Route visualisation — three layered polylines ─
+  // Drawn behind the selected aircraft, in z-order:
   //
-  //   1. routeRef   — full planned great-circle ORIGIN→DEST,
-  //                   faintest, dashed, sits at the bottom.
-  //   2. trailRef   — solid silver track of where the aircraft
-  //                   has actually been (last TRAIL_MAX_POINTS).
-  //   3. forwardRef — dashed great-circle from CURRENT position
-  //                   to DESTINATION, the "remaining route".
+  //   1. flownRef   — SOLID azure great-circle ORIGIN → CURRENT
+  //                   position. This is the "Flight Route" the
+  //                   user sees on the detail card: where the
+  //                   plane has come from since departure.
+  //   2. trailRef   — solid silver / white precision trail of
+  //                   the last TRAIL_MAX_POINTS GPS samples,
+  //                   sitting on top of flownRef so the user
+  //                   sees a high-resolution tail near the
+  //                   aircraft.
+  //   3. forwardRef — dashed azure great-circle from CURRENT
+  //                   position to DESTINATION (remaining route)
+  //                   with marching-ants animation.
   //
-  // 1 and 3 use a great-circle slerp so intercontinental routes
-  // bow correctly on Mercator (a flat rhumb line would look very
-  // wrong over Atlantic / Pacific crossings). 2 is the live trail
-  // — already capped + smoothed for cheap repaints on mobile.
+  // Both great-circle polylines use spherical slerp so inter-
+  // continental routes bow correctly on Mercator. The trail is
+  // capped + smoothed for cheap repaints on mobile.
   useEffect(() => {
-    // Tear down any previous polylines first so a selection change
-    // never leaves stale geometry on screen.
+    // Tear down any previous polylines first so a selection
+    // change never leaves stale geometry on screen.
     if (trailRef.current)   { trailRef.current.remove();   trailRef.current = null; }
     if (forwardRef.current) { forwardRef.current.remove(); forwardRef.current = null; }
-    if (routeRef.current)   { routeRef.current.remove();   routeRef.current = null; }
+    if (flownRef.current)   { flownRef.current.remove();   flownRef.current = null; }
 
     if (!selectedFlightId) return;
     const flight = flightService.getFlight(selectedFlightId);
     if (!flight) return;
 
-    // 1. Full planned route — origin → destination great-circle.
-    //    Only when both endpoints have plausibly-real coords. Drawn
-    //    in azure (#38BDF8) so it's clearly visible against both the
-    //    Voyager day tiles and the Carto dark night tiles — silver
-    //    used to blend into the basemap.
-    //
-    //    Endpoint coords come from the enrichment cache (real airport
-    //    lat/lng) rather than flight.origin/destination, which always
-    //    holds a 0,0 placeholder for live ADS-B flights.
     const { origin: o, destination: d } = resolveRoute(flight);
-    if (o && d) {
-      const fullArc = greatCirclePath(o.lat, o.lng, d.lat, d.lng);
-      if (fullArc.length > 1) {
-        routeRef.current = L.polyline(fullArc, {
+
+    // 1. Actual flown route — ORIGIN → CURRENT position. Solid
+    //    azure great-circle. Endpoints come from the enrichment
+    //    cache (real airport lat/lng) rather than flight.origin
+    //    which carries a 0,0 placeholder until adsbdb resolves.
+    if (o) {
+      const flown = greatCirclePath(o.lat, o.lng, flight.lat, flight.lng);
+      if (flown.length > 1) {
+        flownRef.current = L.polyline(flown, {
           color: '#38BDF8',
-          weight: 1.8,
-          opacity: 0.62,
+          weight: 3.5,
+          opacity: 0.95,
           lineCap: 'round',
           lineJoin: 'round',
           interactive: false,
-          dashArray: '2 6',
           smoothFactor: 1.0,
-          className: 'flight-route-path',
+          className: 'flight-flown-path',
         }).addTo(map);
       }
     }
 
-    // 2. Solid trail — where the aircraft has actually been.
+    // 2. High-precision live trail — last N ADS-B samples.
     const trailPts = (flight.trail || [])
       .slice(-TRAIL_MAX_POINTS)
       .map((p) => [p.lat, p.lng]);
@@ -449,19 +473,18 @@ export function FlightLayer({ selectedFlightId, onFlightSelect }) {
     }).addTo(map);
 
     // 3. Forward leg — current position → destination great-circle,
-    //    dashed azure. Only when destination is known. The marching-
-    //    ants animation in CSS gives it a sense of "where I'm going".
+    //    dashed azure with marching-ants animation in CSS.
     if (d) {
       const fwd = greatCirclePath(flight.lat, flight.lng, d.lat, d.lng);
       if (fwd.length > 1) {
         forwardRef.current = L.polyline(fwd, {
           color: '#38BDF8',
-          weight: 2.4,
+          weight: 3,
           opacity: 0.95,
           lineCap: 'round',
           lineJoin: 'round',
           interactive: false,
-          dashArray: '6 6',
+          dashArray: '8 8',
           smoothFactor: 1.0,
           className: 'flight-forward-path',
         }).addTo(map);
@@ -701,17 +724,43 @@ export function FlightLayer({ selectedFlightId, onFlightSelect }) {
           trailRef.current.setLatLngs(trailPts);
         }
 
-        // Forward leg + full-route lazy creation. Enrichment is async,
-        // so when a flight is first selected we may not yet have its
-        // origin/destination coords. Each tick we re-resolve the route
+        // Forward leg + flown-route lazy creation/update. Enrichment
+        // is async, so when a flight is first selected we may not
+        // yet have origin coords. Each tick we re-resolve the route
         // and either update the existing polylines or create them on
-        // first availability — this is what makes the route "appear"
-        // a few seconds after selection without blocking selection
-        // itself.
+        // first availability — this is what makes the Flight Route
+        // "appear" within ~1s of selection (we eagerly trigger
+        // enrichFlight() inside resolveRoute) without blocking the
+        // selection itself.
         if (isSel) {
           const { origin: liveOrigin, destination: liveDest } = resolveRoute(flight);
 
-          // Forward leg (current → destination)
+          // Actual flown route — origin → CURRENT position. Recomputed
+          // each tick so it grows with the aircraft.
+          if (liveOrigin) {
+            const flown = greatCirclePath(
+              liveOrigin.lat, liveOrigin.lng,
+              flight.lat, flight.lng,
+            );
+            if (flown.length > 1) {
+              if (flownRef.current) {
+                flownRef.current.setLatLngs(flown);
+              } else {
+                flownRef.current = L.polyline(flown, {
+                  color: '#38BDF8',
+                  weight: 3.5,
+                  opacity: 0.95,
+                  lineCap: 'round',
+                  lineJoin: 'round',
+                  interactive: false,
+                  smoothFactor: 1.0,
+                  className: 'flight-flown-path',
+                }).addTo(map);
+              }
+            }
+          }
+
+          // Forward leg — CURRENT position → destination.
           if (liveDest) {
             const fwd = greatCirclePath(
               flight.lat, flight.lng,
@@ -723,39 +772,16 @@ export function FlightLayer({ selectedFlightId, onFlightSelect }) {
               } else {
                 forwardRef.current = L.polyline(fwd, {
                   color: '#38BDF8',
-                  weight: 2.4,
+                  weight: 3,
                   opacity: 0.95,
                   lineCap: 'round',
                   lineJoin: 'round',
                   interactive: false,
-                  dashArray: '6 6',
+                  dashArray: '8 8',
                   smoothFactor: 1.0,
                   className: 'flight-forward-path',
                 }).addTo(map);
               }
-            }
-          }
-
-          // Full planned route (origin → destination) — only created
-          // once both endpoints are known; geometry doesn't change as
-          // the aircraft moves so we don't re-set it every tick.
-          if (liveOrigin && liveDest && !routeRef.current) {
-            const fullArc = greatCirclePath(
-              liveOrigin.lat, liveOrigin.lng,
-              liveDest.lat,  liveDest.lng,
-            );
-            if (fullArc.length > 1) {
-              routeRef.current = L.polyline(fullArc, {
-                color: '#38BDF8',
-                weight: 1.8,
-                opacity: 0.62,
-                lineCap: 'round',
-                lineJoin: 'round',
-                interactive: false,
-                dashArray: '2 6',
-                smoothFactor: 1.0,
-                className: 'flight-route-path',
-              }).addTo(map);
             }
           }
         }
@@ -778,7 +804,7 @@ export function FlightLayer({ selectedFlightId, onFlightSelect }) {
       markersRef.current.clear();
       if (trailRef.current)   { trailRef.current.remove();   trailRef.current = null; }
       if (forwardRef.current) { forwardRef.current.remove(); forwardRef.current = null; }
-      if (routeRef.current)   { routeRef.current.remove();   routeRef.current = null; }
+      if (flownRef.current)   { flownRef.current.remove();   flownRef.current = null; }
       safeRemovePopup(pendingPreviewRef.current?.popup);
       pendingPreviewRef.current = null;
     };

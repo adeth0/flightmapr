@@ -27,12 +27,18 @@ import { useMap }               from 'react-leaflet';
 import L                        from 'leaflet';
 import { flightService }        from '../services/flightService';
 import { notificationService }  from '../services/notificationService';
-import { getCachedEnrichment }  from '../services/flightEnrichmentService';
+import { getCachedEnrichment, enrichFlight } from '../services/flightEnrichmentService';
 
 const D2R       = Math.PI / 180;
 const R2D       = 180 / Math.PI;
 const ARC_STEPS = 64;            // smoother arcs since there are now far fewer
-const RENDER_THROTTLE_MS = 1_500;
+const RENDER_THROTTLE_MS = 500;  // was 1500ms — snappier feedback when
+                                 //   selection / tracking changes; the
+                                 //   reconcile is cheap so this is fine.
+// Track callsigns we've already kicked off an on-demand enrichment for,
+// so the same flight isn't queued up over and over while we wait. We
+// clear individual entries once the cache resolves them.
+const _pendingEnrichment = new Set();
 
 // ── Spherical linear interpolation (great-circle arc) ────
 // Returns N+1 points along the great-circle between two
@@ -76,6 +82,21 @@ function isUsable(ap) {
   return true;
 }
 
+// Kick off an on-demand enrichment for a callsign so the route
+// for the user's selected / tracked flight resolves within ~1s
+// instead of waiting on the lazy 6-flights-per-poll background
+// batch. Cheap and de-duped — adsbdb's response lands in the
+// enrichment cache and the next render() picks it up.
+function ensureEnrichment(callsign) {
+  if (!callsign) return;
+  if (_pendingEnrichment.has(callsign)) return;
+  if (getCachedEnrichment(callsign)) return;
+  _pendingEnrichment.add(callsign);
+  enrichFlight(callsign)
+    .catch(() => { /* swallow — extractRoute simply won't find it */ })
+    .finally(() => _pendingEnrichment.delete(callsign));
+}
+
 // Pull origin/destination + a stable route key off whatever
 // shape we have (live flight from flightService OR a tracked
 // snapshot from notificationService). For live flights the
@@ -83,8 +104,10 @@ function isUsable(ap) {
 // until adsbdb enrichment lands, so we ALWAYS prefer the
 // enrichment cache when a callsign is available — this is the
 // difference between "routes never render" and "routes render
-// the moment enrichment resolves". Returns null when neither
-// source has plausibly-real coords yet.
+// the moment enrichment resolves". When the cache is still
+// empty for an interesting flight we eagerly enqueue an
+// enrichFlight() call so the next render tick will succeed.
+// Returns null when neither source has plausibly-real coords yet.
 function extractRoute(source) {
   // Try the source's own origin/destination first.
   let o = source?.origin;
@@ -100,6 +123,9 @@ function extractRoute(source) {
     if (en) {
       if (!isUsable(o) && isUsable(en.origin))      o = en.origin;
       if (!isUsable(d) && isUsable(en.destination)) d = en.destination;
+    } else {
+      // Cache miss — proactively fetch so the next tick can render.
+      ensureEnrichment(cs);
     }
   }
 
@@ -192,20 +218,21 @@ export function BusyRoutesLayer({ enabled, selectedFlightId }) {
         const existing = linesRef.current.get(key);
         const styleOpts = route.isPrimary
           ? {
-              // Selected aircraft — brighter, thicker, fully opaque.
+              // Selected aircraft — brighter, thicker, fully opaque so
+              // it's readable on 4K desktop monitors AND mobile phones
+              // alike. Solid line for the primary selection.
               color:        '#38BDF8',
-              weight:       3,
-              opacity:      0.95,
+              weight:       4,
+              opacity:      1,
               dashArray:    null,
             }
           : {
-              // Tracked aircraft — slightly slimmer, dashed so the
-              // user can still distinguish "I'm tracking this" from
-              // "this is the one I'm watching right now".
+              // Tracked aircraft — slimmer dashed line so the primary
+              // selection still reads as "this is the active one".
               color:        '#38BDF8',
-              weight:       2.4,
-              opacity:      0.85,
-              dashArray:    '5 5',
+              weight:       3,
+              opacity:      0.9,
+              dashArray:    '6 6',
             };
 
         if (existing) {

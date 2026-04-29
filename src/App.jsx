@@ -66,6 +66,12 @@ export default function App() {
   const [detailedMapEnabled, setDetailedMapEnabled] = useState(false);
   const [insightsOpen,     setInsightsOpen]     = useState(false);
   const [flyToFlightId,    setFlyToFlightId]    = useState(null);
+  // Flight Route bounds-fit trigger. Set by the "Flight Route" button
+  // on the Sidebar to zoom/pan the map to fit the entire route
+  // (origin + current position + destination) at once. Mirrors the
+  // flyToFlightId one-shot pattern: write the id, MapView consumes it
+  // via useEffect, then the value is left in place until next click.
+  const [fitRouteFlightId, setFitRouteFlightId] = useState(null);
   const [searchFocusFlightId, setSearchFocusFlightId] = useState(null);
   const [flyToCenter,      setFlyToCenter]      = useState(null);
   const [followFlightId,   setFollowFlightId]   = useState(persistedFollow.followFlightId);
@@ -277,6 +283,15 @@ export default function App() {
     requestAnimationFrame(() => setFlyToFlightId(flightId));
   }, []);
 
+  // Show Flight Route — fit the map to the full route bounds for the
+  // given flight. We toggle the state via null → id so MapView's
+  // effect fires even when the user taps the button repeatedly on
+  // the same selection.
+  const handleShowFlightRoute = useCallback((flightId) => {
+    setFitRouteFlightId(null);
+    requestAnimationFrame(() => setFitRouteFlightId(flightId));
+  }, []);
+
   const handleSearchFlight = useCallback((flight) => {
     if (isMobileViewport()) {
       setFollowFlightId((prev) => (prev === flight.id ? prev : null));
@@ -424,6 +439,7 @@ export default function App() {
         delayHeatmapEnabled={delayHeatmapEnabled}
         detailedMapEnabled={detailedMapEnabled}
         flyToFlightId={flyToFlightId}
+        fitRouteFlightId={fitRouteFlightId}
         searchFocusFlightId={searchFocusFlightId}
         flyToCenter={flyToCenter}
         followFlightId={followFlightId}
@@ -479,6 +495,7 @@ export default function App() {
           onClose={handleSidebarClose}
           onCenterMap={handleFlyTo}
           onToggleFollow={handleToggleFollow}
+          onShowFlightRoute={handleShowFlightRoute}
         />
       )}
 

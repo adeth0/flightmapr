@@ -432,7 +432,12 @@ export function EnhancedTopBar({
             )}
           </div>
 
-          <div ref={layersRef} className="relative sm:hidden">
+          {/* Layers dropdown — visible on every platform (desktop GUI,
+              macOS, iOS/Android PWA). Previously gated behind `sm:hidden`
+              which meant desktop users couldn't reach the Detailed Map
+              toggle. The inline button row above stays for primary
+              toggles; this dropdown is the comprehensive list. */}
+          <div ref={layersRef} className="relative">
             <button
               onClick={() => setLayersOpen((v) => !v)}
               className={`glass rounded-2xl flex items-center gap-1.5 px-2.5 py-2.5 text-sm font-medium transition-all ${

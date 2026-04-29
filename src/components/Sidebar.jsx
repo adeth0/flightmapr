@@ -120,7 +120,7 @@ const supportsNotifications = 'Notification' in window;
 const SNAP = { half: '62dvh', full: '92dvh' };
 
 // ── Sidebar ───────────────────────────────────────────────
-export function Sidebar({ flightId, isFollowing, onClose, onCenterMap, onToggleFollow }) {
+export function Sidebar({ flightId, isFollowing, onClose, onCenterMap, onToggleFollow, onShowFlightRoute }) {
   const [flight,        setFlight]        = useState(() => flightService.getFlight(flightId));
   const [enrichment,    setEnrichment]    = useState(null);
   const [enrichLoading, setEnrichLoading] = useState(false);
@@ -456,6 +456,18 @@ export function Sidebar({ flightId, isFollowing, onClose, onCenterMap, onToggleF
           >
             Center on Map
           </button>
+          {/* Flight Route — fits the map to the full route bounds
+              (origin + current position + destination) so the user
+              sees the entire actual + remaining route at a glance.
+              Works on every platform (desktop / macOS / iOS / Android). */}
+          {onShowFlightRoute && (
+            <button
+              onClick={() => onShowFlightRoute(flight.id)}
+              className="sidebar-btn sidebar-btn-route"
+            >
+              ✈︎ Flight Route
+            </button>
+          )}
           <button
             onClick={() => onToggleFollow(flight.id)}
             className={`sidebar-btn ${
