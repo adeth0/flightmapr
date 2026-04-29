@@ -50,6 +50,7 @@ export function MapView({
   heatmapEnabled,
   routesEnabled,
   delayHeatmapEnabled,
+  detailedMapEnabled,
   flyToFlightId,
   searchFocusFlightId,
   followFlightId,
@@ -210,25 +211,53 @@ export function MapView({
       ref={mapRef}
       worldCopyJump={true}
     >
-      {/* Base tile layer — swaps between dark (night) and light (day) */}
+      {/* Base tile layer — three-way swap:
+            • detailedMapEnabled  → Esri World Imagery (satellite)
+            • dayNightEnabled     → CartoDB dark
+            • else                → CartoDB Voyager (day)
+          The labels layer below sits in its own pane on top, so we keep
+          place names readable regardless of which base is active. */}
       <TileLayer
-        key={dayNightEnabled ? 'dark' : 'light'}
-        url={dayNightEnabled ? TILE_LAYERS.dark.url      : TILE_LAYERS.light.url}
-        attribution={dayNightEnabled ? TILE_LAYERS.dark.attribution : TILE_LAYERS.light.attribution}
-        maxZoom={TILE_LAYERS.dark.maxZoom}
-        subdomains={TILE_LAYERS.dark.subdomains}
+        key={
+          detailedMapEnabled ? 'detailed' :
+          dayNightEnabled    ? 'dark'     : 'light'
+        }
+        url={
+          detailedMapEnabled ? TILE_LAYERS.detailed.url :
+          dayNightEnabled    ? TILE_LAYERS.dark.url     : TILE_LAYERS.light.url
+        }
+        attribution={
+          detailedMapEnabled ? TILE_LAYERS.detailed.attribution :
+          dayNightEnabled    ? TILE_LAYERS.dark.attribution     : TILE_LAYERS.light.attribution
+        }
+        maxZoom={
+          detailedMapEnabled ? TILE_LAYERS.detailed.maxZoom : TILE_LAYERS.dark.maxZoom
+        }
+        subdomains={
+          detailedMapEnabled ? TILE_LAYERS.detailed.subdomains : TILE_LAYERS.dark.subdomains
+        }
       />
 
-      {/* Labels-only tile layer so ocean/sea/place names stay readable */}
+      {/* Labels-only tile layer so ocean/sea/place names stay readable.
+          When the detailed satellite base is on we still show labels so
+          users can identify cities; we use the dark labels variant since
+          they stand out best over imagery. */}
       <Pane name="map-labels" style={{ zIndex: 360, pointerEvents: 'none' }}>
         <TileLayer
-          key={dayNightEnabled ? 'dark-labels' : 'light-labels'}
-          url={dayNightEnabled ? TILE_LAYERS.dark.labelsUrl : TILE_LAYERS.light.labelsUrl}
+          key={
+            detailedMapEnabled ? 'detailed-labels' :
+            dayNightEnabled    ? 'dark-labels'     : 'light-labels'
+          }
+          url={
+            detailedMapEnabled || dayNightEnabled
+              ? TILE_LAYERS.dark.labelsUrl
+              : TILE_LAYERS.light.labelsUrl
+          }
           attribution={dayNightEnabled ? TILE_LAYERS.dark.attribution : TILE_LAYERS.light.attribution}
           maxZoom={TILE_LAYERS.dark.maxZoom}
           subdomains={TILE_LAYERS.dark.subdomains}
           pane="map-labels"
-          opacity={0.95}
+          opacity={detailedMapEnabled ? 0.85 : 0.95}
         />
       </Pane>
 

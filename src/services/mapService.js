@@ -22,6 +22,22 @@ export const TILE_LAYERS = {
     maxZoom: 20,
     subdomains: 'abcd',
   },
+  // Detailed satellite imagery — Esri World Imagery. High-resolution
+  // photographic tiles covering the globe at z18+ over urban areas.
+  // No API key required, attribution required (Esri / Maxar / Earthstar).
+  // We deliberately keep the existing labels layer on top so place names
+  // and roads remain legible against the imagery — that's why this entry
+  // doesn't ship its own labelsUrl: it inherits from dark/light depending
+  // on the day/night state.
+  detailed: {
+    url:
+      'https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}',
+    attribution:
+      'Tiles &copy; Esri &mdash; Source: Esri, Maxar, Earthstar Geographics, and the GIS User Community',
+    maxZoom: 19,
+    // Esri World Imagery doesn't use {s}-style subdomain sharding.
+    subdomains: '',
+  },
 };
 
 export const MAP_DEFAULTS = {

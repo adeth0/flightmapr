@@ -59,6 +59,11 @@ export default function App() {
   const [heatmapEnabled,   setHeatmapEnabled]   = useState(false);
   const [routesEnabled,    setRoutesEnabled]    = useState(false);
   const [delayHeatmapEnabled, setDelayHeatmapEnabled] = useState(false);
+  // Detailed satellite imagery base layer (toggled from the Layers menu).
+  // Off by default — the colour Voyager / Carto Dark base reads better
+  // for live ADS-B at small zooms. Users can flip on detailed satellite
+  // for a high-res photographic view of any region.
+  const [detailedMapEnabled, setDetailedMapEnabled] = useState(false);
   const [insightsOpen,     setInsightsOpen]     = useState(false);
   const [flyToFlightId,    setFlyToFlightId]    = useState(null);
   const [searchFocusFlightId, setSearchFocusFlightId] = useState(null);
@@ -302,6 +307,7 @@ export default function App() {
   const handleToggleHeatmap  = useCallback(() => setHeatmapEnabled((v) => !v),  []);
   const handleToggleRoutes   = useCallback(() => setRoutesEnabled((v) => !v),   []);
   const handleToggleDelayHeatmap = useCallback(() => setDelayHeatmapEnabled((v) => !v), []);
+  const handleToggleDetailedMap  = useCallback(() => setDetailedMapEnabled((v) => !v),  []);
   const handleToggleAlerts   = useCallback(() => setAlertsOpen((v) => !v),      []);
   const handleToggleInsights = useCallback(() => setInsightsOpen((v) => !v),    []);
 
@@ -416,6 +422,7 @@ export default function App() {
         heatmapEnabled={heatmapEnabled}
         routesEnabled={routesEnabled}
         delayHeatmapEnabled={delayHeatmapEnabled}
+        detailedMapEnabled={detailedMapEnabled}
         flyToFlightId={flyToFlightId}
         searchFocusFlightId={searchFocusFlightId}
         flyToCenter={flyToCenter}
@@ -434,12 +441,14 @@ export default function App() {
         heatmapEnabled={heatmapEnabled}
         routesEnabled={routesEnabled}
         delayHeatmapEnabled={delayHeatmapEnabled}
+        detailedMapEnabled={detailedMapEnabled}
         onToggleWeather={handleToggleWeather}
         onToggleDayNight={handleToggleDayNight}
         onToggleAirports={handleToggleAirports}
         onToggleHeatmap={handleToggleHeatmap}
         onToggleRoutes={handleToggleRoutes}
         onToggleDelayHeatmap={handleToggleDelayHeatmap}
+        onToggleDetailedMap={handleToggleDetailedMap}
         alertsCount={alertsCount}
         onToggleAlerts={handleToggleAlerts}
         insightsOpen={insightsOpen}

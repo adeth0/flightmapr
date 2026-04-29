@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
 import {
   Search, Cloud, CloudOff, Sun, Building2, X, Flame, GitBranch, Bell, Layers,
-  Sparkles, AlertTriangle,
+  Sparkles, AlertTriangle, Mountain,
 } from 'lucide-react';
 import { flightService } from '../services/flightService';
 import { airportService } from '../services/airportService';
@@ -98,9 +98,9 @@ function LayerRow({ icon, label, enabled, onToggle }) {
 
 export function EnhancedTopBar({
   weatherEnabled, dayNightEnabled, airportsEnabled, heatmapEnabled, routesEnabled,
-  delayHeatmapEnabled,
+  delayHeatmapEnabled, detailedMapEnabled,
   onToggleWeather, onToggleDayNight, onToggleAirports, onToggleHeatmap, onToggleRoutes,
-  onToggleDelayHeatmap,
+  onToggleDelayHeatmap, onToggleDetailedMap,
   onFlightSelect, onSearchFlightSelect, onAirportSelect, onFlyTo,
   totalFlights, dataSource,
   alertsCount, onToggleAlerts,
@@ -217,7 +217,7 @@ export function EnhancedTopBar({
 
   const showDrop = focused && results.length > 0;
   const isLive = dataSource === 'live';
-  const activeLayerCount = [weatherEnabled, dayNightEnabled, airportsEnabled, heatmapEnabled, routesEnabled, delayHeatmapEnabled]
+  const activeLayerCount = [weatherEnabled, dayNightEnabled, airportsEnabled, heatmapEnabled, routesEnabled, delayHeatmapEnabled, detailedMapEnabled]
     .filter(Boolean).length;
 
   return (
@@ -460,6 +460,14 @@ export function EnhancedTopBar({
                 </div>
                 <LayerRow icon={<Building2 size={15} />} label="Airports" enabled={airportsEnabled} onToggle={onToggleAirports} />
                 <LayerRow icon={<Sun size={15} />} label="Night Mode" enabled={dayNightEnabled} onToggle={onToggleDayNight} />
+                {onToggleDetailedMap && (
+                  <LayerRow
+                    icon={<Mountain size={15} />}
+                    label="Detailed Map"
+                    enabled={!!detailedMapEnabled}
+                    onToggle={onToggleDetailedMap}
+                  />
+                )}
                 <LayerRow icon={<Cloud size={15} />} label="Weather" enabled={weatherEnabled} onToggle={onToggleWeather} />
                 <LayerRow icon={<Flame size={15} />} label="Heatmap" enabled={heatmapEnabled} onToggle={onToggleHeatmap} />
                 <LayerRow icon={<GitBranch size={15} />} label="Busy Routes" enabled={routesEnabled} onToggle={onToggleRoutes} />

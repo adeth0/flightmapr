@@ -401,11 +401,43 @@ html, body, #root {
   50%      { opacity: 0.55; transform: scale(1.08); }
 }
 
-/* ── Premium tracking path — silver polyline with soft glow ─
-   Styled directly via the Leaflet <path> element. We use an SVG
-   filter (drop-shadow) rather than CSS box-shadow because the
-   polyline is an <svg path>, not a block box. The glow is subtle
-   enough not to smear when panning. */
+/* ── Animated rotor / propeller groups (helicopter + small) ─
+   `transform-box: fill-box; transform-origin: center;` aligns the
+   spin to the visual centre of each rotor group. The blades inside
+   are drawn symmetrically around that centre so the rotation looks
+   anchored. Speeds are deliberately fast — at marker scale anything
+   slower reads as "broken" rather than "spinning". */
+@keyframes aircraft-rotor-spin {
+  from { transform: rotate(0deg);   }
+  to   { transform: rotate(360deg); }
+}
+.aircraft-rotor {
+  transform-box: fill-box;
+  transform-origin: center;
+  animation: aircraft-rotor-spin 0.22s linear infinite;
+  will-change: transform;
+}
+.aircraft-tail-rotor {
+  transform-box: fill-box;
+  transform-origin: center;
+  animation: aircraft-rotor-spin 0.14s linear infinite;
+  will-change: transform;
+}
+.aircraft-prop {
+  transform-box: fill-box;
+  transform-origin: center;
+  animation: aircraft-rotor-spin 0.16s linear infinite;
+  will-change: transform;
+}
+
+/* ── Flight tracking path — three-layer route visualisation ─
+   Drawn behind the selected aircraft (in z-order):
+     1. .flight-route-path  — full origin→dest great-circle, faintest
+     2. .flight-trail-path  — solid silver "where I've been"
+     3. .flight-forward-path — dashed "where I'm going"
+   We use SVG `filter: drop-shadow(...)` (not box-shadow) because the
+   polyline is an <svg path>, not a block box. Glows are tuned subtle
+   enough not to smear during pan/zoom. */
 .flight-trail-path {
   stroke: rgba(255, 255, 255, 0.55);
   stroke-linecap: round;
@@ -415,11 +447,36 @@ html, body, #root {
     drop-shadow(0 0 8px rgba(255, 255, 255, 0.18));
   pointer-events: none;
 }
+.flight-forward-path {
+  stroke: rgba(255, 255, 255, 0.7);
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  filter:
+    drop-shadow(0 0 3px rgba(255, 255, 255, 0.32))
+    drop-shadow(0 0 6px rgba(255, 255, 255, 0.14));
+  pointer-events: none;
+  /* Subtle marching-ants animation so the forward leg reads as
+     "active / pending" rather than just a static dashed line. */
+  animation: flight-forward-march 1.4s linear infinite;
+}
+@keyframes flight-forward-march {
+  to { stroke-dashoffset: -24; }
+}
+.flight-route-path {
+  stroke: rgba(255, 255, 255, 0.32);
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  pointer-events: none;
+}
 
 @media (prefers-reduced-motion: reduce) {
   .aircraft-icon-shell.is-selected { transition: none; }
   .aircraft-selected-ring,
   .aircraft-selected-halo { animation: none !important; }
+  .aircraft-rotor,
+  .aircraft-tail-rotor,
+  .aircraft-prop          { animation: none !important; }
+  .flight-forward-path    { animation: none !important; }
 }
 
 /* Light mode — graphite halo reads crisper on paper-white tiles */
@@ -446,6 +503,15 @@ html, body, #root {
   filter:
     drop-shadow(0 0 3px rgba(11, 13, 16, 0.2))
     drop-shadow(0 0 6px rgba(11, 13, 16, 0.1));
+}
+[data-theme="light"] .flight-forward-path {
+  stroke: rgba(11, 13, 16, 0.55);
+  filter:
+    drop-shadow(0 0 2px rgba(11, 13, 16, 0.18))
+    drop-shadow(0 0 4px rgba(11, 13, 16, 0.08));
+}
+[data-theme="light"] .flight-route-path {
+  stroke: rgba(11, 13, 16, 0.28);
 }
 
 /* ── Tracked-aircraft amber ring ────────────────────────── */

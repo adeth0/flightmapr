@@ -12,6 +12,65 @@ import { notificationService } from '../services/notificationService';
 // intervals, which is the sweet spot for visibility + cheap repaint.
 const TRAIL_MAX_POINTS = 100;
 
+// Number of intermediate samples used when rasterising a great-circle
+// path. 64 reads as a smooth curve at intercontinental distances and
+// degrades gracefully (visual + perf) at short hops. Cheap — runs once
+// per route refresh, not per tick.
+const GREAT_CIRCLE_SAMPLES = 64;
+
+// ─────────────────────────────────────────────────────────
+//  Great-circle interpolator — slerp on a unit sphere.
+//  Used to render the "exact" planned route from origin to
+//  destination as a smooth curve (rather than a flat rhumb
+//  line that misrepresents the path on a Mercator map).
+//  Returns an array of [lat, lng] pairs from a→b inclusive.
+// ─────────────────────────────────────────────────────────
+function greatCirclePath(lat1, lng1, lat2, lng2, n = GREAT_CIRCLE_SAMPLES) {
+  if (!Number.isFinite(lat1) || !Number.isFinite(lng1)) return [];
+  if (!Number.isFinite(lat2) || !Number.isFinite(lng2)) return [];
+
+  const toRad = Math.PI / 180;
+  const φ1 = lat1 * toRad, λ1 = lng1 * toRad;
+  const φ2 = lat2 * toRad, λ2 = lng2 * toRad;
+
+  // Angular distance via haversine.
+  const dφ = φ2 - φ1;
+  const dλ = λ2 - λ1;
+  const sin1 = Math.sin(dφ / 2);
+  const sin2 = Math.sin(dλ / 2);
+  const h = sin1 * sin1 + Math.cos(φ1) * Math.cos(φ2) * sin2 * sin2;
+  const d = 2 * Math.asin(Math.min(1, Math.sqrt(h)));
+
+  // Same point — nothing to interpolate.
+  if (d < 1e-9) return [[lat1, lng1], [lat2, lng2]];
+
+  const sind = Math.sin(d);
+  const out = [];
+  for (let i = 0; i <= n; i++) {
+    const f = i / n;
+    const A = Math.sin((1 - f) * d) / sind;
+    const B = Math.sin(f * d)       / sind;
+    const x = A * Math.cos(φ1) * Math.cos(λ1) + B * Math.cos(φ2) * Math.cos(λ2);
+    const y = A * Math.cos(φ1) * Math.sin(λ1) + B * Math.cos(φ2) * Math.sin(λ2);
+    const z = A * Math.sin(φ1)               + B * Math.sin(φ2);
+    const φ = Math.atan2(z, Math.sqrt(x * x + y * y));
+    const λ = Math.atan2(y, x);
+    out.push([φ / toRad, λ / toRad]);
+  }
+  return out;
+}
+
+// Cheap "are these airport coords plausibly real" gate. enrichFlight
+// stamps origin/destination as { code, lat:0, lng:0 } when the route
+// isn't known yet — we don't want to paint a route to (0, 0) Atlantic.
+function hasValidAirport(ap) {
+  if (!ap) return false;
+  if (!ap.code || ap.code === '----') return false;
+  if (!Number.isFinite(ap.lat) || !Number.isFinite(ap.lng)) return false;
+  if (ap.lat === 0 && ap.lng === 0) return false;
+  return true;
+}
+
 function classifyAircraft(flight) {
   const text = `${flight?.aircraft ?? ''} ${flight?.category ?? ''}`.toLowerCase();
 
@@ -69,41 +128,122 @@ function getIconState(selected, hovered, previewed) {
   };
 }
 
+// ─────────────────────────────────────────────────────────
+//  Aircraft glyphs — top-down silhouettes with anatomy that
+//  reads at marker size on both light + dark tiles. Each type
+//  gets its own SVG geometry; helicopters and small props add
+//  a `.aircraft-rotor` / `.aircraft-prop` group whose CSS
+//  animation spins around the rotor hub. Heading rotation is
+//  applied by the parent `.aircraft-icon-rotator` div, so the
+//  spin and heading compose naturally without re-rendering
+//  the SVG every frame.
+// ─────────────────────────────────────────────────────────
 function renderAircraftSvg(type, palette, size) {
-  const stroke = 1.2;
+  const sw = 0.75;            // hairline outline weight
+  const swMain = 1.0;         // main fuselage outline weight
+  const o = palette.outline;
+  const b = palette.body;
+  const a = palette.accent;
+  const glow = palette.glow;
 
   if (type === 'helicopter') {
+    // Top-down helicopter: cabin + tail boom + tail fin + skids
+    // + main rotor (4 blades + soft motion-blur disc) + tail rotor.
     return (
-      `<svg width="${size}" height="${size}" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg" style="filter:${palette.glow};overflow:visible;">` +
+      `<svg width="${size}" height="${size}" viewBox="0 0 32 32" xmlns="http://www.w3.org/2000/svg" style="filter:${glow};overflow:visible;">` +
       `<g fill="none" stroke-linecap="round" stroke-linejoin="round">` +
-      `<path d="M4 5.5 H20" stroke="${palette.outline}" stroke-width="${stroke + 1}" opacity="0.55"/>` +
-      `<path d="M4 5.5 H20" stroke="${palette.body}" stroke-width="${stroke}"/>` +
-      `<path d="M11.8 6.5 H13.1 L15.6 9.8 L13.9 13.4 H9.8 L8.2 10.6 Z" fill="${palette.body}" stroke="${palette.outline}" stroke-width="${stroke}"/>` +
-      `<path d="M13.9 9.7 H18.2" stroke="${palette.accent}" stroke-width="${stroke}"/>` +
-      `<path d="M9.7 13.4 L7.1 15.2" stroke="${palette.outline}" stroke-width="${stroke}"/>` +
-      `<path d="M8.2 10.6 L4.8 10.6" stroke="${palette.accent}" stroke-width="${stroke}"/>` +
-      `<path d="M10.6 14.4 L8.7 17.7" stroke="${palette.outline}" stroke-width="${stroke}"/>` +
-      `<path d="M13.4 14.4 L15.2 17.7" stroke="${palette.outline}" stroke-width="${stroke}"/>` +
+      // Skids (under body) — drawn first so they sit beneath the cabin
+      `<line x1="8.5" y1="13" x2="8.5" y2="22" stroke="${o}" stroke-width="${sw}" opacity="0.65"/>` +
+      `<line x1="23.5" y1="13" x2="23.5" y2="22" stroke="${o}" stroke-width="${sw}" opacity="0.65"/>` +
+      `<line x1="11" y1="14" x2="9" y2="14" stroke="${o}" stroke-width="${sw}" opacity="0.55"/>` +
+      `<line x1="11" y1="20" x2="9" y2="20" stroke="${o}" stroke-width="${sw}" opacity="0.55"/>` +
+      `<line x1="21" y1="14" x2="23" y2="14" stroke="${o}" stroke-width="${sw}" opacity="0.55"/>` +
+      `<line x1="21" y1="20" x2="23" y2="20" stroke="${o}" stroke-width="${sw}" opacity="0.55"/>` +
+      // Tail boom (rear)
+      `<path d="M14.5 19 L14.8 27 L17.2 27 L17.5 19 Z" fill="${b}" stroke="${o}" stroke-width="${sw}"/>` +
+      // Vertical stabilizer / fin at tail
+      `<path d="M14.4 26.5 L13 30 L19 30 L17.6 26.5 Z" fill="${a}" stroke="${o}" stroke-width="${sw}" opacity="0.95"/>` +
+      // Tail rotor hub + fast-spinning blades
+      `<circle cx="16" cy="29.4" r="0.8" fill="${o}"/>` +
+      `<g class="aircraft-tail-rotor" style="transform-box:fill-box;transform-origin:center;">` +
+        `<line x1="13.6" y1="29.4" x2="18.4" y2="29.4" stroke="${o}" stroke-width="${sw}" opacity="0.85"/>` +
+      `</g>` +
+      // Cabin / fuselage — rounded teardrop, narrower at the front
+      `<path d="M16 6 C12.4 6 10.5 9.5 10.5 13.5 C10.5 17.5 12.5 19.5 16 19.5 C19.5 19.5 21.5 17.5 21.5 13.5 C21.5 9.5 19.6 6 16 6 Z" fill="${b}" stroke="${o}" stroke-width="${swMain}"/>` +
+      // Cockpit / windshield highlight (front)
+      `<path d="M13.2 8 Q16 6.6 18.8 8 Q18 10.5 16 11 Q14 10.5 13.2 8 Z" fill="${a}" opacity="0.7"/>` +
+      // Door seam detail
+      `<line x1="11.7" y1="14.5" x2="20.3" y2="14.5" stroke="${o}" stroke-width="${sw}" opacity="0.45"/>` +
+      // Rotor hub
+      `<circle cx="16" cy="13" r="1.2" fill="${o}"/>` +
+      // Main rotor — 4 blades + soft disc for motion blur
+      `<g class="aircraft-rotor" style="transform-box:fill-box;transform-origin:center;">` +
+        `<circle cx="16" cy="13" r="13" fill="${o}" opacity="0.05"/>` +
+        `<line x1="2.5" y1="13" x2="29.5" y2="13" stroke="${o}" stroke-width="${sw + 0.1}" opacity="0.85"/>` +
+        `<line x1="16" y1="-0.5" x2="16" y2="26.5" stroke="${o}" stroke-width="${sw + 0.1}" opacity="0.85"/>` +
+        `<line x1="6" y1="3" x2="26" y2="23" stroke="${o}" stroke-width="${sw - 0.1}" opacity="0.55"/>` +
+        `<line x1="6" y1="23" x2="26" y2="3" stroke="${o}" stroke-width="${sw - 0.1}" opacity="0.55"/>` +
+      `</g>` +
       `</g></svg>`
     );
   }
 
   if (type === 'small') {
+    // Top-down Cessna-style: high single wing, fuselage, tail
+    // empennage, and a fast-spinning two-blade propeller at the
+    // nose. Slightly wider wings than commercial since light
+    // aircraft visually have proportionally bigger wing span.
     return (
-      `<svg width="${size}" height="${size}" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg" style="filter:${palette.glow};overflow:visible;">` +
+      `<svg width="${size}" height="${size}" viewBox="0 0 32 32" xmlns="http://www.w3.org/2000/svg" style="filter:${glow};overflow:visible;">` +
       `<g fill="none" stroke-linecap="round" stroke-linejoin="round">` +
-      `<path d="M12 2.2 L13.5 6.5 L19.6 8.8 L19.1 10.3 L14.4 9.8 L15.2 20.6 L13.2 21.8 L12 14.5 L10.8 21.8 L8.8 20.6 L9.6 9.8 L4.9 10.3 L4.4 8.8 L10.5 6.5 Z" fill="${palette.body}" stroke="${palette.outline}" stroke-width="${stroke}"/>` +
-      `<path d="M12 2.2 V0.8" stroke="${palette.accent}" stroke-width="${stroke}"/>` +
-      `<path d="M10.1 1.6 L13.9 1.6" stroke="${palette.accent}" stroke-width="${stroke}"/>` +
+      // Horizontal stabilizer (rear empennage) — drawn under fuselage
+      `<path d="M10 25 L10 27 L22 27 L22 25 L19 24.5 L13 24.5 Z" fill="${b}" stroke="${o}" stroke-width="${sw}"/>` +
+      // Vertical fin (top-down: tiny rectangle on tail)
+      `<path d="M15.2 26 L15.2 28.5 L16.8 28.5 L16.8 26 Z" fill="${a}" stroke="${o}" stroke-width="${sw}"/>` +
+      // High wings — single straight span across, slightly wider than commercial
+      `<path d="M2 12 Q1.5 11 3 10.6 L29 10.6 Q30.5 11 30 12 L29 13.6 Q28 14 16 14 Q4 14 3 13.6 Z" fill="${b}" stroke="${o}" stroke-width="${sw}"/>` +
+      // Wing struts (visual cue this is a high-wing prop)
+      `<line x1="8" y1="13.5" x2="13.5" y2="17" stroke="${o}" stroke-width="${sw - 0.1}" opacity="0.55"/>` +
+      `<line x1="24" y1="13.5" x2="18.5" y2="17" stroke="${o}" stroke-width="${sw - 0.1}" opacity="0.55"/>` +
+      // Fuselage
+      `<path d="M16 6.5 C14.6 6.5 13.5 7.4 13.5 9 L13.5 23 L14.2 25 L17.8 25 L18.5 23 L18.5 9 C18.5 7.4 17.4 6.5 16 6.5 Z" fill="${b}" stroke="${o}" stroke-width="${swMain}"/>` +
+      // Cockpit windshield
+      `<ellipse cx="16" cy="9.5" rx="1.6" ry="1.4" fill="${a}" opacity="0.7"/>` +
+      // Spinner cone at nose
+      `<circle cx="16" cy="6.2" r="1.0" fill="${a}" stroke="${o}" stroke-width="${sw - 0.1}"/>` +
+      // Animated propeller — two-blade horizontal, spinning fast
+      `<g class="aircraft-prop" style="transform-box:fill-box;transform-origin:center;">` +
+        `<circle cx="16" cy="6.2" r="5.5" fill="${o}" opacity="0.05"/>` +
+        `<line x1="10.5" y1="6.2" x2="21.5" y2="6.2" stroke="${o}" stroke-width="${sw + 0.1}" opacity="0.9"/>` +
+        `<line x1="16" y1="1" x2="16" y2="11.4" stroke="${o}" stroke-width="${sw - 0.2}" opacity="0.45"/>` +
+      `</g>` +
       `</g></svg>`
     );
   }
 
+  // Commercial airliner — top-down with swept wings, two engines,
+  // tail empennage, and cockpit windshield. Cleaner silhouette
+  // than small/light aircraft, no animated prop.
   return (
-    `<svg width="${size}" height="${size}" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg" style="filter:${palette.glow};overflow:visible;">` +
+    `<svg width="${size}" height="${size}" viewBox="0 0 32 32" xmlns="http://www.w3.org/2000/svg" style="filter:${glow};overflow:visible;">` +
     `<g fill="none" stroke-linecap="round" stroke-linejoin="round">` +
-    `<path d="M12 1.8 C11.2 1.8 10.4 2.6 10.1 4 L9.4 8.6 L3.1 12.1 L3.1 14.4 L9.2 12.9 L9.8 18.8 L7.8 21.1 L9.4 21.3 L12 19.6 L14.6 21.3 L16.2 21.1 L14.2 18.8 L14.8 12.9 L20.9 14.4 L20.9 12.1 L14.6 8.6 L13.9 4 C13.6 2.6 12.8 1.8 12 1.8 Z" fill="${palette.body}" stroke="${palette.outline}" stroke-width="${stroke}"/>` +
-    `<path d="M9.2 12.8 H14.8" stroke="${palette.accent}" stroke-width="${stroke}" opacity="0.95"/>` +
+    // Swept-back wings (delta-ish)
+    `<path d="M16 14 L2.5 22 L3.5 23.5 L16 18 L28.5 23.5 L29.5 22 Z" fill="${b}" stroke="${o}" stroke-width="${sw}"/>` +
+    // Engine pods on wings
+    `<ellipse cx="9" cy="19.5" rx="1.5" ry="2.4" fill="${o}" opacity="0.85"/>` +
+    `<ellipse cx="23" cy="19.5" rx="1.5" ry="2.4" fill="${o}" opacity="0.85"/>` +
+    `<ellipse cx="9" cy="19.5" rx="0.7" ry="1.4" fill="${a}" opacity="0.55"/>` +
+    `<ellipse cx="23" cy="19.5" rx="0.7" ry="1.4" fill="${a}" opacity="0.55"/>` +
+    // Fuselage — long tapered tube from nose to tail
+    `<path d="M16 3 C14.6 3 13.7 4.2 13.4 6.5 L12.9 24.5 L13.7 27 L18.3 27 L19.1 24.5 L18.6 6.5 C18.3 4.2 17.4 3 16 3 Z" fill="${b}" stroke="${o}" stroke-width="${swMain}"/>` +
+    // Cockpit windshield
+    `<path d="M14.4 5 Q16 3.6 17.6 5 Q17.2 7.5 16 8 Q14.8 7.5 14.4 5 Z" fill="${a}" opacity="0.7"/>` +
+    // Horizontal stabilizer (tail wings)
+    `<path d="M16 25 L9.5 28.5 L10.7 29 L16 27 L21.3 29 L22.5 28.5 Z" fill="${b}" stroke="${o}" stroke-width="${sw}"/>` +
+    // Vertical fin (top-down: small rectangle along centreline)
+    `<path d="M15.3 25 L15.5 28.7 L16.5 28.7 L16.7 25 Z" fill="${a}" stroke="${o}" stroke-width="${sw}"/>` +
+    // Wing root highlight (visual interest)
+    `<line x1="13.5" y1="16" x2="18.5" y2="16" stroke="${a}" stroke-width="${sw}" opacity="0.7"/>` +
     `</g></svg>`
   );
 }
@@ -179,6 +319,13 @@ export function FlightLayer({ selectedFlightId, onFlightSelect }) {
   const map = useMap();
   const markersRef = useRef(new Map());
   const trailRef = useRef(null);
+  // Forward-leg polyline: aircraft current position → destination, drawn
+  // as a great-circle dashed line so the user can see the exact remaining
+  // route end-to-end.
+  const forwardRef = useRef(null);
+  // Full planned route polyline: origin → destination, drawn faintly
+  // behind everything else so the user sees the complete planned arc.
+  const routeRef = useRef(null);
   const selectedIdRef = useRef(selectedFlightId);
   const onSelectRef = useRef(onFlightSelect);
   const pendingPreviewRef = useRef(null);
@@ -214,21 +361,59 @@ export function FlightLayer({ selectedFlightId, onFlightSelect }) {
     }
   }, [selectedFlightId]);
 
-  // ── Premium tracking path ────────────────────────────────
-  // Drawn behind the selected aircraft, it visualises the recent
-  // track so "Follow Flight" becomes obvious. Capped to the last
-  // TRAIL_MAX_POINTS samples so very long trails don't regress
-  // paint cost on weaker mobile GPUs. Styling (silver stroke +
-  // soft glow) lives in index.css via `.flight-trail-path`.
+  // ── Premium tracking path + planned-route visualisation ─
+  // Three layered polylines, drawn behind the selected aircraft:
+  //
+  //   1. routeRef   — full planned great-circle ORIGIN→DEST,
+  //                   faintest, dashed, sits at the bottom.
+  //   2. trailRef   — solid silver track of where the aircraft
+  //                   has actually been (last TRAIL_MAX_POINTS).
+  //   3. forwardRef — dashed great-circle from CURRENT position
+  //                   to DESTINATION, the "remaining route".
+  //
+  // 1 and 3 use a great-circle slerp so intercontinental routes
+  // bow correctly on Mercator (a flat rhumb line would look very
+  // wrong over Atlantic / Pacific crossings). 2 is the live trail
+  // — already capped + smoothed for cheap repaints on mobile.
   useEffect(() => {
-    if (trailRef.current) { trailRef.current.remove(); trailRef.current = null; }
+    // Tear down any previous polylines first so a selection change
+    // never leaves stale geometry on screen.
+    if (trailRef.current)   { trailRef.current.remove();   trailRef.current = null; }
+    if (forwardRef.current) { forwardRef.current.remove(); forwardRef.current = null; }
+    if (routeRef.current)   { routeRef.current.remove();   routeRef.current = null; }
+
     if (!selectedFlightId) return;
     const flight = flightService.getFlight(selectedFlightId);
     if (!flight) return;
-    const pts = (flight.trail || []).slice(-TRAIL_MAX_POINTS).map((p) => [p.lat, p.lng]);
-    trailRef.current = L.polyline(pts, {
+
+    // 1. Full planned route — origin → destination great-circle.
+    //    Only when both endpoints have plausibly-real coords.
+    const o = flight.origin;
+    const d = flight.destination;
+    if (hasValidAirport(o) && hasValidAirport(d)) {
+      const fullArc = greatCirclePath(o.lat, o.lng, d.lat, d.lng);
+      if (fullArc.length > 1) {
+        routeRef.current = L.polyline(fullArc, {
+          color: 'rgba(255, 255, 255, 0.32)',
+          weight: 1.6,
+          opacity: 1,
+          lineCap: 'round',
+          lineJoin: 'round',
+          interactive: false,
+          dashArray: '2 6',
+          smoothFactor: 1.0,
+          className: 'flight-route-path',
+        }).addTo(map);
+      }
+    }
+
+    // 2. Solid trail — where the aircraft has actually been.
+    const trailPts = (flight.trail || [])
+      .slice(-TRAIL_MAX_POINTS)
+      .map((p) => [p.lat, p.lng]);
+    trailRef.current = L.polyline(trailPts, {
       color: 'rgba(255, 255, 255, 0.55)',
-      weight: 2.5,
+      weight: 2.6,
       opacity: 1,
       lineCap: 'round',
       lineJoin: 'round',
@@ -236,6 +421,25 @@ export function FlightLayer({ selectedFlightId, onFlightSelect }) {
       smoothFactor: 1.2,
       className: 'flight-trail-path',
     }).addTo(map);
+
+    // 3. Forward leg — current position → destination great-circle,
+    //    dashed silver. Only when destination is known.
+    if (hasValidAirport(d)) {
+      const fwd = greatCirclePath(flight.lat, flight.lng, d.lat, d.lng);
+      if (fwd.length > 1) {
+        forwardRef.current = L.polyline(fwd, {
+          color: 'rgba(255, 255, 255, 0.7)',
+          weight: 2,
+          opacity: 1,
+          lineCap: 'round',
+          lineJoin: 'round',
+          interactive: false,
+          dashArray: '6 6',
+          smoothFactor: 1.0,
+          className: 'flight-forward-path',
+        }).addTo(map);
+      }
+    }
   }, [selectedFlightId, map]);
 
   function safeRemovePopup(popup) {
@@ -470,6 +674,16 @@ export function FlightLayer({ selectedFlightId, onFlightSelect }) {
           trailRef.current.setLatLngs(trailPts);
         }
 
+        // Forward leg — current → destination, recomputed every tick so
+        // the dashed line tracks the aircraft as it advances.
+        if (isSel && forwardRef.current && hasValidAirport(flight.destination)) {
+          const fwd = greatCirclePath(
+            flight.lat, flight.lng,
+            flight.destination.lat, flight.destination.lng,
+          );
+          if (fwd.length > 1) forwardRef.current.setLatLngs(fwd);
+        }
+
         if (pendingPreviewRef.current?.id === flight.id) {
           try { pendingPreviewRef.current.popup.setLatLng([flight.lat, flight.lng]); } catch { /* ignore */ }
         }
@@ -486,7 +700,9 @@ export function FlightLayer({ selectedFlightId, onFlightSelect }) {
       }
       markersRef.current.forEach(({ marker }) => marker.remove());
       markersRef.current.clear();
-      if (trailRef.current) { trailRef.current.remove(); trailRef.current = null; }
+      if (trailRef.current)   { trailRef.current.remove();   trailRef.current = null; }
+      if (forwardRef.current) { forwardRef.current.remove(); forwardRef.current = null; }
+      if (routeRef.current)   { routeRef.current.remove();   routeRef.current = null; }
       safeRemovePopup(pendingPreviewRef.current?.popup);
       pendingPreviewRef.current = null;
     };
