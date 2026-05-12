@@ -290,18 +290,28 @@ function renderAircraftSvg(type, palette, size) {
   );
 }
 
-function createIcon(flight, selected = false, hovered = false, previewed = false, tracked = false) {
+function createIcon(flight, selected = false, hovered = false, previewed = false, tracked = false, followed = false) {
   const type = classifyAircraft(flight);
   const palette = getIconState(selected, hovered, previewed);
   const size = palette.size + (type === 'helicopter' ? 2 : 0);
 
-  const ring = (tracked && !selected)
-    ? '<div class="aircraft-track-ring"></div>'
-    : '';
+  // Ring priority — only the highest-priority ring shows, so the
+  // marker stays readable rather than stacking concentric rings.
+  //   selected → silver halo + ring (added below as `selectedRing`)
+  //   followed → azure pulsing ring (NEW — "I'm watching this fly")
+  //   tracked  → amber pulsing ring (Alerts panel watcher)
+  let ring = '';
+  if (!selected) {
+    if (followed) {
+      ring = '<div class="aircraft-follow-ring" aria-hidden="true"></div>';
+    } else if (tracked) {
+      ring = '<div class="aircraft-track-ring" aria-hidden="true"></div>';
+    }
+  }
 
-  // Premium silver halo + pulsing ring for the selected aircraft.
-  // Layered as DOM overlays inside the shell so we can animate them
-  // with plain CSS without re-rendering the SVG glyph every frame.
+  // Premium silver halo + ring for the selected aircraft. Layered
+  // as DOM overlays inside the shell so we can animate them with
+  // plain CSS without re-rendering the SVG glyph every frame.
   const selectedRing = selected
     ? '<div class="aircraft-selected-ring" aria-hidden="true"></div>' +
       '<div class="aircraft-selected-halo" aria-hidden="true"></div>'
@@ -311,6 +321,7 @@ function createIcon(flight, selected = false, hovered = false, previewed = false
     'aircraft-icon-shell',
     `aircraft-icon-${type}`,
     selected ? 'is-selected' : '',
+    !selected && followed ? 'is-following' : '',
   ].filter(Boolean).join(' ');
 
   return L.divIcon({
@@ -380,6 +391,10 @@ export function FlightLayer({ selectedFlightId, followFlightId, onFlightSelect }
   // Defaults to selectedFlightId, but falls back to followFlightId so
   // closing the card while following keeps the route visible.
   const routeIdRef = useRef(routeFlightId);
+  // Followed flight id — drives the azure follow ring on the marker.
+  // Kept separate from selection so closing the card (=clearing
+  // selectedFlightId) doesn't remove the follow indicator.
+  const followedIdRef = useRef(followFlightId);
   const onSelectRef = useRef(onFlightSelect);
   const pendingPreviewRef = useRef(null);
   const trackedIdsRef = useRef(new Set());
@@ -387,6 +402,31 @@ export function FlightLayer({ selectedFlightId, followFlightId, onFlightSelect }
 
   useEffect(() => { selectedIdRef.current = selectedFlightId; }, [selectedFlightId]);
   useEffect(() => { routeIdRef.current    = routeFlightId;    }, [routeFlightId]);
+
+  // When the followed flight changes, re-icon both the old and new
+  // markers so the azure follow ring moves to the right aircraft —
+  // without waiting on the next flightService tick.
+  useEffect(() => {
+    const prev = followedIdRef.current;
+    followedIdRef.current = followFlightId;
+    const markers = markersRef.current;
+
+    const reIcon = (id) => {
+      if (!id) return;
+      const entry = markers.get(id);
+      if (!entry) return;
+      const isSel = selectedIdRef.current === id;
+      const isTracked = trackedIdsRef.current.has(id);
+      const isFollowed = followedIdRef.current === id;
+      entry.rotEl = null;
+      entry.marker.setIcon(
+        createIcon(entry.flight, isSel, false, entry.previewed ?? false, isTracked, isFollowed),
+      );
+    };
+
+    if (prev && prev !== followFlightId) reIcon(prev);
+    if (followFlightId)                   reIcon(followFlightId);
+  }, [followFlightId]);
   useEffect(() => { onSelectRef.current = onFlightSelect; }, [onFlightSelect]);
 
   useEffect(() => {
@@ -400,8 +440,9 @@ export function FlightLayer({ selectedFlightId, followFlightId, onFlightSelect }
           entry.tracked = isNowTracked;
           entry.rotEl = null;
           const isSel = selectedIdRef.current === id;
+          const isFollowed = followedIdRef.current === id;
           entry.marker.setIcon(
-            createIcon(entry.flight, isSel, false, entry.previewed ?? false, isNowTracked),
+            createIcon(entry.flight, isSel, false, entry.previewed ?? false, isNowTracked, isFollowed),
           );
         }
       });
@@ -447,20 +488,24 @@ export function FlightLayer({ selectedFlightId, followFlightId, onFlightSelect }
 
     const { origin: o, destination: d } = resolveRoute(flight);
 
-    // 1. Actual flown route — ORIGIN → CURRENT position. Solid
-    //    azure great-circle. Endpoints come from the enrichment
-    //    cache (real airport lat/lng) rather than flight.origin
-    //    which carries a 0,0 placeholder until adsbdb resolves.
+    // 1. Where the flight has COME FROM — ORIGIN → CURRENT position.
+    //    Dotted azure great-circle so the user reads it as "history",
+    //    visually distinct from the solid line ahead. Endpoints come
+    //    from the enrichment cache (real airport lat/lng) rather than
+    //    flight.origin which carries a 0,0 placeholder until adsbdb
+    //    resolves.
     if (o) {
       const flown = greatCirclePath(o.lat, o.lng, flight.lat, flight.lng);
       if (flown.length > 1) {
         flownRef.current = L.polyline(flown, {
           color: '#38BDF8',
-          weight: 3.5,
-          opacity: 0.95,
+          weight: 3,
+          opacity: 0.92,
           lineCap: 'round',
           lineJoin: 'round',
           interactive: false,
+          // Tight dot pattern reads as "dotted" rather than "dashed".
+          dashArray: '1 7',
           smoothFactor: 1.0,
           className: 'flight-flown-path',
         }).addTo(map);
@@ -482,19 +527,19 @@ export function FlightLayer({ selectedFlightId, followFlightId, onFlightSelect }
       className: 'flight-trail-path',
     }).addTo(map);
 
-    // 3. Forward leg — current position → destination great-circle,
-    //    dashed azure with marching-ants animation in CSS.
+    // 3. Where the flight is HEADING TO — CURRENT position →
+    //    destination great-circle. Solid bright azure so it reads
+    //    as the prominent forward route the user is "watching".
     if (d) {
       const fwd = greatCirclePath(flight.lat, flight.lng, d.lat, d.lng);
       if (fwd.length > 1) {
         forwardRef.current = L.polyline(fwd, {
           color: '#38BDF8',
-          weight: 3,
-          opacity: 0.95,
+          weight: 4,
+          opacity: 1,
           lineCap: 'round',
           lineJoin: 'round',
           interactive: false,
-          dashArray: '8 8',
           smoothFactor: 1.0,
           className: 'flight-forward-path',
         }).addTo(map);
@@ -512,7 +557,8 @@ export function FlightLayer({ selectedFlightId, followFlightId, onFlightSelect }
       entry.previewed = false;
       entry.rotEl = null;
       const isTracked = trackedIdsRef.current.has(flightId);
-      entry.marker.setIcon(createIcon(entry.flight, false, false, false, isTracked));
+      const isFollowed = followedIdRef.current === flightId;
+      entry.marker.setIcon(createIcon(entry.flight, false, false, false, isTracked, isFollowed));
       entry.marker.setZIndexOffset(0);
     }
   }, []);
@@ -564,7 +610,8 @@ export function FlightLayer({ selectedFlightId, followFlightId, onFlightSelect }
       entry.previewed = true;
       entry.rotEl = null;
       const isTracked = trackedIdsRef.current.has(flight.id);
-      entry.marker.setIcon(createIcon(entry.flight, false, false, true, isTracked));
+      const isFollowed = followedIdRef.current === flight.id;
+      entry.marker.setIcon(createIcon(entry.flight, false, false, true, isTracked, isFollowed));
       entry.marker.setZIndexOffset(500);
     }
 
@@ -577,8 +624,9 @@ export function FlightLayer({ selectedFlightId, followFlightId, onFlightSelect }
 
     const isSelected = selectedIdRef.current === flight.id;
     const isTracked = trackedIdsRef.current.has(flight.id);
+    const isFollowed = followedIdRef.current === flight.id;
     const marker = L.marker([flight.lat, flight.lng], {
-      icon: createIcon(flight, isSelected, false, false, isTracked),
+      icon: createIcon(flight, isSelected, false, false, isTracked, isFollowed),
       zIndexOffset: isSelected ? 1000 : 0,
     }).addTo(map);
 
@@ -600,7 +648,8 @@ export function FlightLayer({ selectedFlightId, followFlightId, onFlightSelect }
       if (entry && selectedIdRef.current !== flight.id && !entry.previewed) {
         entry.rotEl = null;
         const isNowTracked = trackedIdsRef.current.has(flight.id);
-        marker.setIcon(createIcon(entry.flight, false, true, false, isNowTracked));
+        const isNowFollowed = followedIdRef.current === flight.id;
+        marker.setIcon(createIcon(entry.flight, false, true, false, isNowTracked, isNowFollowed));
       }
     });
     marker.on('mouseout', () => {
@@ -608,7 +657,8 @@ export function FlightLayer({ selectedFlightId, followFlightId, onFlightSelect }
       if (entry && selectedIdRef.current !== flight.id && !entry.previewed) {
         entry.rotEl = null;
         const isNowTracked = trackedIdsRef.current.has(flight.id);
-        marker.setIcon(createIcon(entry.flight, false, false, false, isNowTracked));
+        const isNowFollowed = followedIdRef.current === flight.id;
+        marker.setIcon(createIcon(entry.flight, false, false, false, isNowTracked, isNowFollowed));
       }
     });
 
@@ -726,7 +776,8 @@ export function FlightLayer({ selectedFlightId, followFlightId, onFlightSelect }
           entry.rotEl = null;
           entry.previewed = false;
           const isTracked = trackedIdsRef.current.has(flight.id);
-          entry.marker.setIcon(createIcon(flight, isSel, false, false, isTracked));
+          const isFollowed = followedIdRef.current === flight.id;
+          entry.marker.setIcon(createIcon(flight, isSel, false, false, isTracked, isFollowed));
           entry.marker.setZIndexOffset(isSel ? 1000 : 0);
         }
 
@@ -751,8 +802,8 @@ export function FlightLayer({ selectedFlightId, followFlightId, onFlightSelect }
         if (isRoute) {
           const { origin: liveOrigin, destination: liveDest } = resolveRoute(flight);
 
-          // Actual flown route — origin → CURRENT position. Recomputed
-          // each tick so it grows with the aircraft.
+          // Where it's COME FROM — origin → CURRENT position, dotted
+          // azure. Recomputed each tick so it grows with the aircraft.
           if (liveOrigin) {
             const flown = greatCirclePath(
               liveOrigin.lat, liveOrigin.lng,
@@ -764,11 +815,12 @@ export function FlightLayer({ selectedFlightId, followFlightId, onFlightSelect }
               } else {
                 flownRef.current = L.polyline(flown, {
                   color: '#38BDF8',
-                  weight: 3.5,
-                  opacity: 0.95,
+                  weight: 3,
+                  opacity: 0.92,
                   lineCap: 'round',
                   lineJoin: 'round',
                   interactive: false,
+                  dashArray: '1 7',
                   smoothFactor: 1.0,
                   className: 'flight-flown-path',
                 }).addTo(map);
@@ -776,7 +828,8 @@ export function FlightLayer({ selectedFlightId, followFlightId, onFlightSelect }
             }
           }
 
-          // Forward leg — CURRENT position → destination.
+          // Where it's HEADING TO — CURRENT position → destination,
+          // solid bright azure (the prominent forward line).
           if (liveDest) {
             const fwd = greatCirclePath(
               flight.lat, flight.lng,
@@ -788,12 +841,11 @@ export function FlightLayer({ selectedFlightId, followFlightId, onFlightSelect }
               } else {
                 forwardRef.current = L.polyline(fwd, {
                   color: '#38BDF8',
-                  weight: 3,
-                  opacity: 0.95,
+                  weight: 4,
+                  opacity: 1,
                   lineCap: 'round',
                   lineJoin: 'round',
                   interactive: false,
-                  dashArray: '8 8',
                   smoothFactor: 1.0,
                   className: 'flight-forward-path',
                 }).addTo(map);
