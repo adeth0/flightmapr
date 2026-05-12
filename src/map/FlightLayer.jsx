@@ -357,7 +357,12 @@ function tooltipContent(f) {
   );
 }
 
-export function FlightLayer({ selectedFlightId, onFlightSelect }) {
+export function FlightLayer({ selectedFlightId, followFlightId, onFlightSelect }) {
+  // The "flight of interest" for the route/trail polylines is the
+  // selected one if it exists, otherwise the followed one. This lets
+  // the "Flight Route" button close the card while keeping the route
+  // visible — the user follows the plane along its actual path.
+  const routeFlightId = selectedFlightId ?? followFlightId ?? null;
   const map = useMap();
   const markersRef = useRef(new Map());
   const trailRef = useRef(null);
@@ -371,12 +376,17 @@ export function FlightLayer({ selectedFlightId, onFlightSelect }) {
   // departure. Updated each tick so it tracks the aircraft as it moves.
   const flownRef = useRef(null);
   const selectedIdRef = useRef(selectedFlightId);
+  // Separate ref for "the flight whose routes we should be drawing".
+  // Defaults to selectedFlightId, but falls back to followFlightId so
+  // closing the card while following keeps the route visible.
+  const routeIdRef = useRef(routeFlightId);
   const onSelectRef = useRef(onFlightSelect);
   const pendingPreviewRef = useRef(null);
   const trackedIdsRef = useRef(new Set());
   const lastPaneTouchRef = useRef(0);
 
   useEffect(() => { selectedIdRef.current = selectedFlightId; }, [selectedFlightId]);
+  useEffect(() => { routeIdRef.current    = routeFlightId;    }, [routeFlightId]);
   useEffect(() => { onSelectRef.current = onFlightSelect; }, [onFlightSelect]);
 
   useEffect(() => {
@@ -431,8 +441,8 @@ export function FlightLayer({ selectedFlightId, onFlightSelect }) {
     if (forwardRef.current) { forwardRef.current.remove(); forwardRef.current = null; }
     if (flownRef.current)   { flownRef.current.remove();   flownRef.current = null; }
 
-    if (!selectedFlightId) return;
-    const flight = flightService.getFlight(selectedFlightId);
+    if (!routeFlightId) return;
+    const flight = flightService.getFlight(routeFlightId);
     if (!flight) return;
 
     const { origin: o, destination: d } = resolveRoute(flight);
@@ -490,7 +500,7 @@ export function FlightLayer({ selectedFlightId, onFlightSelect }) {
         }).addTo(map);
       }
     }
-  }, [selectedFlightId, map]);
+  }, [routeFlightId, map]);
 
   function safeRemovePopup(popup) {
     try { if (popup) popup.remove(); } catch { /* ignore */ }
@@ -684,7 +694,8 @@ export function FlightLayer({ selectedFlightId, onFlightSelect }) {
 
     const unsub = flightService.subscribe((flights) => {
       const markers = markersRef.current;
-      const selId = selectedIdRef.current;
+      const selId   = selectedIdRef.current;
+      const routeId = routeIdRef.current;
       const incomingIds = new Set(flights.map((f) => f.id));
       markers.forEach((_, id) => { if (!incomingIds.has(id)) removeMarker(id); });
 
@@ -697,7 +708,12 @@ export function FlightLayer({ selectedFlightId, onFlightSelect }) {
         entry.flight = flight;
         entry.marker.setLatLng([flight.lat, flight.lng]);
 
-        const isSel = selId === flight.id;
+        const isSel   = selId   === flight.id;
+        // "Is this the flight whose routes we draw?" — selection OR
+        // follow. Used to drive the trail + flown + forward polyline
+        // updates; the visual "selected" highlight stays gated on
+        // selectedIdRef so closing the card removes the halo.
+        const isRoute = routeId === flight.id;
 
         if (!entry.rotEl) {
           const el = entry.marker.getElement();
@@ -714,7 +730,7 @@ export function FlightLayer({ selectedFlightId, onFlightSelect }) {
           entry.marker.setZIndexOffset(isSel ? 1000 : 0);
         }
 
-        if (isSel && trailRef.current) {
+        if (isRoute && trailRef.current) {
           // Incremental update — Leaflet diffs the path internally so
           // this is cheap enough to fire every tick. Still cap it here
           // as a belt-and-braces guard against a runaway trail.
@@ -732,7 +748,7 @@ export function FlightLayer({ selectedFlightId, onFlightSelect }) {
         // "appear" within ~1s of selection (we eagerly trigger
         // enrichFlight() inside resolveRoute) without blocking the
         // selection itself.
-        if (isSel) {
+        if (isRoute) {
           const { origin: liveOrigin, destination: liveDest } = resolveRoute(flight);
 
           // Actual flown route — origin → CURRENT position. Recomputed

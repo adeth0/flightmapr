@@ -66,12 +66,6 @@ export default function App() {
   const [detailedMapEnabled, setDetailedMapEnabled] = useState(false);
   const [insightsOpen,     setInsightsOpen]     = useState(false);
   const [flyToFlightId,    setFlyToFlightId]    = useState(null);
-  // Flight Route bounds-fit trigger. Set by the "Flight Route" button
-  // on the Sidebar to zoom/pan the map to fit the entire route
-  // (origin + current position + destination) at once. Mirrors the
-  // flyToFlightId one-shot pattern: write the id, MapView consumes it
-  // via useEffect, then the value is left in place until next click.
-  const [fitRouteFlightId, setFitRouteFlightId] = useState(null);
   const [searchFocusFlightId, setSearchFocusFlightId] = useState(null);
   const [flyToCenter,      setFlyToCenter]      = useState(null);
   const [followFlightId,   setFollowFlightId]   = useState(persistedFollow.followFlightId);
@@ -283,13 +277,30 @@ export default function App() {
     requestAnimationFrame(() => setFlyToFlightId(flightId));
   }, []);
 
-  // Show Flight Route — fit the map to the full route bounds for the
-  // given flight. We toggle the state via null → id so MapView's
-  // effect fires even when the user taps the button repeatedly on
-  // the same selection.
+  // Show Flight Route — three-part action on every platform:
+  //   1. Close / minimise the flight detail card so the map is
+  //      unobstructed.
+  //   2. Enter follow mode for this flight; the map smoothly pans
+  //      to track the aircraft.
+  //   3. Routes (origin→current solid + current→destination dashed)
+  //      stay visible — FlightLayer renders them for followFlightId
+  //      now, not just selectedFlightId.
+  //
+  // This replaces the previous fit-to-bounds behaviour which the
+  // user described as "just zooming the map out". The follow mode
+  // gives a continuous, smooth view of the flight along its route.
+  // We deliberately do NOT trigger a fit-to-bounds animation here
+  // so the map doesn't double-animate (fit, then follow) — the
+  // follow effect's first pan handles the framing smoothly on its
+  // own and keeps the aircraft centred as it moves.
   const handleShowFlightRoute = useCallback((flightId) => {
-    setFitRouteFlightId(null);
-    requestAnimationFrame(() => setFitRouteFlightId(flightId));
+    if (!flightId) return;
+    // Start follow + ensure it's unpaused so the first pan fires
+    // on the very next flightService tick.
+    setFollowFlightId(flightId);
+    setFollowPaused(false);
+    // Close the card on every platform — the map is the focus now.
+    setSelectedFlightId(null);
   }, []);
 
   const handleSearchFlight = useCallback((flight) => {
@@ -439,7 +450,6 @@ export default function App() {
         delayHeatmapEnabled={delayHeatmapEnabled}
         detailedMapEnabled={detailedMapEnabled}
         flyToFlightId={flyToFlightId}
-        fitRouteFlightId={fitRouteFlightId}
         searchFocusFlightId={searchFocusFlightId}
         flyToCenter={flyToCenter}
         followFlightId={followFlightId}
@@ -596,8 +606,11 @@ export default function App() {
       {/* ── Always-visible glass Donate pill ─────────────── */}
       {/* Small, non-intrusive "Support FlightMapr" pill that
           sits just above the Feedback FAB. Kept hidden while
-          the landing intro is showing to preserve first-paint. */}
-      {introComplete && <DonatePill />}
+          the landing intro is showing to preserve first-paint,
+          AND while a flight / airport detail card is open —
+          on mobile the bottom-sheet card otherwise renders
+          behind the pill, blocking taps on its action buttons. */}
+      {introComplete && !selectedFlightId && !selectedAirportCode && <DonatePill />}
 
       {/* ── Subtle donation toast (session-dismissible) ──── */}
       <DonateToast enabled={introComplete} />

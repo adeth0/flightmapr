@@ -265,7 +265,7 @@ export function Sidebar({ flightId, isFollowing, onClose, onCenterMap, onToggleF
   return (
     <aside
       ref={panelRef}
-      className="sidebar-panel absolute right-4 top-[72px] bottom-16 z-[900] w-80 flex flex-col gap-3 animate-slide-right"
+      className="sidebar-panel absolute right-4 top-[72px] bottom-16 z-[1200] w-80 flex flex-col gap-3 animate-slide-right"
       data-snap={snapPoint}
       style={{
         pointerEvents: 'auto',
